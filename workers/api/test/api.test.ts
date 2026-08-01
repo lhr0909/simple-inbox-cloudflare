@@ -1,4 +1,5 @@
 import { sha256Hex } from '@cloudflare-inbox/mail-core'
+import type { CompleteInstallationInput } from '@cloudflare-inbox/db'
 import { describe, expect, it, vi } from 'vitest'
 
 import { SESSION_COOKIE_MAX_AGE_SECONDS } from '../src/auth'
@@ -43,6 +44,7 @@ describe('API Worker', () => {
     expect(document.status).toBe(200)
     const json = (await document.json()) as { paths: Record<string, unknown> }
     expect(json.paths).toHaveProperty('/v1/auth/magic-links')
+    expect(json.paths).toHaveProperty('/v1/setup')
     expect(json.paths).toHaveProperty('/v1/messages/{messageId}/raw')
     expect(json.paths).not.toHaveProperty('/internal/v1/send')
 
@@ -55,6 +57,37 @@ describe('API Worker', () => {
     )
     expect(replaced.headers.get('x-request-id')).toMatch(/^[A-Za-z0-9_-]{16,64}$/u)
     expect(replaced.headers.get('x-request-id')).not.toBe('too-short')
+  })
+
+  it('reports first-run state and completes setup only with the deployment secret and origin', async () => {
+    const fixture = createFixture()
+    const status = await fixture.app.request('/v1/setup', undefined, fixture.env)
+    expect(status.status).toBe(200)
+    expect(await status.json()).toEqual({ status: 'required' })
+
+    const denied = await postSetup(fixture, {
+      ...setupRequest(),
+      setupToken: 'wrong-setup-token-that-is-still-long-enough',
+    })
+    expect(denied.status).toBe(403)
+    expect(fixture.completeInstallation).not.toHaveBeenCalled()
+
+    const completed = await postSetup(fixture, setupRequest())
+    expect(completed.status).toBe(201)
+    expect(await completed.json()).toEqual({ status: 'complete' })
+    expect(fixture.completeInstallation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appOrigin: 'https://inbox.example.test',
+        mailDomain: 'mail.example.test',
+        mailboxAddress: 'inbox@mail.example.test',
+        ownerEmail: 'owner@example.test',
+      }),
+    )
+
+    const crossOrigin = await postSetup(fixture, setupRequest(), {
+      origin: 'https://attacker.example.test',
+    })
+    expect(crossOrigin.status).toBe(403)
   })
 
   it('emits one safe structured completion event per request', async () => {
@@ -912,15 +945,34 @@ function createFixture(
     OWNER_EMAIL: 'owner@example.test',
     RAW_EMAILS: { get: r2Get } as unknown as R2Bucket,
     RAW_EMAIL_RETENTION_DAYS: '365',
+    SETUP_TOKEN: 'setup-secret-00000000000000000000000000000000',
   } satisfies ApiBindings
   const tokenQueue = [MAGIC_TOKEN, SESSION_TOKEN]
   const idQueue = [MAGIC_LINK_ID, SESSION_ID]
+  const completeInstallation = vi.fn(async (input: CompleteInstallationInput) => ({
+    created: true,
+    settings: {
+      applicationRecordRetentionDays: input.applicationRecordRetentionDays,
+      appOrigin: input.appOrigin,
+      completedAt: input.completedAt,
+      mailDomain: input.mailDomain,
+      mailboxAddress: input.mailboxAddress,
+      ownerEmail: input.ownerEmail,
+      rawEmailRetentionDays: input.rawEmailRetentionDays,
+      retentionBatchSize: input.retentionBatchSize,
+      setupVersion: 1 as const,
+    },
+  }))
   const dependencies = {
     authRepository: () => auth,
     digestToken: (token: string) => tokenDigest(token),
     generateId: () => idQueue.shift() ?? SESSION_ID,
     generateToken: () => tokenQueue.shift() ?? SESSION_TOKEN,
     inboxRepository: () => inbox,
+    installationRepository: () => ({
+      complete: completeInstallation,
+      getStatus: async () => ({ status: 'required' as const }),
+    }),
     now: () => NOW,
   } satisfies ApiDependencies
 
@@ -928,12 +980,39 @@ function createFixture(
     app: createApiApp(dependencies),
     auth: authState,
     dependencies,
+    completeInstallation,
     env,
     inbox,
     mailRequests,
     rateLimit,
     r2Get,
   }
+}
+
+function setupRequest() {
+  return {
+    applicationRecordRetentionDays: 90,
+    mailDomain: 'mail.example.test',
+    mailboxAddress: 'inbox@mail.example.test',
+    ownerEmail: 'owner@example.test',
+    rawEmailRetentionDays: 30,
+    retentionBatchSize: 100,
+    setupToken: 'setup-secret-00000000000000000000000000000000',
+  }
+}
+
+function postSetup(
+  fixture: ReturnType<typeof createFixture>,
+  body: unknown,
+  headers: Record<string, string> = {},
+): Promise<Response> {
+  return postJson(fixture, '/v1/setup', body, {
+    origin: 'https://inbox.example.test',
+    'sec-fetch-site': 'same-origin',
+    'x-forwarded-host': 'inbox.example.test',
+    'x-forwarded-proto': 'https',
+    ...headers,
+  })
 }
 
 async function postJson(

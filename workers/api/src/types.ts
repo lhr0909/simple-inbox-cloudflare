@@ -1,24 +1,37 @@
 import type { ApiTokenScope, RequestId } from '@cloudflare-inbox/contracts'
 import {
   AuthRepository,
+  InstallationRepository,
   MailboxScopedRepository,
   digestOpaqueToken,
   generateOpaqueToken,
 } from '@cloudflare-inbox/db'
+import type {
+  CompleteInstallationInput,
+  CompleteInstallationResult,
+  InstallationStatus,
+} from '@cloudflare-inbox/db'
 
 import { createUuidV7 } from './uuid-v7'
 
-export type ApiBindings = Omit<
-  CloudflareBindings,
-  'APP_ORIGIN' | 'ENVIRONMENT' | 'MAIL_DOMAIN' | 'OWNER_EMAIL' | 'RAW_EMAIL_RETENTION_DAYS'
-> & {
+export type ApiBindings = {
+  AUTH_RATE_LIMIT: RateLimit
   /** Secret binding. It is deliberately absent from committed Wrangler vars. */
   AUTH_TOKEN_PEPPER?: string
   APP_ORIGIN: string
+  DB: D1Database
   ENVIRONMENT: string
+  MAIL: InternalFetcher
   MAIL_DOMAIN: string
   OWNER_EMAIL: string
+  RAW_EMAILS: R2Bucket
   RAW_EMAIL_RETENTION_DAYS: string
+  /** One-time first-run secret. It is never persisted or returned. */
+  SETUP_TOKEN?: string
+}
+
+export interface InternalFetcher {
+  fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>
 }
 
 export type ApiVariables = {
@@ -86,6 +99,11 @@ export interface AuthRepositoryPort {
   ): Promise<ApiTokenPrincipalRecord | undefined>
 }
 
+export interface InstallationRepositoryPort {
+  complete(input: CompleteInstallationInput): Promise<CompleteInstallationResult>
+  getStatus(): Promise<InstallationStatus>
+}
+
 export type InboxRepositoryPort = Pick<
   MailboxScopedRepository,
   | 'getAttachment'
@@ -107,6 +125,7 @@ export interface ApiDependencies {
   generateId(now: number): string
   generateToken(): string
   inboxRepository(env: ApiBindings, userId: string): InboxRepositoryPort
+  installationRepository(env: ApiBindings): InstallationRepositoryPort
   now(): number
 }
 
@@ -116,6 +135,7 @@ const defaultDependencies: ApiDependencies = {
   generateId: createUuidV7,
   generateToken: () => generateOpaqueToken(32).plaintext,
   inboxRepository: (env, userId) => new MailboxScopedRepository(env.DB, { userId }),
+  installationRepository: (env) => new InstallationRepository(env.DB),
   now: Date.now,
 }
 

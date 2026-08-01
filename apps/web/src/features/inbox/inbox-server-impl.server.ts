@@ -1,4 +1,3 @@
-import { env } from 'cloudflare:workers'
 import { getRequest, setResponseHeader } from '@tanstack/react-start/server'
 
 import {
@@ -16,6 +15,7 @@ import { canonicalInboxSearch } from './inbox-search'
 import type { InboxSearch } from './inbox-search'
 import { inboxReturnPath, readReturnPathCookie, returnPathCookie } from './inbox-return-path'
 import type { InboxServerResult } from './inbox-server'
+import { fetchInternalApi } from '#/internal-services.server'
 
 class ServerApiError extends Error {
   readonly status: number
@@ -45,7 +45,7 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
     new URL(path, 'https://api.internal'),
     incoming as unknown as RequestInit,
   )
-  return env.API.fetch(new Request(retargeted, { ...init, headers, signal: incoming.signal }))
+  return fetchInternalApi(new Request(retargeted, { ...init, headers, signal: incoming.signal }))
 }
 
 async function apiJson<TResult>(

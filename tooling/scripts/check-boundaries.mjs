@@ -30,7 +30,15 @@ const GENERATED_MUTATION_COMMANDS = [
 ]
 
 const ALLOWED_INTERNAL_DEPENDENCIES = new Map([
-  [`${INTERNAL_SCOPE}web`, new Set([`${INTERNAL_SCOPE}contracts`])],
+  [
+    `${INTERNAL_SCOPE}web`,
+    new Set([
+      `${INTERNAL_SCOPE}api`,
+      `${INTERNAL_SCOPE}contracts`,
+      `${INTERNAL_SCOPE}db`,
+      `${INTERNAL_SCOPE}mail`,
+    ]),
+  ],
   [
     `${INTERNAL_SCOPE}api`,
     new Set([`${INTERNAL_SCOPE}contracts`, `${INTERNAL_SCOPE}db`, `${INTERNAL_SCOPE}mail-core`]),

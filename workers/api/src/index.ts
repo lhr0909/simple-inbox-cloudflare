@@ -8,6 +8,7 @@ import { resolveRequestId } from './request-id'
 import { registerAuthRoutes } from './routes/auth'
 import { registerInboxRoutes } from './routes/inbox'
 import { registerMessageRoutes } from './routes/messages'
+import { registerSetupRoutes } from './routes/setup'
 import { registerSystemRoutes } from './routes/system'
 import { resolveDependencies, type ApiDependencies, type ApiEnv } from './types'
 
@@ -72,7 +73,9 @@ export function createApiApp(overrides: Partial<ApiDependencies> = {}) {
   app.use('/v1/mailboxes/:mailboxId', smallLimit)
   app.use('/v1/messages', sendLimit)
   app.use('/v1/threads/:threadId/messages', sendLimit)
+  app.use('/v1/setup', smallLimit)
 
+  registerSetupRoutes(app, dependencies)
   registerAuthRoutes(app, dependencies)
   registerInboxRoutes(app, dependencies)
   registerMessageRoutes(app, dependencies)
@@ -126,7 +129,9 @@ function expectedContentType(
 ): 'application/json' | 'multipart/form-data' | undefined {
   if (
     method === 'POST' &&
-    (path === '/v1/auth/magic-links' || path === '/v1/auth/magic-links/verify')
+    (path === '/v1/setup' ||
+      path === '/v1/auth/magic-links' ||
+      path === '/v1/auth/magic-links/verify')
   ) {
     return 'application/json'
   }
@@ -151,9 +156,10 @@ function hasContentType(header: string | undefined, expected: string): boolean {
 }
 
 function isPrivatePath(path: string): boolean {
-  return /^\/v1\/(?:auth|mailboxes|messages|threads)(?:\/|$)/u.test(path)
+  return /^\/v1\/(?:setup|auth|mailboxes|messages|threads)(?:\/|$)/u.test(path)
 }
 
 export const app = createApiApp()
 export type ApiApp = typeof app
+export type { ApiBindings, InternalFetcher } from './types'
 export default app

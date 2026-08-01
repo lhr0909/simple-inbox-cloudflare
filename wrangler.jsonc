@@ -1,0 +1,52 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "simple-inbox-cf",
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "apps/web/src/server.ts",
+  "workers_dev": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "simple-inbox-cf-db",
+      "migrations_dir": "packages/db/migrations",
+    },
+  ],
+  "r2_buckets": [
+    {
+      "binding": "RAW_EMAILS",
+      "bucket_name": "simple-inbox-cf-raw",
+    },
+  ],
+  "send_email": [
+    {
+      "name": "EMAIL",
+    },
+  ],
+  "ratelimits": [
+    {
+      "name": "AUTH_RATE_LIMIT",
+      "namespace_id": "1001",
+      "simple": {
+        "limit": 5,
+        "period": 60,
+      },
+    },
+  ],
+  "triggers": {
+    "crons": ["17 3 * * *"],
+  },
+  "vars": {
+    "ENVIRONMENT": "self-hosted",
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": false,
+    },
+    "traces": {
+      "enabled": false,
+    },
+  },
+}
