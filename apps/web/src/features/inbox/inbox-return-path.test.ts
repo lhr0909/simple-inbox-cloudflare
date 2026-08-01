@@ -38,7 +38,7 @@ describe('safe auth return paths', () => {
 
     expect(cookie).toContain('Max-Age=900; Path=/; HttpOnly; SameSite=Lax; Secure')
     expect(readReturnPathCookie(cookie)).toBe(path)
-    expect(readReturnPathCookie('cloudflare_inbox_return=https%3A%2F%2Fevil.example')).toBeNull()
+    expect(readReturnPathCookie('simple_inbox_return=https%3A%2F%2Fevil.example')).toBeNull()
   })
 
   it('redirects only document navigations, not API fetches, after a 401', () => {

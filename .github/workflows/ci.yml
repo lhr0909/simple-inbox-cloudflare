@@ -47,13 +47,10 @@ jobs:
       - name: Run unit tests
         run: vp test
 
-      - name: Run Worker-runtime tests
-        run: vp run test:worker
-
-      - name: Build deployable packages
+      - name: Build deployable Worker
         run: vp run build
 
-      - name: Run multi-Worker integration tests
+      - name: Run single-Worker integration tests
         run: vp run test:integration
 
       - name: Install Playwright Chromium

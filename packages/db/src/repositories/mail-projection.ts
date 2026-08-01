@@ -111,7 +111,7 @@ export interface ResolvedReplyAlias {
 }
 
 /**
- * Privileged repository for the mail Worker. It is intentionally separate
+ * Privileged repository for the mail module. It is intentionally separate
  * from MailboxScopedRepository: these methods process trusted internal email
  * events and must never be mounted directly on a browser-facing route.
  */

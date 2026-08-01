@@ -21,7 +21,7 @@ import { DeliveryRetryabilitySchema } from './messages'
 
 // Cloudflare Email Sending currently accepts at most 50 combined recipients.
 // Keep the public contract at the provider boundary so a request cannot pass
-// validation only to fail later inside the mail worker.
+// validation only to fail later inside the private mail module.
 export const MAX_RECIPIENTS_PER_SEND = 50
 export const MAX_ATTACHMENTS_PER_SEND = 20
 export const MAX_ATTACHMENT_BYTES = 10 * 1_024 * 1_024

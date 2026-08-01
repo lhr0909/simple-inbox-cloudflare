@@ -37,7 +37,7 @@ beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => undefined)
 })
 
-describe('mail Worker D1 adapter', () => {
+describe('mail module D1 adapter', () => {
   it('runs the real inbound projection, alias, aggregate, and forward-state path', async () => {
     const database = new TestD1Database()
     databases.push(database)

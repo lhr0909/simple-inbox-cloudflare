@@ -45,9 +45,7 @@ import type {
 import { putRawMessage } from './raw-email'
 
 export async function parseInternalSendRequest(formData: FormData): Promise<PreparedInternalSend> {
-  // `metadata` is the contract name. `request` remains accepted for the current
-  // API Worker client during the Phase-1 handoff so both sides can deploy safely.
-  const metadata = formData.get('metadata') ?? formData.get('request')
+  const metadata = formData.get('metadata')
   if (typeof metadata !== 'string' || metadata.length > 2_000_000) {
     throw new MailFault('validation_failed', 400)
   }

@@ -54,7 +54,7 @@ type WithStandardErrors<Input, Success> = Success | StandardErrors<Input>
 /**
  * Contract-only Hono schema for first-party `hc<AppType>()` consumers.
  *
- * The API Worker remains responsible for exporting the narrower `typeof app`
+ * The API module remains responsible for exporting the narrower `typeof app`
  * produced by its concrete chained handlers. This type keeps browser clients
  * decoupled from Worker bindings and Hono context types.
  */

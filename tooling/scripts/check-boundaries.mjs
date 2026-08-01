@@ -390,7 +390,7 @@ function inspectSource(root, workspacePackage, packagesByName, file) {
     checks.push({
       code: 'direct-mail-fetch',
       pattern: /\bMAIL\s*\.\s*fetch\s*\(/gu,
-      message: 'Only the API mail client may call the MAIL Service Binding directly',
+      message: 'Only the API mail client may call the private MAIL fetcher directly',
     })
   }
 

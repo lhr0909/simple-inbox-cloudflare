@@ -26,7 +26,7 @@ const NOW = Date.parse('2026-08-01T05:00:00.000Z')
 const EXPIRES_AT = NOW + 30 * 24 * 60 * 60 * 1_000
 const RAW_SHA256 = 'd'.repeat(64)
 
-describe('API Worker', () => {
+describe('API module', () => {
   it('serves liveness and generated OpenAPI with stable request IDs', async () => {
     const fixture = createFixture()
     const health = await fixture.app.request(
@@ -656,7 +656,7 @@ describe('API Worker', () => {
     expect(internalForm?.getAll('attachments')).toHaveLength(1)
   })
 
-  it('preserves a deterministic mail-worker size rejection as 413', async () => {
+  it('preserves a deterministic mail-module size rejection as 413', async () => {
     const fixture = createFixture({ sendFailureStatus: 413 })
     const body = new FormData()
     body.append('mailboxId', MAILBOX_ID)

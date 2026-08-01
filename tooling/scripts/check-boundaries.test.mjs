@@ -13,7 +13,7 @@ function compareStrings(left, right) {
 }
 
 function fixture() {
-  const root = mkdtempSync(join(tmpdir(), 'cloudflare-inbox-boundaries-'))
+  const root = mkdtempSync(join(tmpdir(), 'simple-inbox-boundaries-'))
 
   return {
     file(relativePath, source) {

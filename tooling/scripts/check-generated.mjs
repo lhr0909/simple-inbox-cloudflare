@@ -57,7 +57,7 @@ const generators = [
 ]
 
 async function main() {
-  const temporaryParent = await mkdtemp(join(tmpdir(), 'cloudflare-inbox-generated-'))
+  const temporaryParent = await mkdtemp(join(tmpdir(), 'simple-inbox-generated-'))
   const temporaryRoot = join(temporaryParent, 'workspace')
   try {
     process.stdout.write('Regenerating artifacts in an isolated workspace copy...\n')
@@ -77,7 +77,7 @@ async function main() {
     }
     process.stdout.write('Generated files match fresh generator output.\n')
   } finally {
-    if (process.env.CLOUDFLARE_INBOX_KEEP_GENERATED_CHECK === '1') {
+    if (process.env.SIMPLE_INBOX_KEEP_GENERATED_CHECK === '1') {
       process.stdout.write(`Kept isolated workspace for inspection: ${temporaryRoot}\n`)
     } else {
       await rm(temporaryParent, { force: true, recursive: true })
