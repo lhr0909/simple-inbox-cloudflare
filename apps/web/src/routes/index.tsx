@@ -15,7 +15,7 @@ export const Route = createFileRoute('/')({
     })
   },
   component: HomeRedirect,
-  head: () => ({ meta: [{ title: 'Cloudflare Inbox' }] }),
+  head: () => ({ meta: [{ title: 'Simple Inbox' }] }),
 })
 
 function HomeRedirect() {

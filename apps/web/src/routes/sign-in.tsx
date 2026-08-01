@@ -20,7 +20,7 @@ export const Route = createFileRoute('/sign-in')({
     }
   },
   component: SignIn,
-  head: () => ({ meta: [{ title: 'Sign in · Cloudflare Inbox' }] }),
+  head: () => ({ meta: [{ title: 'Sign in · Simple Inbox' }] }),
 })
 
 function SignIn() {

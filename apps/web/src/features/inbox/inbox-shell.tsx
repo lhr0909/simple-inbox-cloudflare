@@ -359,7 +359,7 @@ function MailboxSidebar({
         <BrandMark />
         {collapsed ? null : (
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold">Cloudflare Inbox</p>
+            <p className="truncate text-sm font-semibold">Simple Inbox</p>
             <p className="truncate text-xs text-muted-foreground">Private mail workspace</p>
           </div>
         )}

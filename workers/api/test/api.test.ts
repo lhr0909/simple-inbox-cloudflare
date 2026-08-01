@@ -309,7 +309,7 @@ describe('API Worker', () => {
       session: { id: SESSION_ID },
     })
     const cookie = verified.headers.get('set-cookie') ?? ''
-    expect(cookie).toContain(`__Host-cloudflare-inbox-session=${SESSION_TOKEN}`)
+    expect(cookie).toContain(`__Host-simple-inbox-session=${SESSION_TOKEN}`)
     expect(cookie).toContain('HttpOnly')
     expect(cookie).toContain('Secure')
     expect(cookie).toContain('SameSite=Lax')
@@ -364,7 +364,7 @@ describe('API Worker', () => {
       token: MAGIC_TOKEN,
     })
     const localCookie = localVerify.headers.get('set-cookie') ?? ''
-    expect(localCookie).toContain(`cloudflare-inbox-development-session=${SESSION_TOKEN}`)
+    expect(localCookie).toContain(`simple-inbox-development-session=${SESSION_TOKEN}`)
     expect(localCookie).not.toContain('__Host-')
     expect(localCookie).not.toContain('Secure')
 
@@ -376,7 +376,7 @@ describe('API Worker', () => {
       token: MAGIC_TOKEN,
     })
     const stagingCookie = stagingVerify.headers.get('set-cookie') ?? ''
-    expect(stagingCookie).toContain(`__Host-cloudflare-inbox-session=${SESSION_TOKEN}`)
+    expect(stagingCookie).toContain(`__Host-simple-inbox-session=${SESSION_TOKEN}`)
     expect(stagingCookie).toContain('Secure')
 
     const concurrent = createFixture()
@@ -400,7 +400,7 @@ describe('API Worker', () => {
 
   it('enforces cookie CSRF while allowing correctly scoped bearer tokens', async () => {
     const fixture = createFixture({ apiTokenScopes: 4 })
-    const cookie = `__Host-cloudflare-inbox-session=${SESSION_TOKEN}`
+    const cookie = `__Host-simple-inbox-session=${SESSION_TOKEN}`
     const cookieMutation = await fixture.app.request(
       `/v1/mailboxes/${MAILBOX_ID}`,
       {
@@ -446,7 +446,7 @@ describe('API Worker', () => {
 
   it('projects mailbox/thread DTOs and applies folder and mutation semantics', async () => {
     const fixture = createFixture()
-    const cookie = `__Host-cloudflare-inbox-session=${SESSION_TOKEN}`
+    const cookie = `__Host-simple-inbox-session=${SESSION_TOKEN}`
     const mailboxes = await fixture.app.request(
       '/v1/mailboxes',
       { headers: { cookie } },
@@ -511,7 +511,7 @@ describe('API Worker', () => {
 
   it('returns indistinguishable membership-scoped 404s without touching R2', async () => {
     const fixture = createFixture({ rawMessage: undefined, threadDetail: undefined })
-    const cookie = `__Host-cloudflare-inbox-session=${SESSION_TOKEN}`
+    const cookie = `__Host-simple-inbox-session=${SESSION_TOKEN}`
     const thread = await fixture.app.request(
       `/v1/threads/${THREAD_ID}`,
       { headers: { cookie } },
@@ -538,7 +538,7 @@ describe('API Worker', () => {
     const fixture = createFixture({ threadFailure: failure })
     const response = await fixture.app.request(
       `/v1/threads/${THREAD_ID}`,
-      { headers: { cookie: `__Host-cloudflare-inbox-session=${SESSION_TOKEN}` } },
+      { headers: { cookie: `__Host-simple-inbox-session=${SESSION_TOKEN}` } },
       fixture.env,
     )
 
@@ -572,7 +572,7 @@ describe('API Worker', () => {
       ].join('\r\n'),
     )
     const fixture = createFixture({ attachmentRaw: rawEmail })
-    const cookie = `__Host-cloudflare-inbox-session=${SESSION_TOKEN}`
+    const cookie = `__Host-simple-inbox-session=${SESSION_TOKEN}`
     const raw = await fixture.app.request(
       `/v1/messages/${MESSAGE_ID}/raw`,
       { headers: { cookie } },
@@ -606,7 +606,7 @@ describe('API Worker', () => {
     const fixture = createFixture({ r2Sha256: 'e'.repeat(64) })
     const response = await fixture.app.request(
       `/v1/messages/${MESSAGE_ID}/raw`,
-      { headers: { cookie: `__Host-cloudflare-inbox-session=${SESSION_TOKEN}` } },
+      { headers: { cookie: `__Host-simple-inbox-session=${SESSION_TOKEN}` } },
       fixture.env,
     )
 
@@ -628,7 +628,7 @@ describe('API Worker', () => {
       {
         body,
         headers: {
-          cookie: `__Host-cloudflare-inbox-session=${SESSION_TOKEN}`,
+          cookie: `__Host-simple-inbox-session=${SESSION_TOKEN}`,
           'idempotency-key': 'send-test-key-0001',
           origin: 'https://inbox.example.test',
           'sec-fetch-site': 'same-origin',
@@ -669,7 +669,7 @@ describe('API Worker', () => {
       {
         body,
         headers: {
-          cookie: `__Host-cloudflare-inbox-session=${SESSION_TOKEN}`,
+          cookie: `__Host-simple-inbox-session=${SESSION_TOKEN}`,
           'idempotency-key': 'send-test-key-oversize',
           origin: 'https://inbox.example.test',
           'sec-fetch-site': 'same-origin',

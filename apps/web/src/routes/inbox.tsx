@@ -64,7 +64,7 @@ export const Route = createFileRoute('/inbox')({
     return result
   },
   component: Inbox,
-  head: () => ({ meta: [{ title: 'Inbox · Cloudflare Inbox' }] }),
+  head: () => ({ meta: [{ title: 'Inbox · Simple Inbox' }] }),
 })
 
 function Inbox() {

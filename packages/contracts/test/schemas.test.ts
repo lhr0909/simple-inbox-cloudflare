@@ -215,7 +215,7 @@ describe('send and error contracts', () => {
       SendRequestHeadersSchema.safeParse({
         'idempotency-key': '01996f7a-7bcd-7abc-8def-b123456789ab',
         'content-type': 'multipart/form-data; boundary=synthetic',
-        cookie: 'cloudflare-inbox-development-session=synthetic',
+        cookie: 'simple-inbox-development-session=synthetic',
         origin: 'https://inbox.example.test',
       }).success,
     ).toBe(true)

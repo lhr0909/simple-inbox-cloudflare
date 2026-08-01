@@ -76,10 +76,10 @@ export function registerAuthRoutes(app: OpenAPIHono<ApiEnv>, dependencies: ApiDe
       const response = await deliverMagicLink(
         context.env.MAIL,
         {
-          htmlBody: `<p>Use this one-time link to sign in:</p><p><a href="${escapeHtml(verificationUrl.href)}">Sign in to Cloudflare Inbox</a></p><p>This link expires in 15 minutes.</p>`,
+          htmlBody: `<p>Use this one-time link to sign in:</p><p><a href="${escapeHtml(verificationUrl.href)}">Sign in to Simple Inbox</a></p><p>This link expires in 15 minutes.</p>`,
           recipient: normalizedEmail as InternalMagicLinkDelivery['recipient'],
           requestId,
-          subject: 'Sign in to Cloudflare Inbox',
+          subject: 'Sign in to Simple Inbox',
           textBody: `Use this one-time link to sign in:\n\n${verificationUrl.href}\n\nThis link expires in 15 minutes.`,
         },
         context.req.raw.signal,

@@ -2,7 +2,7 @@
 
 ## Our commitment
 
-We commit to making participation in Cloudflare Inbox a harassment-free experience for everyone,
+We commit to making participation in Simple Inbox a harassment-free experience for everyone,
 regardless of age, body size, disability, ethnicity, sex characteristics, gender identity and
 expression, experience level, education, socioeconomic status, nationality, personal appearance,
 race, caste, color, religion, sexual identity and orientation, or technology choices.
