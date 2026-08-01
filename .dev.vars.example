@@ -1,0 +1,9 @@
+# Copy only the relevant key into each package-local .dev.vars file.
+# Never commit package-local .dev.vars files or real secret values.
+
+# workers/api/.dev.vars
+# Generate at least 32 random bytes for local use.
+AUTH_TOKEN_PEPPER=replace-with-at-least-32-random-bytes
+
+# workers/mail/.dev.vars (optional defense in depth only when its HTTP surface is exposed)
+INTERNAL_REQUEST_SECRET=replace-with-an-independent-32-byte-secret
