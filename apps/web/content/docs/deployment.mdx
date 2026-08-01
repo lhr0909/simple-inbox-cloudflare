@@ -13,7 +13,11 @@ Inbox installation.
 
 ## Prerequisites
 
-- A Cloudflare account with Workers, D1, R2, Email Routing, and Email Sending.
+- A Cloudflare account with Workers, D1, R2, and Email Routing.
+- Email Routing enabled on the intended new mail zone and at least one owner-controlled destination
+  verified before deployment; Cloudflare requires both before attaching the `EMAIL` binding.
+- Workers Paid and an onboarded Email Sending domain before testing full compose/reply delivery to
+  arbitrary recipients.
 - Wrangler authenticated to the intended account.
 - The repository's pinned Node, pnpm, and Vite+ versions.
 - Two different secret values of at least 32 random bytes.
@@ -37,6 +41,10 @@ vp exec wrangler whoami
 
 The test harness uses local D1/R2 and simulated Email Sending. It sends no real mail.
 
+The upload runs Wrangler non-interactively to keep provisioned IDs out of source. If `whoami` lists
+multiple accounts, set `CLOUDFLARE_ACCOUNT_ID` for the current shell or CI project only; never add it
+to the repository.
+
 ## Deploy manually
 
 For the first manual deployment, after confirming Wrangler's account, run:
@@ -59,7 +67,8 @@ The upgrade command:
 
 1. builds the TanStack Start Worker;
 2. applies checked-in D1 migrations remotely;
-3. deploys the generated `apps/web/dist/server/wrangler.json`.
+3. deploys the generated `apps/web/dist/server/wrangler.json` with `CI=1`, preventing Wrangler from
+   writing an auto-provisioned D1 ID back into tracked source configuration.
 
 Deploy to Cloudflare provisions resources before invoking the regular `deploy` script, so its
 one-click flow also follows the migration-before-upload sequence. There is no separate provision,

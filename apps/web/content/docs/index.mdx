@@ -37,7 +37,8 @@ vp run deploy
 ```
 
 This is a remote, state-changing command. Before using it, follow the local verification and account
-checks in [Deployment](/docs/deployment).
+checks in [Deployment](/docs/deployment). Cloudflare also requires Email Routing to be enabled and
+one owner-controlled destination verified before it can attach the Worker's email binding.
 
 Create two independent secret values of at least 32 random bytes:
 

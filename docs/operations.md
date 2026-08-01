@@ -31,7 +31,12 @@ deploying an additional Simple Inbox instance to that account.
 
 ## Prerequisites
 
-- A Cloudflare account with Workers, D1, R2, Email Routing, and Email Sending available.
+- A Cloudflare account with Workers, D1, R2, and Email Routing available.
+- Email Routing enabled on the intended new mail zone and at least one owner-controlled destination
+  verified before deployment. Cloudflare requires both before attaching the `EMAIL` binding. Do not
+  enable or reconfigure Email Routing on a legacy production mail zone to satisfy this prerequisite.
+- Workers Paid and an onboarded Email Sending domain before testing full compose/reply delivery to
+  arbitrary recipients. Verified-destination-only testing can remain narrower.
 - Wrangler authenticated to the exact account the owner intends to use.
 - The pinned Node, pnpm, and Vite+ versions from `package.json`.
 - A clean checkout with the generated routes, OpenAPI document, binding types, and migrations in
@@ -49,6 +54,10 @@ account before deployment:
 ```sh
 vp exec wrangler whoami
 ```
+
+The upload step runs Wrangler non-interactively to prevent resource-ID writeback. If `whoami` lists
+more than one account, set `CLOUDFLARE_ACCOUNT_ID` to the intended account for the current shell or
+CI project only; never add it to this repository.
 
 ## Local verification
 
@@ -129,12 +138,13 @@ This command immediately performs the following sequence:
 
 1. `vp run @cloudflare-inbox/web#build`
 2. `wrangler d1 migrations apply DB --remote --config wrangler.jsonc`
-3. `wrangler deploy --config apps/web/dist/server/wrangler.json`
+3. `CI=1 wrangler deploy --config apps/web/dist/server/wrangler.json`
 
 The build uses the Cloudflare Vite plugin and emits the flattened deployment config consumed by the
-last command. Do not bypass the build by deploying an old generated file. The migration step uses
-only checked-in SQL; generate and review new migrations during development, never during a remote
-deployment.
+last command. `CI=1` keeps Wrangler's interactive auto-provisioning from writing a new D1 resource
+ID back into tracked `wrangler.jsonc`; the ID remains in Cloudflare. Do not bypass the build by
+deploying an old generated file. The migration step uses only checked-in SQL; generate and review
+new migrations during development, never during a remote deployment.
 
 On the first deployment, Wrangler creates/binds `simple-inbox-cf-db` and `simple-inbox-cf-raw` from
 their declarations. Later deployments reuse them and apply migrations before uploading new code.
@@ -220,7 +230,11 @@ These actions are intentionally absent from repository automation.
 
 ### Email Sending
 
-1. Onboard the chosen sending domain in Cloudflare Email Sending.
+Email Routing and one verified destination were pre-deployment requirements for the Worker binding.
+After the Worker and wizard are ready:
+
+1. On Workers Paid, onboard the chosen sending domain in Cloudflare Email Sending for delivery to
+   arbitrary recipients.
 2. Publish and verify the required SPF/DKIM records.
 3. Verify only owner-controlled destinations while testing.
 4. Confirm the Worker's `EMAIL` binding can send magic links, forwarding, and owner-composed mail.

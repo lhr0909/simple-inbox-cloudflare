@@ -88,9 +88,15 @@ Email Sending binding, rate limiter, and daily cron. Wrangler provisions the dec
 resources when the deployment first needs them; no resource IDs are copied into the repository.
 
 Before a real deployment, authenticate Wrangler to the intended Cloudflare account and run the
-local verification suite in [the operations runbook](docs/operations.md). Deploy to Cloudflare uses
-the following remote, state-changing command after it provisions the declared resources; it builds
-the app, applies checked-in D1 migrations remotely, and deploys the generated Worker configuration:
+local verification suite in [the operations runbook](docs/operations.md). Cloudflare requires Email
+Routing to be enabled and at least one owner-controlled destination to be verified before it can
+attach the `EMAIL` binding; do that on the intended new mail zone without changing a legacy route.
+Full compose and reply delivery to arbitrary recipients also requires Workers Paid and an onboarded
+Email Sending domain.
+
+Deploy to Cloudflare uses the following remote, state-changing command after it provisions the
+declared resources; it builds the app, applies checked-in D1 migrations remotely, and deploys the
+generated Worker configuration:
 
 ```sh
 vp run deploy

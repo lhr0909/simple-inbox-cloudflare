@@ -17,8 +17,8 @@
     "db:generate": "vp run @cloudflare-inbox/db#db:generate",
     "db:migrate": "wrangler d1 migrations apply DB --remote --config wrangler.jsonc",
     "db:migrate:local": "wrangler d1 migrations apply DB --local --config wrangler.jsonc",
-    "deploy": "vp run @cloudflare-inbox/web#build && wrangler d1 migrations apply DB --remote --config wrangler.jsonc && wrangler deploy --config apps/web/dist/server/wrangler.json",
-    "deploy:first": "vp run @cloudflare-inbox/web#build && wrangler deploy --config apps/web/dist/server/wrangler.json && wrangler d1 migrations apply DB --remote --config wrangler.jsonc"
+    "deploy": "vp run @cloudflare-inbox/web#build && wrangler d1 migrations apply DB --remote --config wrangler.jsonc && CI=1 wrangler deploy --config apps/web/dist/server/wrangler.json",
+    "deploy:first": "vp run @cloudflare-inbox/web#build && CI=1 wrangler deploy --config apps/web/dist/server/wrangler.json && wrangler d1 migrations apply DB --remote --config wrangler.jsonc"
   },
   "devDependencies": {
     "@playwright/test": "catalog:",
