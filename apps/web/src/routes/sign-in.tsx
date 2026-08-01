@@ -8,9 +8,13 @@ import { Field, FieldDescription, FieldLabel } from '#/components/ui/field'
 import { Input } from '#/components/ui/input'
 import { requestMagicLink } from '#/features/inbox/inbox-api'
 import { getServerAuthState } from '#/features/inbox/inbox-server'
+import { getSetupState } from '#/features/setup/setup-server'
 
 export const Route = createFileRoute('/sign-in')({
   loader: async () => {
+    if ((await getSetupState()) === 'required') {
+      throw redirect({ to: '/setup', replace: true })
+    }
     if (await getServerAuthState()) {
       throw redirect({ to: '/inbox', search: { folder: 'all' }, replace: true })
     }

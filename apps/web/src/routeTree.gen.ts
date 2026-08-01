@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InboxRouteImport } from './routes/inbox'
+import { Route as SetupRouteImport } from './routes/setup'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as AuthVerifyRouteImport } from './routes/auth.verify'
@@ -24,6 +25,11 @@ const IndexRoute = IndexRouteImport.update({
 const InboxRoute = InboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignInRoute = SignInRouteImport.update({
@@ -50,6 +56,7 @@ const DocsSplatRoute = DocsSplatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/inbox': typeof InboxRoute
+  '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/api/search': typeof ApiSearchRoute
   '/auth/verify': typeof AuthVerifyRoute
@@ -58,6 +65,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/inbox': typeof InboxRoute
+  '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/api/search': typeof ApiSearchRoute
   '/auth/verify': typeof AuthVerifyRoute
@@ -67,6 +75,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/inbox': typeof InboxRoute
+  '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/api/search': typeof ApiSearchRoute
   '/auth/verify': typeof AuthVerifyRoute
@@ -75,13 +84,27 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/inbox' | '/sign-in' | '/api/search' | '/auth/verify' | '/docs/$'
+    | '/'
+    | '/inbox'
+    | '/setup'
+    | '/sign-in'
+    | '/api/search'
+    | '/auth/verify'
+    | '/docs/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/inbox' | '/sign-in' | '/api/search' | '/auth/verify' | '/docs/$'
+  to:
+    | '/'
+    | '/inbox'
+    | '/setup'
+    | '/sign-in'
+    | '/api/search'
+    | '/auth/verify'
+    | '/docs/$'
   id:
     | '__root__'
     | '/'
     | '/inbox'
+    | '/setup'
     | '/sign-in'
     | '/api/search'
     | '/auth/verify'
@@ -91,6 +114,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   InboxRoute: typeof InboxRoute
+  SetupRoute: typeof SetupRoute
   SignInRoute: typeof SignInRoute
   ApiSearchRoute: typeof ApiSearchRoute
   AuthVerifyRoute: typeof AuthVerifyRoute
@@ -111,6 +135,13 @@ declare module '@tanstack/react-router' {
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof InboxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sign-in': {
@@ -147,6 +178,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   InboxRoute: InboxRoute,
+  SetupRoute: SetupRoute,
   SignInRoute: SignInRoute,
   ApiSearchRoute: ApiSearchRoute,
   AuthVerifyRoute: AuthVerifyRoute,

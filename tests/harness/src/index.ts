@@ -1,8 +1,9 @@
 import { createHmac } from 'node:crypto'
-import { access, readdir, readFile } from 'node:fs/promises'
+import { access, readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { InstallationRepository } from '@cloudflare-inbox/db'
 import { seedSyntheticInbox } from '@cloudflare-inbox/db/testing'
 import {
   createTestHarness,
@@ -12,6 +13,7 @@ import {
 } from 'wrangler'
 
 export const TEST_AUTH_PEPPER = 'integration-only-auth-pepper-00000000000000000000'
+export const TEST_SETUP_TOKEN = 'integration-only-setup-token-00000000000000000000'
 export const TEST_MAGIC_TOKEN = 'integration-magic-token-000000000000000000000000'
 export const TEST_SECOND_API_TOKEN = 'integration-api-token-000000000000000000000000000'
 
@@ -43,28 +45,26 @@ export type InboxTestHarness = {
   mail: WorkerHandle<HarnessBindings>
   origin: string
   server: TestHarness
-  web: WorkerHandle
+  web: WorkerHandle<HarnessBindings>
 }
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url))
 export const repositoryRoot = resolve(moduleDirectory, '../../..')
 
 export async function startInboxTestHarness(): Promise<InboxTestHarness> {
-  const buildConfigs = await locateProductionBuilds()
-  const names = await workerNames(buildConfigs)
-  const server = createTestHarness(buildOptions('http://127.0.0.1', names, buildConfigs))
-  const firstListen = await server.listen()
-  const origin = firstListen.url.origin
-  await server.update(buildOptions(origin, names, buildConfigs))
-  const finalListen = await server.listen()
+  const configPath = await locateProductionBuild()
+  const name = await readWorkerName(configPath)
+  const server = createTestHarness(buildOptions(configPath))
+  const listen = await server.listen()
+  const worker = server.getWorker<HarnessBindings>(name)
 
   return {
-    api: server.getWorker<HarnessBindings>(names.api),
+    api: worker,
     close: () => server.close(),
-    mail: server.getWorker<HarnessBindings>(names.mail),
-    origin: finalListen.url.origin,
+    mail: worker,
+    origin: listen.url.origin,
     server,
-    web: server.getWorker(names.web),
+    web: worker,
   }
 }
 
@@ -73,6 +73,19 @@ export async function migrateAndSeedHarness(harness: InboxTestHarness): Promise<
   const { DB } = await harness.api.getEnv()
   const now = Date.now()
   const oldRequestTime = now - 2 * 60 * 1_000
+
+  await new InstallationRepository(DB).complete({
+    applicationRecordRetentionDays: 365,
+    appOrigin: harness.origin,
+    completedAt: now,
+    mailDomain: 'example.test',
+    mailboxAddress: TEST_ADDRESSES.mailbox,
+    mailboxId: TEST_IDS.mailbox,
+    ownerEmail: TEST_ADDRESSES.owner,
+    rawEmailRetentionDays: 365,
+    retentionBatchSize: 100,
+    userId: TEST_IDS.user,
+  })
 
   await seedSyntheticInbox(DB, {
     apiTokens: [
@@ -96,13 +109,6 @@ export async function migrateAndSeedHarness(harness: InboxTestHarness): Promise<
     ],
     mailboxes: [
       {
-        address: TEST_ADDRESSES.mailbox,
-        forwardTo: TEST_ADDRESSES.owner,
-        id: TEST_IDS.mailbox,
-        ownerUserId: TEST_IDS.user,
-        senderAlias: 'Integration Inbox',
-      },
-      {
         address: TEST_ADDRESSES.secondMailbox,
         forwardTo: TEST_ADDRESSES.secondUser,
         id: TEST_IDS.secondMailbox,
@@ -111,11 +117,11 @@ export async function migrateAndSeedHarness(harness: InboxTestHarness): Promise<
       },
     ],
     now,
-    users: [
-      { email: TEST_ADDRESSES.owner, id: TEST_IDS.user },
-      { email: TEST_ADDRESSES.secondUser, id: TEST_IDS.secondUser },
-    ],
+    users: [{ email: TEST_ADDRESSES.secondUser, id: TEST_IDS.secondUser }],
   })
+  await DB.prepare('UPDATE mailboxes SET sender_alias = ? WHERE id = ?')
+    .bind('Integration Inbox', TEST_IDS.mailbox)
+    .run()
 }
 
 export async function injectSyntheticInbound(
@@ -156,53 +162,19 @@ function digestToken(token: string): string {
   return createHmac('sha256', TEST_AUTH_PEPPER).update(token).digest('hex')
 }
 
-async function locateProductionBuilds(): Promise<{ api: string; mail: string; web: string }> {
-  const [api, mail, web] = await Promise.all([
-    findBuiltWrangler(resolve(repositoryRoot, 'workers/api/dist'), '-api'),
-    findBuiltWrangler(resolve(repositoryRoot, 'workers/mail/dist'), '-mail'),
-    findBuiltWrangler(resolve(repositoryRoot, 'apps/web/dist'), '-web'),
-  ])
-  return { api, mail, web }
-}
-
-async function findBuiltWrangler(directory: string, expectedSuffix: string): Promise<string> {
-  const candidates: string[] = []
+async function locateProductionBuild(): Promise<string> {
+  const path = resolve(repositoryRoot, 'apps/web/dist/server/wrangler.json')
   try {
-    await access(directory)
-    await collectWranglerConfigs(directory, candidates)
+    await access(path)
   } catch {
-    // The actionable build error below is shared by missing and stale output.
+    throw new Error(
+      'A single-Worker production build is required before integration tests. Run `vp run build`.',
+    )
   }
-  for (const candidate of candidates.sort()) {
-    const name = await readWorkerName(candidate)
-    if (name.startsWith('simple-inbox-cf-local-') && name.endsWith(expectedSuffix)) {
-      return candidate
-    }
+  if ((await readWorkerName(path)) !== 'simple-inbox-cf') {
+    throw new Error(`The built Worker must be named simple-inbox-cf: ${path}`)
   }
-  throw new Error(
-    `A replacement local ${expectedSuffix.slice(1)} production build is required before integration tests. Run \`vp run build\`; no matching wrangler.json was found under ${directory}.`,
-  )
-}
-
-async function collectWranglerConfigs(directory: string, output: string[]): Promise<void> {
-  for (const entry of await readdir(directory, { withFileTypes: true })) {
-    const path = resolve(directory, entry.name)
-    if (entry.isDirectory()) await collectWranglerConfigs(path, output)
-    else if (entry.isFile() && entry.name === 'wrangler.json') output.push(path)
-  }
-}
-
-async function workerNames(buildConfigs: {
-  api: string
-  mail: string
-  web: string
-}): Promise<{ api: string; mail: string; web: string }> {
-  const [api, mail, web] = await Promise.all([
-    readWorkerName(buildConfigs.api),
-    readWorkerName(buildConfigs.mail),
-    readWorkerName(buildConfigs.web),
-  ])
-  return { api, mail, web }
+  return path
 }
 
 async function readWorkerName(path: string): Promise<string> {
@@ -213,46 +185,17 @@ async function readWorkerName(path: string): Promise<string> {
   return input.name
 }
 
-function buildOptions(
-  appOrigin: string,
-  names: { api: string; mail: string; web: string },
-  buildConfigs: { api: string; mail: string; web: string },
-): TestHarnessOptions {
-  const commonVars = {
-    APP_ORIGIN: appOrigin,
-    ENVIRONMENT: 'local',
-  }
+function buildOptions(configPath: string): TestHarnessOptions {
   return {
     root: repositoryRoot,
     workers: [
       {
-        bindingOverrides: { API: names.api },
-        configPath: buildConfigs.web,
-        vars: commonVars,
-      },
-      {
-        bindingOverrides: { MAIL: names.mail },
-        configPath: buildConfigs.api,
-        secrets: { AUTH_TOKEN_PEPPER: TEST_AUTH_PEPPER },
-        vars: {
-          ...commonVars,
-          MAIL_DOMAIN: 'example.test',
-          OWNER_EMAIL: TEST_ADDRESSES.owner,
-          RAW_EMAIL_RETENTION_DAYS: '365',
-          APPLICATION_RECORD_RETENTION_DAYS: '365',
-          RETENTION_BATCH_SIZE: '100',
+        configPath,
+        secrets: {
+          AUTH_TOKEN_PEPPER: TEST_AUTH_PEPPER,
+          SETUP_TOKEN: TEST_SETUP_TOKEN,
         },
-      },
-      {
-        configPath: buildConfigs.mail,
-        vars: {
-          ...commonVars,
-          MAIL_DOMAIN: 'example.test',
-          OWNER_EMAIL: TEST_ADDRESSES.owner,
-          RAW_EMAIL_RETENTION_DAYS: '365',
-          APPLICATION_RECORD_RETENTION_DAYS: '365',
-          RETENTION_BATCH_SIZE: '100',
-        },
+        vars: { ENVIRONMENT: 'local' },
       },
     ],
   }
