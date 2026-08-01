@@ -1,0 +1,15 @@
+{
+  "name": "@cloudflare-inbox/e2e-tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:e2e": "playwright test --config playwright.config.ts"
+  },
+  "devDependencies": {
+    "@cloudflare-inbox/test-harness": "workspace:*",
+    "@playwright/test": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

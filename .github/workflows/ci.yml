@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify workspace
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up pinned Vite+
+        uses: voidzero-dev/setup-vp@8a7496fd44e8a1b0a88a7459e36213b2fefc1d15 # v1
+        with:
+          version: 0.2.7
+          node-version: 24.18.1
+          cache: true
+
+      - name: Install frozen dependency graph
+        run: vp install --frozen-lockfile
+
+      - name: Audit production dependencies
+        run: vp pm audit --production --level moderate
+
+      - name: Check generated-file drift
+        run: vp run check:generated
+
+      - name: Format, lint, type-check, and boundaries
+        run: vp run check
+
+      - name: Test boundary checker
+        run: vp run test:boundaries
+
+      - name: Run unit tests
+        run: vp test
+
+      - name: Run Worker-runtime tests
+        run: vp run test:worker
+
+      - name: Build deployable packages
+        run: vp run build
+
+      - name: Run multi-Worker integration tests
+        run: vp run test:integration
+
+      - name: Install Playwright Chromium
+        run: vp exec playwright install --with-deps chromium
+
+      - name: Run browser tests
+        run: vp run test:e2e

@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "noEmit": true,
+    "paths": {
+      "@cloudflare-inbox/db/testing": ["../../packages/db/src/testing.ts"],
+      "@cloudflare-inbox/test-harness": ["../harness/src/index.ts"]
+    },
+    "types": ["node", "vitest/globals"]
+  },
+  "include": [
+    "**/*.ts",
+    "../harness/src/**/*.ts",
+    "../../workers/api/worker-configuration.d.ts",
+    "../../tooling/scripts/*.mjs"
+  ]
+}

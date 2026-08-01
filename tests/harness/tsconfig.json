@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "paths": {
+      "@cloudflare-inbox/db/testing": ["../../packages/db/src/testing.ts"]
+    },
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "../../workers/api/worker-configuration.d.ts"]
+}

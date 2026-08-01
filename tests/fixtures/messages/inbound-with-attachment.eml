@@ -1,0 +1,22 @@
+From: Alice Example <alice@sender.test>
+To: Integration Inbox <inbox@example.test>
+Date: Sat, 01 Aug 2026 06:30:00 +0000
+Message-ID: <synthetic-inbound-001@sender.test>
+Subject: Synthetic quarterly check-in
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="synthetic-boundary"
+
+--synthetic-boundary
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+Hello from the deterministic integration fixture.
+
+Please review the synthetic report and reply when ready.
+--synthetic-boundary
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: attachment; filename="synthetic-report.txt"
+Content-Transfer-Encoding: base64
+
+U3ludGhldGljIHJlcG9ydCBjb250ZW50Lgo=
+--synthetic-boundary--

@@ -1,0 +1,15 @@
+{
+  "name": "@cloudflare-inbox/integration-tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:integration": "vitest run --config vitest.config.ts"
+  },
+  "devDependencies": {
+    "@cloudflare-inbox/test-harness": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
