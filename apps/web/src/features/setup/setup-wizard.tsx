@@ -9,7 +9,11 @@ import MailIcon from 'lucide-react/dist/esm/icons/mail.mjs'
 import MailOpenIcon from 'lucide-react/dist/esm/icons/mail-open.mjs'
 import ShieldCheckIcon from 'lucide-react/dist/esm/icons/shield-check.mjs'
 
-import { CompleteSetupRequestSchema } from '@cloudflare-inbox/contracts'
+import {
+  CompleteSetupRequestSchema,
+  EmailAddressSchema,
+  MailDomainSchema,
+} from '@cloudflare-inbox/contracts'
 import type { CompleteSetupRequest } from '@cloudflare-inbox/contracts'
 
 import { Button, buttonVariants } from '#/components/ui/button'
@@ -65,25 +69,19 @@ export function SetupWizard() {
         : {}
     }
     if (targetStep === 1) {
-      const parsed = CompleteSetupRequestSchema.pick({
-        mailDomain: true,
-        mailboxAddress: true,
-        ownerEmail: true,
-      })
-        .extend({ setupToken: CompleteSetupRequestSchema.shape.setupToken })
-        .safeParse({
-          mailDomain: normalizedDomain,
-          mailboxAddress: normalizedMailbox,
-          ownerEmail: normalizedOwner,
-          setupToken,
-        })
-      if (parsed.success) {
-        if (!normalizedMailbox.endsWith(`@${normalizedDomain}`)) {
-          return { mailboxAddress: 'The inbox address must use the mail domain above.' }
-        }
-        return {}
+      const next: FieldErrors = {}
+      if (!EmailAddressSchema.safeParse(normalizedOwner).success) {
+        next.ownerEmail = 'Enter a valid owner email address.'
       }
-      return issuesToErrors(parsed.error.issues)
+      if (!MailDomainSchema.safeParse(normalizedDomain).success) {
+        next.mailDomain = 'Enter a valid lower-case mail domain.'
+      }
+      if (!EmailAddressSchema.safeParse(normalizedMailbox).success) {
+        next.mailboxAddress = 'Enter a valid inbox email address.'
+      } else if (normalizedDomain && !normalizedMailbox.endsWith(`@${normalizedDomain}`)) {
+        next.mailboxAddress = 'The inbox address must use the mail domain above.'
+      }
+      return next
     }
     if (targetStep === 2) {
       const raw = Number(rawRetention)
@@ -244,11 +242,18 @@ export function SetupWizard() {
                   </Button>
                 )}
                 {step < 3 ? (
-                  <Button onClick={advance} type="button">
+                  <Button
+                    key="continue"
+                    onClick={(event) => {
+                      event.preventDefault()
+                      advance()
+                    }}
+                    type="button"
+                  >
                     Continue <ArrowRightIcon aria-hidden="true" />
                   </Button>
                 ) : (
-                  <Button disabled={submitting} type="submit">
+                  <Button disabled={submitting} key="finish" type="submit">
                     {submitting ? 'Finishing setup…' : 'Finish setup'}
                   </Button>
                 )}
