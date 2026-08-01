@@ -1,0 +1,129 @@
+---
+title: Security
+description: Authentication, authorization, content isolation, privacy, and incident-response invariants.
+---
+
+Cloudflare Inbox treats email content as hostile input and every mailbox boundary as an authorization
+boundary. The public docs and health surfaces are anonymous; mailbox data is not.
+
+## Trust boundaries
+
+- The web Worker can call the API Worker but cannot bind D1 or R2.
+- The API Worker owns authentication, CSRF checks, scopes, and mailbox authorization.
+- Only the API Worker can call the mail Worker's private HTTP commands.
+- The mail Worker receives Email Routing events and owns MIME parsing, rendering, forwarding, and
+  delivery decisions.
+- R2 object names and raw bytes are internal. A browser receives them only through an authorized,
+  content-safe response.
+
+Service Bindings are network boundaries, not authorization substitutes. Internal commands still
+carry a validated actor, mailbox, scope set, request ID, and idempotency key.
+
+## Magic links and sessions
+
+Magic-link requests intentionally return `202 {"status":"accepted"}` for known, unknown, throttled,
+and temporarily unavailable addresses. This prevents the endpoint from becoming an account
+enumeration oracle.
+
+- Links are one-time tokens that expire after 15 minutes.
+- Requests have a one-minute per-address cooldown plus a coarse Cloudflare rate limit.
+- Only HMAC digests are stored; the plaintext token exists only for delivery and verification.
+- Browser sessions expire after 30 days and use HTTP-only, `SameSite=Lax` cookies.
+- Production cookies use the `__Host-` prefix and the `Secure` attribute.
+- Signing out revokes the server-side session before clearing the cookie.
+
+Cookie-authenticated mutations reject cross-site fetches and require a trusted `Origin` or `Referer`.
+Bearer-token requests do not rely on ambient cookies and are authorized by scope instead.
+
+## API tokens
+
+API tokens are opaque, separately provisioned credentials. Give each integration only the scopes it
+needs:
+
+| Scope      | Intended access                                             |
+| ---------- | ----------------------------------------------------------- |
+| `read`     | Mailboxes, threads, messages, raw messages, and attachments |
+| `send`     | New messages and replies                                    |
+| `settings` | Mailbox settings and organizational mutations               |
+
+Store bearer tokens in a secret manager. Never place them in URLs, browser local storage, examples,
+logs, or client-side bundles. Rotate a token after personnel or integration changes, and revoke it
+immediately if it may have been disclosed.
+
+## Mailbox authorization
+
+Every mailbox, thread, message, raw-message, and attachment lookup is scoped to the authenticated
+user before data is returned. Missing and unauthorized resources share a not-found response where
+appropriate, reducing cross-mailbox discovery. Database foreign keys and composite ownership
+constraints reinforce the application checks.
+
+## Email content handling
+
+Email headers, filenames, addresses, HTML, and MIME metadata are untrusted.
+
+- Raw RFC 822 messages are immutable R2 objects under opaque keys.
+- D1 contains normalized metadata and safe text projections, not raw message or attachment bytes.
+- Attachment filenames and media types are sanitized before response headers are produced.
+- Active HTML rendering is disabled unless the capabilities endpoint explicitly reports sanitized
+  HTML support. Do not render remote email HTML in a privileged origin by default.
+- Downloads use `X-Content-Type-Options: nosniff`; private API responses are not cacheable.
+- Logs contain request/trace identifiers and safe state transitions, never message bodies, raw
+  addresses, auth tokens, attachment bytes, or storage keys.
+- Provider invocation logs and automatic traces are disabled. Their generated request metadata can
+  include full Fetch URLs or Email recipients, exposing magic-link tokens, search terms, or envelope
+  addresses despite safe application logging.
+- The application performs no AI inference and sends no mailbox content, MIME, metadata, or
+  attachments to an AI service.
+
+Forwarding reply aliases are opaque routing capabilities, not proof of user identity. Accept aliases
+only in the configured mail domain, bind them to one mailbox/thread route, and never encode the
+destination address or database identifier into the local part.
+
+## Public and private surfaces
+
+These routes are intentionally public: `/docs`, `/api/search`, `/api/v1/health`,
+`/api/v1/capabilities`, the OpenAPI document, the two magic-link bootstrap endpoints, and session
+inspection (which returns an anonymous representation without a valid cookie). Mailboxes, threads,
+messages, downloads, settings, and sign-out require a valid session or scoped token.
+
+The web proxy forwards the request through a Service Binding and must not add a fallback credential
+or silently broaden a caller's scope.
+
+## Operational safeguards
+
+- Use different secrets, D1 databases, R2 buckets, routes, and Email Routing targets per environment.
+- Keep `AUTH_TOKEN_PEPPER` out of source control and observability payloads.
+- Run production deployment manually with both repository confirmation flags and preserve Worker
+  version IDs; this repository has no GitHub deployment workflow.
+- Test with synthetic `example.test` identities and non-sensitive attachments.
+- Monitor repeated auth suppression, authorization failures, ambiguous sends, and forwarding errors
+  without logging the triggering content.
+
+## Retention and deletion privacy
+
+The checked-in 365-day raw and application-record windows are pre-launch placeholders that require
+an explicit owner policy decision. Raw retention must not exceed application retention. Scheduled
+deletion removes R2 raw bytes before transactionally deleting D1 projections and repairing thread
+aggregates. A durable tombstone preserves opaque IDs, timestamps, state, attempt count, and safe
+failure codes for retry/inspection; it contains no body, address, subject, recipients, or attachment
+metadata.
+
+Deletion cannot be undone by rolling back Worker code. Before reducing a retention window, export
+required raw messages and attachments through their per-message authorized endpoints, store the
+export encrypted under its own approved lifecycle, and test D1 backup restoration in staging. There
+is no bulk export command yet. Keep message content, object keys, and identifiers out of change
+records and observability evidence.
+
+UI/search/detail bodies are bounded normalized projections and can be truncated. Immutable raw is
+available for authorized fidelity/export only until raw-retention deletion. HTML-only messages are
+converted to safe plain text, with scripts, styles, and remote-image behavior removed from the
+projection.
+
+## Incident checklist
+
+1. Stop further exposure by revoking the affected token/session or moving the Email Routing target.
+2. Preserve request IDs, Worker version IDs, and timestamps; do not copy message bodies into tickets.
+3. Determine the affected mailbox and time window from metadata-only audit evidence.
+4. Rotate compromised secrets and redeploy the smallest affected boundary.
+5. Verify authorized raw/attachment access and send idempotency with synthetic fixtures.
+6. Document any message gap created by routing rollback; do not silently merge stores.

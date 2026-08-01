@@ -1,0 +1,57 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cloudflare-inbox-replacement-local-web",
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "@tanstack/react-start/server-entry",
+  "services": [
+    {
+      "binding": "API",
+      "service": "cloudflare-inbox-replacement-local-api",
+    },
+  ],
+  "vars": {
+    "APP_ORIGIN": "http://localhost:3000",
+    "ENVIRONMENT": "local",
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": false,
+    },
+    "traces": {
+      "enabled": false,
+    },
+  },
+  "env": {
+    "staging": {
+      "name": "cloudflare-inbox-replacement-staging-web",
+      "workers_dev": true,
+      "services": [
+        {
+          "binding": "API",
+          "service": "cloudflare-inbox-replacement-staging-api",
+        },
+      ],
+      "vars": {
+        "APP_ORIGIN": "https://inbox-staging.example.test",
+        "ENVIRONMENT": "staging",
+      },
+    },
+    "production": {
+      "name": "cloudflare-inbox-replacement-production-web",
+      "workers_dev": true,
+      "services": [
+        {
+          "binding": "API",
+          "service": "cloudflare-inbox-replacement-production-api",
+        },
+      ],
+      "vars": {
+        "APP_ORIGIN": "https://inbox.example.test",
+        "ENVIRONMENT": "production",
+      },
+    },
+  },
+}

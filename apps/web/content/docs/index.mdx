@@ -1,0 +1,81 @@
+---
+title: Cloudflare Inbox
+description: A focused, self-hosted inbox built on Cloudflare Workers, D1, R2, Email Routing, and Email Sending.
+---
+
+Cloudflare Inbox turns a domain's inbound email into a small team inbox. It captures every message
+before optional forwarding, groups related messages into threads, and sends new mail and replies from
+the mailbox address.
+
+This documentation is public and contains no mailbox data, credentials, account identifiers, or
+deployment secrets.
+
+## What it provides
+
+- Catch-all receiving through Cloudflare Email Routing.
+- Durable raw-message storage with searchable thread metadata.
+- Optional forwarding to an owner address with an opaque reply alias.
+- New messages and threaded replies with To, CC, BCC, and attachments.
+- Mailbox-specific sender names and forwarding destinations.
+- Passwordless browser sessions and scoped bearer tokens for integrations.
+
+## The mailbox model
+
+Every authorized mailbox has its own address and settings. Messages are projected into threads, and
+threads carry two independent kinds of organization:
+
+| Concept    | Values                             | Meaning                                        |
+| ---------- | ---------------------------------- | ---------------------------------------------- |
+| Workflow   | Needs reply, Waiting, Resolved     | What should happen next                        |
+| Archive    | Active or archived                 | Whether the thread appears in the active views |
+| Read state | Read or unread per inbound message | Whether new content has been reviewed          |
+
+The primary folders are **All**, **Needs reply**, **Sent**, and **Archive**. Archiving never silently
+changes a thread's workflow state, so restoring a thread also restores its previous context.
+
+## Receiving and forwarding
+
+1. Email Routing invokes the mail Worker for a configured mailbox domain.
+2. The Worker validates the envelope and size, writes the canonical raw RFC 822 message to R2, and
+   projects safe, queryable metadata into D1.
+3. Threading prefers a known reply alias, then standard message references, then a normalized subject
+   fallback.
+4. If the mailbox has a forwarding destination, a reconstructed copy is delivered after durable
+   capture. It includes the sender, mailbox recipient, subject, safe text and sanitized HTML
+   projections, and only eligible attachments. Its `Reply-To` uses an opaque alias at the mailbox
+   domain.
+
+Forwarding is best-effort after storage: a forwarding failure does not erase the captured message.
+The inbox exposes forwarding state so operators can distinguish capture from delivery.
+
+The application performs no AI inference and sends no mailbox content or metadata to AI services.
+
+## Sending and replying
+
+Composing supports plain text or Markdown, multiple To/CC/BCC recipients, and file attachments.
+New messages require a mailbox selection. Replies infer the mailbox from the existing thread and can
+target a specific inbound message for threading headers.
+
+Every send request requires an idempotency key. Retrying the same request with the same key is safe;
+reusing the key for different content returns a conflict rather than risking a duplicate message.
+
+The public upload contract allows at most 50 recipients, 20 attachments, 10 MiB per attachment, and
+20 MiB of attachments in total. The sending provider applies a stricter encoded wire-size budget, so
+keep ordinary outbound messages well below 5 MiB after base64 and MIME overhead.
+
+## Signing in
+
+Browser access uses a one-time magic link. Requesting a link always returns the same generic accepted
+response, whether or not the address is recognized. A successful verification creates an HTTP-only
+session; signing out revokes it server-side and clears the browser cookie.
+
+Integrations use separately provisioned bearer tokens with `read`, `send`, and/or `settings` scopes.
+See the [API guide](/docs/api) for the request surface and the [security guide](/docs/security) for
+the trust model.
+
+## Where to go next
+
+- [Architecture](/docs/architecture) explains service and data boundaries.
+- [Deployment](/docs/deployment) gives the environment and rollout sequence.
+- [Security](/docs/security) documents authentication, content handling, and response policy.
+- [API guide](/docs/api) lists the versioned endpoints and request examples.

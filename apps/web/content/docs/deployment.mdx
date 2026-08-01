@@ -1,0 +1,144 @@
+---
+title: Deployment
+description: Provision isolated Cloudflare environments and deploy mail, API, and web Workers safely.
+---
+
+Deploy staging before production. Each environment needs its own Workers, D1 database, R2 bucket,
+secrets, and Email Routing target. Replacement Workers remain on isolated `workers.dev` hostnames
+before cutover; custom-domain routes and Email Routing changes are separate manual actions. Never
+point staging at production mail storage.
+
+## Prerequisites
+
+- Node.js 24 and pnpm 11, as pinned by the repository.
+- A Cloudflare account with Workers, D1, R2, Email Routing, Email Sending, and Service Bindings
+  available for the target zone.
+- A verified owner address for operational email.
+- Wrangler authenticated to the intended Cloudflare account.
+- A clean checkout with the lockfile and generated artifacts in sync.
+
+Provider availability is an external prerequisite. Before cutover, prove arbitrary-recipient Email
+Sending and the combined `fetch`/`email()` mail Worker in staging with synthetic messages only.
+
+## Environment resources
+
+Provision a separate set for `staging` and `production`:
+
+| Resource                     | Binding or purpose                                 |
+| ---------------------------- | -------------------------------------------------- |
+| Web Worker                   | Public UI, docs, and same-origin API bridge        |
+| API Worker                   | Browser API and authorization                      |
+| Mail Worker                  | Inbound Email Routing and private send commands    |
+| Service Binding `API`        | Web Worker to API Worker                           |
+| Service Binding `MAIL`       | API Worker to mail Worker                          |
+| D1 binding `DB`              | Queryable mailbox state and authentication records |
+| R2 binding `RAW_EMAILS`      | Canonical raw messages                             |
+| Email binding `EMAIL`        | Magic-link, forwarding, and outbound delivery      |
+| Rate limit `AUTH_RATE_LIMIT` | Magic-link request and verification protection     |
+
+Public configuration includes `APP_ORIGIN`, `ENVIRONMENT`, `MAIL_DOMAIN`, `OWNER_EMAIL`,
+`RAW_EMAIL_RETENTION_DAYS`, `APPLICATION_RECORD_RETENTION_DAYS`, and `RETENTION_BATCH_SIZE`. Set
+real resource IDs and names in environment-specific Wrangler configuration. Store
+`AUTH_TOKEN_PEPPER` as a Worker secret; use at least 32 random bytes and never commit or print it.
+
+Keep structured application logs enabled but provider invocation logs and automatic traces
+disabled: generated Fetch metadata can contain full URLs (including magic-link tokens and search
+terms), and Email invocation metadata includes recipients. Configure a private R2 lifecycle rule
+manually to expire raw objects a short grace, such as two days, after the approved raw-retention
+window. The application cron should delete first; the lifecycle is only an orphan backstop if
+execution stops between the R2 write and D1 projection.
+
+All examples in this documentation use `example.test`. Replace them only in private environment
+configuration, not in source examples or fixtures.
+
+## Deploy sequence
+
+From the repository root:
+
+```bash
+vp install --frozen-lockfile
+vp run check
+vp test
+vp run build
+vp run db:migrate -- --env staging --dry-run
+vp run db:migrate -- --env staging --confirm-migrate
+vp run deploy -- --env staging --dry-run
+vp run deploy -- --env staging --confirm-replacement-deploy
+```
+
+The aggregate deployment enforces this order:
+
+1. Verify source, generated state, local harnesses, and Cloudflare authentication.
+2. Build mail, API, and web directly with `CLOUDFLARE_ENV=staging`, then validate every flattened
+   Vite output and deployment redirect before mutation.
+3. Apply checked-in D1 migrations once and bootstrap the exact deterministic owner/mailbox records.
+4. Deploy the mail Worker.
+5. Deploy the API Worker and verify its private mail binding.
+6. Deploy the web Worker.
+7. Verify version identifiers and health endpoints.
+8. Run non-destructive smoke tests.
+
+The Cloudflare Vite plugin selects the Wrangler environment during `vite build`; passing `--env` to
+`wrangler deploy` does not select it. The guarded scripts therefore set `CLOUDFLARE_ENV` only on a
+fresh direct package build, verify the exact generated name/vars/bindings and
+`.wrangler/deploy/config.json`, and then run plain `wrangler deploy` from that package. D1 migration
+is the exception and intentionally uses the source config with `--env` and `--remote`. Vite+ script
+caching is disabled for state-changing tasks.
+
+There is no GitHub deployment workflow. Production is a guarded manual operator action and requires
+both explicit confirmations:
+
+```bash
+vp run deploy -- \
+  --env production \
+  --confirm-production \
+  --confirm-replacement-deploy
+```
+
+## Retention and export
+
+The committed `365`-day raw-email and application-record values are deliberate pre-launch
+placeholders, not an approved policy. Choose and document both before provisioning. Each must be
+from 1 through 3,650 days, raw retention cannot exceed application-record retention, and the batch
+size must be from 1 through 100.
+
+The daily mail-Worker job deletes the private R2 raw object first, treats an already-missing object
+as success, then transactionally removes the D1 message children and repairs or deletes the thread.
+Durable content-free tombstones retain safe retry state and failure codes. A later cron run retries
+expired claims; the job never retries or sends mail.
+
+Code or Worker-version rollback cannot restore retained data after deletion. Before shortening a
+window, export required raw messages and attachments through the per-message owner-authorized
+endpoints to encrypted storage, test D1 backup restoration in staging, and record content-free
+counts/digests. There is no bulk export command yet. The application performs no AI inference and
+sends no mailbox data to AI services.
+
+## Email Routing cutover
+
+Deploying a Worker does not move inbound mail by itself. After the new mail Worker passes staging
+checks, update the zone's catch-all Email Routing target in a controlled change window. Send a
+synthetic message from an external domain and verify capture, D1 projection, optional forwarding,
+reply alias handling, and attachment download before declaring cutover complete.
+
+Avoid dual writers. Two mail Workers receiving the same catch-all route can produce duplicates even
+when each Worker is internally idempotent.
+
+## Smoke checklist
+
+- `GET /api/v1/health` returns the API service health document.
+- The public `/docs` page and `/api/search` index load without authentication.
+- An unknown magic-link address receives the same `202` representation as a known address.
+- A known synthetic owner can request and consume one magic link, then cannot reuse it.
+- Mailbox listing, search, read/archive mutations, sign-out, and a re-login work in the browser.
+- A synthetic inbound message and attachment can be downloaded only by an authorized caller.
+- A synthetic outbound send is idempotent when the same request is repeated.
+- Logs contain request IDs and safe state, not message bodies, addresses, tokens, or object keys.
+
+## Rollback
+
+Preserve every Worker version ID emitted during deployment. Roll back in reverse order: web, API,
+then mail. Restore the previous Email Routing target separately if cutover changed it.
+
+Rollback restores code and routing; it does not merge messages captured into another environment's
+storage during the replacement window. Record the cutover times and reconcile those messages with an
+explicit, reviewed recovery procedure.

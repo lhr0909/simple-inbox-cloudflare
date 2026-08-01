@@ -1,0 +1,192 @@
+---
+title: API guide
+description: Versioned same-origin endpoints for authentication, inbox reads, settings, downloads, and sending.
+---
+
+The browser-facing API is versioned under `/api/v1` on the web origin. The web Worker forwards those
+requests to the API Worker through a private Service Binding; clients never call a Worker-internal
+hostname.
+
+Use the generated OpenAPI 3.1 document at `/api/v1/openapi.json` as the machine-readable contract.
+Check `/api/v1/capabilities` before depending on optional behavior.
+
+## Authentication
+
+Browser clients use the HTTP-only session cookie created by magic-link verification. Non-browser
+integrations send a separately provisioned bearer token:
+
+```http
+Authorization: Bearer YOUR_OPAQUE_API_TOKEN
+Accept: application/json
+```
+
+Tokens can carry `read`, `send`, and `settings` scopes. A bearer token takes precedence when an
+`Authorization` header is present; do not send an invalid bearer header alongside a valid browser
+session.
+
+Session-authenticated mutations must be same-origin. API-token callers are not subject to the cookie
+origin check, but still need the appropriate scope and mailbox membership.
+
+## Endpoint summary
+
+| Method   | Path                                               | Auth                      | Purpose                                       |
+| -------- | -------------------------------------------------- | ------------------------- | --------------------------------------------- |
+| `GET`    | `/health`                                          | Public                    | API Worker health                             |
+| `GET`    | `/capabilities`                                    | Public                    | Supported optional behavior                   |
+| `GET`    | `/openapi.json`                                    | Public                    | OpenAPI 3.1 contract                          |
+| `POST`   | `/auth/magic-links`                                | Public                    | Request a one-time sign-in link               |
+| `POST`   | `/auth/magic-links/verify`                         | Public                    | Consume a link and create a session           |
+| `GET`    | `/auth/session`                                    | Public / optional session | Inspect the current browser session           |
+| `POST`   | `/auth/logout`                                     | Session                   | Revoke the session and clear its cookie       |
+| `GET`    | `/mailboxes`                                       | `read`                    | List authorized mailboxes and folder counts   |
+| `PATCH`  | `/mailboxes/{mailboxId}`                           | `settings`                | Change sender alias and/or forwarding target  |
+| `GET`    | `/threads`                                         | `read`                    | List, filter, search, and paginate threads    |
+| `GET`    | `/threads/{threadId}`                              | `read`                    | Fetch a thread and its chronological messages |
+| `POST`   | `/threads/{threadId}/read`                         | `settings`                | Mark inbound messages in a thread read        |
+| `POST`   | `/threads/{threadId}/archive`                      | `settings`                | Archive without changing workflow state       |
+| `DELETE` | `/threads/{threadId}/archive`                      | `settings`                | Restore with workflow state retained          |
+| `POST`   | `/messages`                                        | `send`                    | Send a new multipart message                  |
+| `POST`   | `/threads/{threadId}/messages`                     | `send`                    | Send a multipart reply                        |
+| `GET`    | `/messages/{messageId}/raw`                        | `read`                    | Download the immutable RFC 822 source         |
+| `GET`    | `/messages/{messageId}/attachments/{attachmentId}` | `read`                    | Download an authorized attachment projection  |
+
+Prefix every path in the table with `/api/v1` when calling the public web origin.
+
+## Request a magic link
+
+```bash
+curl --request POST 'https://inbox.example.test/api/v1/auth/magic-links' \
+  --header 'content-type: application/json' \
+  --data '{"email":"owner@example.test"}'
+```
+
+The response is always intentionally generic:
+
+```json
+{ "status": "accepted" }
+```
+
+The email link points to the browser verification flow. Direct API clients can exchange its token at
+`POST /api/v1/auth/magic-links/verify` with `{"token":"..."}`. A token can be consumed only once.
+
+## List and search threads
+
+```bash
+curl 'https://inbox.example.test/api/v1/threads?mailboxId=01996f7a-7bcd-7abc-8def-1123456789ab&folder=needs-reply&unread=1&limit=25' \
+  --header 'authorization: Bearer YOUR_OPAQUE_API_TOKEN'
+```
+
+Supported query fields:
+
+| Field       | Values                                                        |
+| ----------- | ------------------------------------------------------------- |
+| `mailboxId` | Required lower-case UUIDv7 mailbox ID                         |
+| `folder`    | `all`, `sent`, `needs-reply`, or `archive`; defaults to `all` |
+| `unread`    | `1` to return unread threads only, or `0`                     |
+| `q`         | Trimmed full-text search query, 1–200 characters              |
+| `limit`     | 1–50; defaults to 25                                          |
+| `cursor`    | Opaque `nextCursor` from the previous response                |
+
+Cursors are stable continuation tokens, not offsets. Do not decode, edit, or persist them as record
+identifiers.
+
+## Update mailbox settings
+
+Supply at least one field. `null` clears a value.
+
+```bash
+curl --request PATCH \
+  'https://inbox.example.test/api/v1/mailboxes/01996f7a-7bcd-7abc-8def-1123456789ab' \
+  --header 'authorization: Bearer YOUR_OPAQUE_API_TOKEN' \
+  --header 'content-type: application/json' \
+  --data '{"senderAlias":"Example Support","forwardTo":"owner@example.test"}'
+```
+
+`senderAlias` changes the display name, not the envelope mailbox address. `forwardTo` controls the
+optional post-capture forwarding destination.
+
+## Send a new message
+
+Send endpoints accept `multipart/form-data`; let the HTTP client generate its boundary. Repeat `to`,
+`cc`, `bcc`, and `attachments` fields as needed.
+
+```bash
+curl --request POST 'https://inbox.example.test/api/v1/messages' \
+  --header 'authorization: Bearer YOUR_OPAQUE_API_TOKEN' \
+  --header 'idempotency-key: 01996f7a-7bcd-7abc-8def-b123456789ab' \
+  --form 'mailboxId=01996f7a-7bcd-7abc-8def-1123456789ab' \
+  --form 'to=Customer <customer@example.test>' \
+  --form 'cc=Accounts <accounts@example.test>' \
+  --form 'subject=Example delivery' \
+  --form 'body=This is a synthetic message.' \
+  --form 'format=plain' \
+  --form 'attachments=@./synthetic-note.txt;type=text/plain'
+```
+
+A reply uses `/api/v1/threads/{threadId}/messages`. Omit `mailboxId`; the API derives it from the
+authorized thread. You may add `targetMessageId` to bind reply headers to a specific inbound message.
+
+The `idempotency-key` must be 16–128 URL-safe ASCII characters. Repeat the same key only for the same
+logical request. A different payload with an existing key returns `409 idempotency_conflict`.
+
+Successful submission returns `201` or `202` and a state document:
+
+```json
+{
+  "id": "01996f7a-7bcd-7abc-8def-9123456789ab",
+  "idempotencyKey": "01996f7a-7bcd-7abc-8def-b123456789ab",
+  "state": "sent",
+  "threadId": "01996f7a-7bcd-7abc-8def-2123456789ab",
+  "messageId": "01996f7a-7bcd-7abc-8def-3123456789ab",
+  "acceptedAt": "2026-08-01T00:00:00.000Z",
+  "completedAt": "2026-08-01T00:00:01.000Z",
+  "safeErrorCode": null
+}
+```
+
+Possible states are `queued`, `sending`, `sent`, `failed`, and `unknown`. Treat `unknown` as an
+ambiguous provider outcome: retain the original idempotency key for reconciliation and never create a
+duplicate by switching keys.
+
+## Limits
+
+| Limit                           | Value                                                    |
+| ------------------------------- | -------------------------------------------------------- |
+| Combined To/CC/BCC recipients   | 50                                                       |
+| Attachments per API request     | 20                                                       |
+| Size of one attachment          | 10 MiB                                                   |
+| Total uploaded attachment bytes | 20 MiB                                                   |
+| Outbound provider wire budget   | Below 5 MiB after safety margin and MIME/base64 overhead |
+| Inbound raw message             | 25 MiB                                                   |
+| Threads per page                | 50 maximum                                               |
+
+Encoded wire size is larger than the uploaded files. A multipart request can pass upload validation
+and still exceed the provider budget after headers, Markdown rendering, MIME structure, and base64
+encoding are added.
+
+## Errors and request IDs
+
+JSON failures use one stable envelope:
+
+```json
+{
+  "error": {
+    "code": "validation_failed",
+    "message": "The request was not valid.",
+    "requestId": "01JZXY8J6VSK8PKSRM3R7S3B2G",
+    "details": {
+      "issues": ["subject: String must contain at least 1 character"]
+    }
+  }
+}
+```
+
+The same opaque ID appears in the `x-request-id` response header. Include it when reporting an
+operational problem, but do not attach raw messages, tokens, or attachment contents.
+
+Common statuses are `400` validation, `401` missing or expired authentication, `403` scope or CSRF,
+`404` absent or unauthorized resource, `409` idempotency conflict, `413` request size, `429` rate
+limit, and `503` unavailable dependency.
+
+Raw-message responses use `message/rfc822`; attachment responses are binary. Do not call `.json()` on
+successful download responses.
