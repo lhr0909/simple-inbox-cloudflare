@@ -1,6 +1,6 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "cloudflare-inbox-replacement-local-mail",
+  "name": "simple-inbox-cf-local-mail",
   "main": "./src/index.ts",
   "compatibility_date": "2026-08-01",
   "workers_dev": false,
@@ -10,7 +10,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "cloudflare-inbox-replacement-local-db",
+      "database_name": "simple-inbox-cf-local-db",
       "database_id": "00000000-0000-0000-0000-000000000000",
       "migrations_dir": "../../packages/db/migrations",
     },
@@ -18,7 +18,7 @@
   "r2_buckets": [
     {
       "binding": "RAW_EMAILS",
-      "bucket_name": "cloudflare-inbox-replacement-local-raw",
+      "bucket_name": "simple-inbox-cf-local-raw",
     },
   ],
   "send_email": [
@@ -47,12 +47,12 @@
   },
   "env": {
     "staging": {
-      "name": "cloudflare-inbox-replacement-staging-mail",
+      "name": "simple-inbox-cf-staging-mail",
       "workers_dev": false,
       "d1_databases": [
         {
           "binding": "DB",
-          "database_name": "cloudflare-inbox-replacement-staging-db",
+          "database_name": "simple-inbox-cf-staging-db",
           "database_id": "00000000-0000-0000-0000-000000000000",
           "migrations_dir": "../../packages/db/migrations",
         },
@@ -60,7 +60,7 @@
       "r2_buckets": [
         {
           "binding": "RAW_EMAILS",
-          "bucket_name": "cloudflare-inbox-replacement-staging-raw",
+          "bucket_name": "simple-inbox-cf-staging-raw",
         },
       ],
       "send_email": [
@@ -79,12 +79,12 @@
       },
     },
     "production": {
-      "name": "cloudflare-inbox-replacement-production-mail",
+      "name": "simple-inbox-cf-production-mail",
       "workers_dev": false,
       "d1_databases": [
         {
           "binding": "DB",
-          "database_name": "cloudflare-inbox-replacement-production-db",
+          "database_name": "simple-inbox-cf-production-db",
           "database_id": "00000000-0000-0000-0000-000000000000",
           "migrations_dir": "../../packages/db/migrations",
         },
@@ -92,7 +92,7 @@
       "r2_buckets": [
         {
           "binding": "RAW_EMAILS",
-          "bucket_name": "cloudflare-inbox-replacement-production-raw",
+          "bucket_name": "simple-inbox-cf-production-raw",
         },
       ],
       "send_email": [

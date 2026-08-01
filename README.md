@@ -10,7 +10,7 @@ D1 is the source of truth for queryable state. R2 stores only canonical raw RFC 
 objects. The browser never receives direct D1 or R2 access.
 
 This repository is independent from the legacy Cloudflare Inbox repository and deployment. Its
-Workers and storage use `cloudflare-inbox-replacement-<environment>-*` names. Repository automation
+Workers and storage use `simple-inbox-cf-<environment>-*` names. Repository automation
 never changes legacy Workers, routes, D1/R2 resources, DNS, or Email Routing; cutover is an explicit
 manual owner operation described in [the operations runbook](docs/operations.md).
 
