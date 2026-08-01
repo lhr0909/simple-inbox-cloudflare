@@ -40,12 +40,10 @@ type HarnessBindings = {
 }
 
 export type InboxTestHarness = {
-  api: WorkerHandle<HarnessBindings>
   close(): Promise<void>
-  mail: WorkerHandle<HarnessBindings>
   origin: string
   server: TestHarness
-  web: WorkerHandle<HarnessBindings>
+  worker: WorkerHandle<HarnessBindings>
 }
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url))
@@ -59,18 +57,16 @@ export async function startInboxTestHarness(): Promise<InboxTestHarness> {
   const worker = server.getWorker<HarnessBindings>(name)
 
   return {
-    api: worker,
     close: () => server.close(),
-    mail: worker,
     origin: listen.url.origin,
     server,
-    web: worker,
+    worker,
   }
 }
 
 export async function migrateAndSeedHarness(harness: InboxTestHarness): Promise<void> {
-  await harness.api.applyD1Migrations('DB')
-  const { DB } = await harness.api.getEnv()
+  await harness.worker.applyD1Migrations('DB')
+  const { DB } = await harness.worker.getEnv()
   const now = Date.now()
   const oldRequestTime = now - 2 * 60 * 1_000
 
@@ -136,7 +132,7 @@ export async function injectSyntheticInbound(
       resolve(repositoryRoot, 'tests/fixtures/messages/inbound-with-attachment.eml'),
       'utf8',
     ))
-  const result = await harness.mail.email({
+  const result = await harness.worker.email({
     from: TEST_ADDRESSES.inboundSender,
     raw: source,
     to: TEST_ADDRESSES.mailbox,

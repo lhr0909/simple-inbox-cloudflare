@@ -12,7 +12,7 @@ describe('first-run setup in the single Worker', () => {
 
   beforeAll(async () => {
     harness = await startInboxTestHarness()
-    await harness.api.applyD1Migrations('DB')
+    await harness.worker.applyD1Migrations('DB')
   })
 
   afterAll(async () => {

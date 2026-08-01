@@ -509,7 +509,7 @@ function ReviewStep({
         <ul className="mt-3 space-y-2 text-sm leading-5 text-muted-foreground">
           <li className="flex gap-2">
             <CheckIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-foreground" />
-            Verify your sending domain in Cloudflare Email Service.
+            Verify your sending domain in Cloudflare Email Sending.
           </li>
           <li className="flex gap-2">
             <CheckIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-foreground" />
