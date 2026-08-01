@@ -14,11 +14,11 @@ import { runHttpSmoke } from '../../tooling/scripts/smoke.mjs'
 describe('operator safety and deterministic commands', () => {
   it('uses replacement-only names and never includes a cutover command', () => {
     expect(replacementResourceNames('staging')).toEqual({
-      api: 'cloudflare-inbox-replacement-staging-api',
-      database: 'cloudflare-inbox-replacement-staging-db',
-      mail: 'cloudflare-inbox-replacement-staging-mail',
-      rawBucket: 'cloudflare-inbox-replacement-staging-raw',
-      web: 'cloudflare-inbox-replacement-staging-web',
+      api: 'simple-inbox-cf-staging-api',
+      database: 'simple-inbox-cf-staging-db',
+      mail: 'simple-inbox-cf-staging-mail',
+      rawBucket: 'simple-inbox-cf-staging-raw',
+      web: 'simple-inbox-cf-staging-web',
     })
     const commands = deploymentCommands('staging')
     const rendered = commands.flatMap((entry) => [entry.command, ...entry.arguments_]).join(' ')

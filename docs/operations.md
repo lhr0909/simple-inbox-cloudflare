@@ -8,10 +8,10 @@ or Email Routing; cutover is a separate, manual approval step.
 
 The only accepted remote resource names are:
 
-| Environment | Mail Worker                                    | API Worker                                    | Web Worker                                    | D1                                           | Private R2                                    |
-| ----------- | ---------------------------------------------- | --------------------------------------------- | --------------------------------------------- | -------------------------------------------- | --------------------------------------------- |
-| staging     | `cloudflare-inbox-replacement-staging-mail`    | `cloudflare-inbox-replacement-staging-api`    | `cloudflare-inbox-replacement-staging-web`    | `cloudflare-inbox-replacement-staging-db`    | `cloudflare-inbox-replacement-staging-raw`    |
-| production  | `cloudflare-inbox-replacement-production-mail` | `cloudflare-inbox-replacement-production-api` | `cloudflare-inbox-replacement-production-web` | `cloudflare-inbox-replacement-production-db` | `cloudflare-inbox-replacement-production-raw` |
+| Environment | Mail Worker                       | API Worker                       | Web Worker                       | D1                              | Private R2                       |
+| ----------- | --------------------------------- | -------------------------------- | -------------------------------- | ------------------------------- | -------------------------------- |
+| staging     | `simple-inbox-cf-staging-mail`    | `simple-inbox-cf-staging-api`    | `simple-inbox-cf-staging-web`    | `simple-inbox-cf-staging-db`    | `simple-inbox-cf-staging-raw`    |
+| production  | `simple-inbox-cf-production-mail` | `simple-inbox-cf-production-api` | `simple-inbox-cf-production-web` | `simple-inbox-cf-production-db` | `simple-inbox-cf-production-raw` |
 
 Operator scripts reject local placeholders, missing environment sections, ambiguous names, route
 entries, mismatched Service Bindings, reused resource IDs supplied through the legacy guard
@@ -282,7 +282,7 @@ replacement `workers.dev` origin; its first hostname label must equal the review
 Worker name:
 
 ```sh
-export SMOKE_BASE_URL='https://cloudflare-inbox-replacement-staging-web.<account-subdomain>.workers.dev'
+export SMOKE_BASE_URL='https://simple-inbox-cf-staging-web.<account-subdomain>.workers.dev'
 ```
 
 `APP_ORIGIN` must be configured to this same origin before pre-cutover deployment so magic links,
@@ -333,7 +333,7 @@ It does not authenticate, write D1/R2, send mail, or change routes.
 Production additionally requires both confirmations:
 
 ```sh
-export SMOKE_BASE_URL='https://cloudflare-inbox-replacement-production-web.<account-subdomain>.workers.dev'
+export SMOKE_BASE_URL='https://simple-inbox-cf-production-web.<account-subdomain>.workers.dev'
 
 vp run deploy -- \
   --env production \
@@ -356,7 +356,7 @@ Set reviewed prerequisites:
 export CLOUDFLARE_INBOX_SMOKE_OWNER_EMAIL='owner@example.com'
 export CLOUDFLARE_INBOX_SMOKE_INBOUND_ADDRESS='smoke@mail.example.com'
 export CLOUDFLARE_INBOX_SMOKE_OUTBOUND_ADDRESS='allowlisted-smoke@example.net'
-export SMOKE_BASE_URL='https://cloudflare-inbox-replacement-staging-web.<account-subdomain>.workers.dev'
+export SMOKE_BASE_URL='https://simple-inbox-cf-staging-web.<account-subdomain>.workers.dev'
 ```
 
 Evidence contains addresses and operational notes, so keep it outside the repository:

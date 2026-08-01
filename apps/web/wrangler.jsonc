@@ -1,13 +1,13 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "cloudflare-inbox-replacement-local-web",
+  "name": "simple-inbox-cf-local-web",
   "compatibility_date": "2026-08-01",
   "compatibility_flags": ["nodejs_compat"],
   "main": "@tanstack/react-start/server-entry",
   "services": [
     {
       "binding": "API",
-      "service": "cloudflare-inbox-replacement-local-api",
+      "service": "simple-inbox-cf-local-api",
     },
   ],
   "vars": {
@@ -26,12 +26,12 @@
   },
   "env": {
     "staging": {
-      "name": "cloudflare-inbox-replacement-staging-web",
+      "name": "simple-inbox-cf-staging-web",
       "workers_dev": true,
       "services": [
         {
           "binding": "API",
-          "service": "cloudflare-inbox-replacement-staging-api",
+          "service": "simple-inbox-cf-staging-api",
         },
       ],
       "vars": {
@@ -40,12 +40,12 @@
       },
     },
     "production": {
-      "name": "cloudflare-inbox-replacement-production-web",
+      "name": "simple-inbox-cf-production-web",
       "workers_dev": true,
       "services": [
         {
           "binding": "API",
-          "service": "cloudflare-inbox-replacement-production-api",
+          "service": "simple-inbox-cf-production-api",
         },
       ],
       "vars": {

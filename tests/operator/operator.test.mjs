@@ -329,8 +329,7 @@ describe('replacement operator safety', () => {
       await expect(
         deploy(['--env', 'staging', '--dry-run'], {
           environmentVariables: {
-            SMOKE_BASE_URL:
-              'https://cloudflare-inbox-replacement-staging-web.test-account.workers.dev',
+            SMOKE_BASE_URL: 'https://simple-inbox-cf-staging-web.test-account.workers.dev',
           },
           loadDeploymentPlan: async () => deploymentPlan(),
           runner(command, arguments_, options) {
@@ -519,7 +518,7 @@ describe('replacement operator safety', () => {
       /APP_ORIGIN is never probed implicitly/u,
     )
     expect(() => requireReplacementSmokeOrigin(plan, 'https://legacy.example.com', {})).toThrow(
-      /must target cloudflare-inbox-replacement-staging-web/u,
+      /must target simple-inbox-cf-staging-web/u,
     )
     expect(() =>
       requireReplacementSmokeOrigin(plan, expected, {
@@ -730,16 +729,13 @@ describe('replacement operator safety', () => {
         configPath,
         JSON.stringify({
           ...config,
-          services: [{ binding: 'MAIL', service: 'cloudflare-inbox-replacement-local-mail' }],
+          services: [{ binding: 'MAIL', service: 'simple-inbox-cf-local-mail' }],
         }),
       )
       await expect(assertFlattenedWorkerBuild(configPath, plan, 'api')).rejects.toThrow(
         /do not match the reviewed deployment plan/u,
       )
-      await writeFile(
-        configPath,
-        JSON.stringify({ ...config, name: 'cloudflare-inbox-replacement-local-api' }),
-      )
+      await writeFile(configPath, JSON.stringify({ ...config, name: 'simple-inbox-cf-local-api' }))
       await expect(findFlattenedWorkerConfig(plan, 'api', { root: directory })).rejects.toThrow(
         /CLOUDFLARE_ENV=staging/u,
       )

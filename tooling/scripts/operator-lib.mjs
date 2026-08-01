@@ -25,7 +25,7 @@ const legacyResourceGuardVariables = {
 
 export function replacementResourceNames(environment) {
   assertEnvironment(environment)
-  const prefix = `cloudflare-inbox-replacement-${environment}`
+  const prefix = `simple-inbox-cf-${environment}`
   return {
     api: `${prefix}-api`,
     database: `${prefix}-db`,

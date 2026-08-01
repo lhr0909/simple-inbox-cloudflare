@@ -175,7 +175,7 @@ async function findBuiltWrangler(directory: string, expectedSuffix: string): Pro
   }
   for (const candidate of candidates.sort()) {
     const name = await readWorkerName(candidate)
-    if (name.startsWith('cloudflare-inbox-replacement-local-') && name.endsWith(expectedSuffix)) {
+    if (name.startsWith('simple-inbox-cf-local-') && name.endsWith(expectedSuffix)) {
       return candidate
     }
   }

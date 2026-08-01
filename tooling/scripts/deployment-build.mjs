@@ -15,7 +15,7 @@ export function workerDirectory(worker, root = repositoryRoot) {
 export function expectedFlattenedConfigPath(_plan, worker, root = repositoryRoot) {
   const directory = workerDirectory(worker, root)
   if (worker === 'web') return resolve(directory, 'dist/server/wrangler.json')
-  return resolve(directory, 'dist', `cloudflare_inbox_replacement_local_${worker}`, 'wrangler.json')
+  return resolve(directory, 'dist', `simple_inbox_cf_local_${worker}`, 'wrangler.json')
 }
 
 export async function buildWorkerForEnvironment(plan, worker, options = {}) {
