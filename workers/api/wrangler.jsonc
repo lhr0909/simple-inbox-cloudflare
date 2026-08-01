@@ -1,0 +1,138 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "cloudflare-inbox-replacement-local-api",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-08-01",
+  "workers_dev": false,
+  "services": [
+    {
+      "binding": "MAIL",
+      "service": "cloudflare-inbox-replacement-local-mail",
+    },
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cloudflare-inbox-replacement-local-db",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "../../packages/db/migrations",
+    },
+  ],
+  "r2_buckets": [
+    {
+      "binding": "RAW_EMAILS",
+      "bucket_name": "cloudflare-inbox-replacement-local-raw",
+    },
+  ],
+  "ratelimits": [
+    {
+      "name": "AUTH_RATE_LIMIT",
+      "namespace_id": "1001",
+      "simple": {
+        "limit": 5,
+        "period": 60,
+      },
+    },
+  ],
+  "vars": {
+    "APP_ORIGIN": "http://localhost:3000",
+    "MAIL_DOMAIN": "example.test",
+    "OWNER_EMAIL": "owner@example.test",
+    "ENVIRONMENT": "local",
+    "RAW_EMAIL_RETENTION_DAYS": "365",
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": false,
+    },
+    "traces": {
+      "enabled": false,
+    },
+  },
+  "env": {
+    "staging": {
+      "name": "cloudflare-inbox-replacement-staging-api",
+      "workers_dev": false,
+      "services": [
+        {
+          "binding": "MAIL",
+          "service": "cloudflare-inbox-replacement-staging-mail",
+        },
+      ],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "cloudflare-inbox-replacement-staging-db",
+          "database_id": "00000000-0000-0000-0000-000000000000",
+          "migrations_dir": "../../packages/db/migrations",
+        },
+      ],
+      "r2_buckets": [
+        {
+          "binding": "RAW_EMAILS",
+          "bucket_name": "cloudflare-inbox-replacement-staging-raw",
+        },
+      ],
+      "ratelimits": [
+        {
+          "name": "AUTH_RATE_LIMIT",
+          "namespace_id": "2001",
+          "simple": {
+            "limit": 5,
+            "period": 60,
+          },
+        },
+      ],
+      "vars": {
+        "APP_ORIGIN": "https://inbox-staging.example.test",
+        "MAIL_DOMAIN": "mail-staging.example.test",
+        "OWNER_EMAIL": "owner@example.test",
+        "ENVIRONMENT": "staging",
+        "RAW_EMAIL_RETENTION_DAYS": "365",
+      },
+    },
+    "production": {
+      "name": "cloudflare-inbox-replacement-production-api",
+      "workers_dev": false,
+      "services": [
+        {
+          "binding": "MAIL",
+          "service": "cloudflare-inbox-replacement-production-mail",
+        },
+      ],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "cloudflare-inbox-replacement-production-db",
+          "database_id": "00000000-0000-0000-0000-000000000000",
+          "migrations_dir": "../../packages/db/migrations",
+        },
+      ],
+      "r2_buckets": [
+        {
+          "binding": "RAW_EMAILS",
+          "bucket_name": "cloudflare-inbox-replacement-production-raw",
+        },
+      ],
+      "ratelimits": [
+        {
+          "name": "AUTH_RATE_LIMIT",
+          "namespace_id": "3001",
+          "simple": {
+            "limit": 5,
+            "period": 60,
+          },
+        },
+      ],
+      "vars": {
+        "APP_ORIGIN": "https://inbox.example.test",
+        "MAIL_DOMAIN": "mail.example.test",
+        "OWNER_EMAIL": "owner@example.test",
+        "ENVIRONMENT": "production",
+        "RAW_EMAIL_RETENTION_DAYS": "365",
+      },
+    },
+  },
+}

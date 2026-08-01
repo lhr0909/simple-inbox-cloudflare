@@ -1,0 +1,22 @@
+From: Alice Example <alice@sender.example.test>
+To: Support <support@example.test>
+Cc: Bob Example <bob@sender.example.test>
+Reply-To: Alice Replies <alice-replies@sender.example.test>
+Subject: Synthetic support request
+Date: Fri, 01 Aug 2026 04:00:00 +0000
+Message-ID: <synthetic-inbound-1@sender.example.test>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="synthetic-boundary"
+
+--synthetic-boundary
+Content-Type: text/plain; charset=utf-8
+
+Hello from a synthetic example.test fixture.
+
+--synthetic-boundary
+Content-Type: text/plain; name="notes.txt"
+Content-Disposition: attachment; filename="notes.txt"
+Content-Transfer-Encoding: base64
+
+c3ludGhldGljIGF0dGFjaG1lbnQK
+--synthetic-boundary--

@@ -1,0 +1,38 @@
+{
+  "name": "@cloudflare-inbox/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./app-type": "./src/app-type.ts",
+    "./auth": "./src/auth.ts",
+    "./capabilities": "./src/capabilities.ts",
+    "./errors": "./src/errors.ts",
+    "./folders": "./src/folders.ts",
+    "./ids": "./src/ids.ts",
+    "./internal": "./src/internal.ts",
+    "./mailboxes": "./src/mailboxes.ts",
+    "./messages": "./src/messages.ts",
+    "./primitives": "./src/primitives.ts",
+    "./queries": "./src/queries.ts",
+    "./routes": "./src/routes.ts",
+    "./send": "./src/send.ts",
+    "./threads": "./src/threads.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit"
+  },
+  "dependencies": {
+    "@hono/zod-openapi": "catalog:",
+    "hono": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

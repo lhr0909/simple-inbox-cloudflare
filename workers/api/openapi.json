@@ -1,0 +1,2411 @@
+{
+  "info": {
+    "description": "Cloudflare Inbox public API. Internal Worker topology is intentionally omitted.",
+    "title": "Cloudflare Inbox API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "components": {
+    "schemas": {
+      "MagicLinkAcceptedResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["accepted"]
+          }
+        },
+        "required": ["status"],
+        "additionalProperties": false
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ApiError"
+          }
+        },
+        "required": ["error"],
+        "additionalProperties": false
+      },
+      "ApiError": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "validation_failed",
+              "unsupported_media_type",
+              "request_too_large",
+              "unauthorized",
+              "forbidden",
+              "csrf_rejected",
+              "rate_limited",
+              "magic_link_invalid",
+              "session_expired",
+              "not_found",
+              "mailbox_not_found",
+              "thread_not_found",
+              "message_not_found",
+              "attachment_not_found",
+              "idempotency_conflict",
+              "send_failed",
+              "send_unknown",
+              "service_unavailable",
+              "internal_error"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "requestId": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "example": "01JZXY8J6VSK8PKSRM3R7S3B2G"
+          },
+          "details": {
+            "$ref": "#/components/schemas/ErrorDetails"
+          }
+        },
+        "required": ["code", "message", "requestId"],
+        "additionalProperties": false
+      },
+      "ErrorDetails": {
+        "type": "object",
+        "additionalProperties": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 1024
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 1024
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "maxItems": 100
+            }
+          ]
+        }
+      },
+      "MagicLinkRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 320,
+            "format": "email",
+            "example": "owner@example.test"
+          }
+        },
+        "required": ["email"],
+        "additionalProperties": false
+      },
+      "AuthenticatedSessionResponse": {
+        "type": "object",
+        "properties": {
+          "authenticated": {
+            "type": "boolean",
+            "enum": [true]
+          },
+          "principal": {
+            "$ref": "#/components/schemas/Principal"
+          },
+          "session": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                "example": "01996f7a-7bcd-7abc-8def-7123456789ab"
+              },
+              "expiresAt": {
+                "type": "string",
+                "format": "date-time",
+                "example": "2026-08-01T05:00:00.000Z"
+              }
+            },
+            "required": ["id", "expiresAt"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["authenticated", "principal", "session"],
+        "additionalProperties": false
+      },
+      "Principal": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01996f7a-7bcd-7abc-8def-0123456789ab"
+          },
+          "email": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 320,
+            "format": "email",
+            "example": "owner@example.test"
+          },
+          "mailboxes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PrincipalMailbox"
+            },
+            "maxItems": 1000
+          }
+        },
+        "required": ["userId", "email", "mailboxes"],
+        "additionalProperties": false
+      },
+      "PrincipalMailbox": {
+        "type": "object",
+        "properties": {
+          "mailboxId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01996f7a-7bcd-7abc-8def-1123456789ab"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["owner", "member"]
+          }
+        },
+        "required": ["mailboxId", "role"],
+        "additionalProperties": false
+      },
+      "MagicLinkVerifyRequest": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 256,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "example": "K3wnMJz4uVVYHF4eBgfRrtDXRskMJLR3zk4JP8Z_LjY"
+          }
+        },
+        "required": ["token"],
+        "additionalProperties": false
+      },
+      "SessionResponse": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/AuthenticatedSessionResponse"
+          },
+          {
+            "$ref": "#/components/schemas/AnonymousSessionResponse"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "authenticated",
+          "mapping": {
+            "true": "#/components/schemas/AuthenticatedSessionResponse",
+            "false": "#/components/schemas/AnonymousSessionResponse"
+          }
+        }
+      },
+      "AnonymousSessionResponse": {
+        "type": "object",
+        "properties": {
+          "authenticated": {
+            "type": "boolean",
+            "enum": [false]
+          }
+        },
+        "required": ["authenticated"],
+        "additionalProperties": false
+      },
+      "MailboxListResponse": {
+        "type": "object",
+        "properties": {
+          "mailboxes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MailboxSummary"
+            },
+            "maxItems": 1000
+          }
+        },
+        "required": ["mailboxes"],
+        "additionalProperties": false
+      },
+      "MailboxSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01996f7a-7bcd-7abc-8def-1123456789ab"
+          },
+          "address": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 320,
+            "format": "email",
+            "example": "owner@example.test"
+          },
+          "senderAlias": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "forwardTo": {
+            "type": ["string", "null"],
+            "minLength": 3,
+            "maxLength": 320,
+            "format": "email",
+            "example": "owner@example.test"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/ThreadFolderCounts"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-08-01T05:00:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-08-01T05:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "address",
+          "senderAlias",
+          "forwardTo",
+          "counts",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ThreadFolderCounts": {
+        "type": "object",
+        "properties": {
+          "all": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unread": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "needsReply": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sent": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "archive": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": ["all", "unread", "needsReply", "sent", "archive"],
+        "additionalProperties": false
+      },
+      "MailboxSettings": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01996f7a-7bcd-7abc-8def-1123456789ab"
+          },
+          "address": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 320,
+            "format": "email",
+            "example": "owner@example.test"
+          },
+          "senderAlias": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "forwardTo": {
+            "type": ["string", "null"],
+            "minLength": 3,
+            "maxLength": 320,
+            "format": "email",
+            "example": "owner@example.test"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-08-01T05:00:00.000Z"
+          }
+        },
+        "required": ["id", "address", "senderAlias", "forwardTo", "updatedAt"],
+        "additionalProperties": false
+      },
+      "PatchMailboxRequest": {
+        "type": "object",
+        "properties": {
+          "senderAlias": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "forwardTo": {
+            "type": ["string", "null"],
+            "minLength": 3,
+            "maxLength": 320,
+            "format": "email",
+            "example": "owner@example.test"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ThreadListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ThreadSummary"
+            },
+            "maxItems": 50
+          },
+          "nextCursor": {
+            "type": ["string", "null"],
+            "minLength": 16,
+            "maxLength": 512,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "example": "eyJ2IjoxLCJ0IjoxNzY3MjI1NjAwMDAwfQ"
+          }
+        },
+        "required": ["items", "nextCursor"],
+        "additionalProperties": false
+      },
+      "ThreadSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01996f7a-7bcd-7abc-8def-2123456789ab"
+          },
+          "mailboxId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01996f7a-7bcd-7abc-8def-1123456789ab"
+          },
+          "subject": {
+            "type": "string",
+            "maxLength": 998,
+            "example": "Quarterly receipt"
+          },
+          "preview": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ThreadParticipant"
+            },
+            "maxItems": 100
+          },
+          "workflowState": {
+            "$ref": "#/components/schemas/WorkflowState"
+          },
+          "archivedAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "example": "2026-08-01T05:00:00.000Z"
+          },
+          "lastMessageAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-08-01T05:00:00.000Z"
+          },
+          "lastMessageDirection": {
+            "type": "string",
+            "enum": ["inbound", "outbound"]
+          },
+          "messageCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unreadCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "attachmentCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Tag"
+            },
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "id",
+          "mailboxId",
+          "subject",
+          "preview",
+          "participants",
+          "workflowState",
+          "archivedAt",
+          "lastMessageAt",
+          "lastMessageDirection",
+          "messageCount",
+          "unreadCount",
+          "attachmentCount",
+          "tags"
+        ],
+        "additionalProperties": false
+      },
+      "ThreadParticipant": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 320,
+            "format": "email",
+            "example": "owner@example.test"
+          },
+          "displayName": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "required": ["address", "displayName"],
+        "additionalProperties": false
+      },
+      "WorkflowState": {
+        "type": "string",
+        "enum": ["needs_reply", "waiting", "resolved"]
+      },
+      "Tag": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "required": ["name"],
+        "additionalProperties": false
+      },
+      "ThreadFolder": {
+        "type": "string",
+        "enum": ["all", "sent", "needs-reply", "archive"]
+      },
+      "ThreadDetailResponse": {
+        "type": "object",
+        "properties": {
+          "thread": {
+            "$ref": "#/components/schemas/ThreadSummary"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Message"
+            },
+            "maxItems": 10000
+          }
+        },
+        "required": ["thread", "messages"],
+        "additionalProperties": false
+      },
+      "Message": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01996f7a-7bcd-7abc-8def-3123456789ab"
+          },
+          "mailboxId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01996f7a-7bcd-7abc-8def-1123456789ab"
+          },
+          "threadId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01996f7a-7bcd-7abc-8def-2123456789ab"
+          },
+          "direction": {
+            "type": "string",
+            "enum": ["inbound", "outbound"]
+          },
+          "internetMessageId": {
+            "type": ["string", "null"],
+            "maxLength": 998
+          },
+          "inReplyTo": {
+            "type": ["string", "null"],
+            "maxLength": 998
+          },
+          "from": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "recipients": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MessageRecipient"
+            },
+            "maxItems": 200
+          },
+          "references": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 998
+            },
+            "maxItems": 100
+          },
+          "subject": {
+            "type": "string",
+            "maxLength": 998,
+            "example": "Quarterly receipt"
+          },
+          "preview": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "textBody": {
+            "type": "string",
+            "maxLength": 1000000
+          },
+          "htmlBody": {
+            "type": ["string", "null"],
+            "maxLength": 2000000
+          },
+          "htmlPolicy": {
+            "type": "string",
+            "enum": ["none", "sanitized", "blocked"]
+          },
+          "sentAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-08-01T05:00:00.000Z"
+          },
+          "receivedAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "example": "2026-08-01T05:00:00.000Z"
+          },
+          "readAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "example": "2026-08-01T05:00:00.000Z"
+          },
+          "sendState": {
+            "type": "string",
+            "enum": ["not_applicable", "queued", "sending", "sent", "failed", "unknown"]
+          },
+          "forwardState": {
+            "type": "string",
+            "enum": ["not_applicable", "pending", "forwarded", "failed", "unknown"]
+          },
+          "failure": {
+            "$ref": "#/components/schemas/DeliveryFailure"
+          },
+          "rawAvailable": {
+            "type": "boolean"
+          },
+          "rawSize": {
+            "type": ["integer", "null"],
+            "minimum": 0
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttachmentMetadata"
+            },
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "id",
+          "mailboxId",
+          "threadId",
+          "direction",
+          "internetMessageId",
+          "inReplyTo",
+          "from",
+          "recipients",
+          "references",
+          "subject",
+          "preview",
+          "textBody",
+          "htmlBody",
+          "htmlPolicy",
+          "sentAt",
+          "receivedAt",
+          "readAt",
+          "sendState",
+          "forwardState",
+          "failure",
+          "rawAvailable",
+          "rawSize",
+          "attachments"
+        ],
+        "additionalProperties": false
+      },
+      "Address": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 320,
+            "format": "email",
+            "example": "owner@example.test"
+          },
+          "displayName": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "required": ["address", "displayName"],
+        "additionalProperties": false
+      },
+      "MessageRecipient": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["to", "cc", "bcc", "reply_to"]
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "address": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 320,
+            "format": "email",
+            "example": "owner@example.test"
+          },
+          "displayName": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "required": ["kind", "position", "address", "displayName"],
+        "additionalProperties": false
+      },
+      "DeliveryFailure": {
+        "type": ["object", "null"],
+        "properties": {
+          "retryability": {
+            "type": "string",
+            "enum": ["not_retryable", "retryable", "manual_confirmation_required"]
+          },
+          "safeErrorCode": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": ["retryability", "safeErrorCode"],
+        "additionalProperties": false
+      },
+      "AttachmentMetadata": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01996f7a-7bcd-7abc-8def-4123456789ab"
+          },
+          "ordinal": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "filename": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "mediaType": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 255,
+            "pattern": "^[!#$%&'*+.^_`|~0-9A-Za-z-]+\\/[!#$%&'*+.^_`|~0-9A-Za-z-]+(?:\\s*;.*)?$"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "disposition": {
+            "type": "string",
+            "enum": ["attachment", "inline", "unknown"]
+          },
+          "contentId": {
+            "type": ["string", "null"],
+            "maxLength": 998
+          }
+        },
+        "required": ["id", "ordinal", "filename", "mediaType", "size", "disposition", "contentId"],
+        "additionalProperties": false
+      },
+      "SendResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01996f7a-7bcd-7abc-8def-9123456789ab"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9._~-]+$",
+            "example": "01996f7a-7bcd-7abc-8def-b123456789ab"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["queued", "sending", "sent", "failed", "unknown"]
+          },
+          "threadId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01996f7a-7bcd-7abc-8def-2123456789ab"
+          },
+          "messageId": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01996f7a-7bcd-7abc-8def-3123456789ab"
+          },
+          "acceptedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-08-01T05:00:00.000Z"
+          },
+          "completedAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "example": "2026-08-01T05:00:00.000Z"
+          },
+          "safeErrorCode": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "retryability": {
+            "type": "string",
+            "enum": ["not_retryable", "retryable", "manual_confirmation_required"]
+          }
+        },
+        "required": [
+          "id",
+          "idempotencyKey",
+          "state",
+          "threadId",
+          "messageId",
+          "acceptedAt",
+          "completedAt",
+          "safeErrorCode",
+          "retryability"
+        ],
+        "additionalProperties": false
+      },
+      "NewMessageForm": {
+        "type": "object",
+        "properties": {
+          "mailboxId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01996f7a-7bcd-7abc-8def-1123456789ab"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 512
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 512
+                },
+                "minItems": 1,
+                "maxItems": 50
+              }
+            ]
+          },
+          "cc": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 512
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 512
+                },
+                "minItems": 1,
+                "maxItems": 50
+              }
+            ]
+          },
+          "bcc": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 512
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 512
+                },
+                "minItems": 1,
+                "maxItems": 50
+              }
+            ]
+          },
+          "subject": {
+            "type": "string",
+            "maxLength": 998,
+            "example": "Quarterly receipt"
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 1000000
+          },
+          "format": {
+            "type": "string",
+            "enum": ["plain", "markdown"]
+          },
+          "attachments": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "binary"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "binary"
+                },
+                "minItems": 1,
+                "maxItems": 20
+              }
+            ]
+          }
+        },
+        "required": ["mailboxId", "to", "subject", "body", "format"],
+        "additionalProperties": false
+      },
+      "ReplyMessageForm": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 512
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 512
+                },
+                "minItems": 1,
+                "maxItems": 50
+              }
+            ]
+          },
+          "cc": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 512
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 512
+                },
+                "minItems": 1,
+                "maxItems": 50
+              }
+            ]
+          },
+          "bcc": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 512
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 512
+                },
+                "minItems": 1,
+                "maxItems": 50
+              }
+            ]
+          },
+          "subject": {
+            "type": "string",
+            "maxLength": 998,
+            "example": "Quarterly receipt"
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 1000000
+          },
+          "format": {
+            "type": "string",
+            "enum": ["plain", "markdown"]
+          },
+          "attachments": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "binary"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "binary"
+                },
+                "minItems": 1,
+                "maxItems": 20
+              }
+            ]
+          },
+          "targetMessageId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01996f7a-7bcd-7abc-8def-3123456789ab"
+          }
+        },
+        "required": ["to", "subject", "body", "format"],
+        "additionalProperties": false
+      },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [true]
+          },
+          "service": {
+            "type": "string",
+            "enum": ["api"]
+          }
+        },
+        "required": ["ok", "service"],
+        "additionalProperties": false
+      },
+      "CapabilitiesResponse": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "enum": ["v1"]
+          },
+          "publicApiTokens": {
+            "type": "boolean"
+          },
+          "turnstile": {
+            "type": "boolean"
+          },
+          "sanitizedHtml": {
+            "type": "boolean"
+          },
+          "queues": {
+            "type": "boolean"
+          },
+          "ai": {
+            "type": "boolean"
+          }
+        },
+        "required": ["apiVersion", "publicApiTokens", "turnstile", "sanitizedHtml", "queues", "ai"],
+        "additionalProperties": false
+      }
+    },
+    "parameters": {}
+  },
+  "paths": {
+    "/v1/auth/magic-links": {
+      "post": {
+        "operationId": "requestMagicLink",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MagicLinkRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MagicLinkAcceptedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request was not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is too large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request content type is not supported.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The request was rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required service is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/magic-links/verify": {
+      "post": {
+        "operationId": "verifyMagicLink",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MagicLinkVerifyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthenticatedSessionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request was not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is too large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request content type is not supported.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The request was rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required service is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/session": {
+      "get": {
+        "operationId": "getSession",
+        "tags": ["Authentication"],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required service is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "tags": ["Authentication"],
+        "responses": {
+          "204": {
+            "description": "The session was revoked and the cookie was cleared."
+          },
+          "401": {
+            "description": "Authentication is required or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The operation is not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/mailboxes": {
+      "get": {
+        "operationId": "listMailboxes",
+        "tags": ["Mailboxes"],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailboxListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required service is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/mailboxes/{mailboxId}": {
+      "patch": {
+        "operationId": "patchMailbox",
+        "tags": ["Mailboxes"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "example": "01996f7a-7bcd-7abc-8def-1123456789ab"
+            },
+            "required": true,
+            "name": "mailboxId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchMailboxRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailboxSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request was not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The operation is not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was absent or unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with existing state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is too large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request content type is not supported.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The request was rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The upstream mail provider failed or returned an unknown result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required service is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/threads": {
+      "get": {
+        "operationId": "listThreads",
+        "tags": ["Threads"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "example": "01996f7a-7bcd-7abc-8def-1123456789ab"
+            },
+            "required": true,
+            "name": "mailboxId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/ThreadFolder"
+            },
+            "required": false,
+            "name": "folder",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["0", "1"]
+            },
+            "required": false,
+            "name": "unread",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": false,
+            "name": "q",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 512,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "example": "eyJ2IjoxLCJ0IjoxNzY3MjI1NjAwMDAwfQ"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(?:[1-9]|[1-4][0-9]|50)$"
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request was not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was absent or unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/threads/{threadId}": {
+      "get": {
+        "operationId": "getThread",
+        "tags": ["Threads"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "example": "01996f7a-7bcd-7abc-8def-2123456789ab"
+            },
+            "required": true,
+            "name": "threadId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadDetailResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was absent or unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/threads/{threadId}/read": {
+      "post": {
+        "operationId": "markThreadRead",
+        "tags": ["Threads"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "example": "01996f7a-7bcd-7abc-8def-2123456789ab"
+            },
+            "required": true,
+            "name": "threadId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "All inbound messages in the thread are marked read."
+          },
+          "401": {
+            "description": "Authentication is required or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The operation is not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was absent or unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/threads/{threadId}/archive": {
+      "post": {
+        "operationId": "archiveThread",
+        "tags": ["Threads"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "example": "01996f7a-7bcd-7abc-8def-2123456789ab"
+            },
+            "required": true,
+            "name": "threadId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The thread is archived without changing workflow state."
+          },
+          "401": {
+            "description": "Authentication is required or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The operation is not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was absent or unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "unarchiveThread",
+        "tags": ["Threads"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "example": "01996f7a-7bcd-7abc-8def-2123456789ab"
+            },
+            "required": true,
+            "name": "threadId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The thread is unarchived with its workflow state retained."
+          },
+          "401": {
+            "description": "Authentication is required or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The operation is not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was absent or unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/messages": {
+      "post": {
+        "operationId": "sendNewMessage",
+        "tags": ["Messages"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._~-]+$",
+              "example": "01996f7a-7bcd-7abc-8def-b123456789ab"
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/NewMessageForm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendResponse"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request was not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The operation is not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was absent or unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with existing state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is too large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request content type is not supported.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The request was rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The upstream mail provider failed or returned an unknown result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required service is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/threads/{threadId}/messages": {
+      "post": {
+        "operationId": "replyToThread",
+        "tags": ["Messages"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "example": "01996f7a-7bcd-7abc-8def-2123456789ab"
+            },
+            "required": true,
+            "name": "threadId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._~-]+$",
+              "example": "01996f7a-7bcd-7abc-8def-b123456789ab"
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplyMessageForm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendResponse"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request was not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The operation is not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was absent or unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with existing state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is too large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request content type is not supported.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The request was rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The upstream mail provider failed or returned an unknown result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required service is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/messages/{messageId}/raw": {
+      "get": {
+        "operationId": "downloadRawMessage",
+        "tags": ["Messages"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "example": "01996f7a-7bcd-7abc-8def-3123456789ab"
+            },
+            "required": true,
+            "name": "messageId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The immutable raw RFC 822 message.",
+            "content": {
+              "message/rfc822": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was absent or unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/messages/{messageId}/attachments/{attachmentId}": {
+      "get": {
+        "operationId": "downloadAttachment",
+        "tags": ["Messages"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "example": "01996f7a-7bcd-7abc-8def-3123456789ab"
+            },
+            "required": true,
+            "name": "messageId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "example": "01996f7a-7bcd-7abc-8def-4123456789ab"
+            },
+            "required": true,
+            "name": "attachmentId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "An authorized projection extracted from the raw message.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was absent or unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health",
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/capabilities": {
+      "get": {
+        "operationId": "getCapabilities",
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilitiesResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/openapi.json": {
+      "get": {
+        "operationId": "getOpenApiDocument",
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "openapi": {
+                      "type": "string"
+                    },
+                    "info": {
+                      "type": "object",
+                      "properties": {
+                        "title": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["title", "version"],
+                      "additionalProperties": {}
+                    },
+                    "paths": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": ["openapi", "info", "paths"],
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {}
+}

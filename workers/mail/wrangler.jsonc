@@ -1,0 +1,114 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "cloudflare-inbox-replacement-local-mail",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-08-01",
+  "workers_dev": false,
+  "triggers": {
+    "crons": ["17 3 * * *"],
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cloudflare-inbox-replacement-local-db",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "../../packages/db/migrations",
+    },
+  ],
+  "r2_buckets": [
+    {
+      "binding": "RAW_EMAILS",
+      "bucket_name": "cloudflare-inbox-replacement-local-raw",
+    },
+  ],
+  "send_email": [
+    {
+      "name": "EMAIL",
+    },
+  ],
+  "vars": {
+    "APP_ORIGIN": "http://localhost:3000",
+    "MAIL_DOMAIN": "example.test",
+    "OWNER_EMAIL": "owner@example.test",
+    "ENVIRONMENT": "local",
+    "RAW_EMAIL_RETENTION_DAYS": "365",
+    "APPLICATION_RECORD_RETENTION_DAYS": "365",
+    "RETENTION_BATCH_SIZE": "100",
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": false,
+    },
+    "traces": {
+      "enabled": false,
+    },
+  },
+  "env": {
+    "staging": {
+      "name": "cloudflare-inbox-replacement-staging-mail",
+      "workers_dev": false,
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "cloudflare-inbox-replacement-staging-db",
+          "database_id": "00000000-0000-0000-0000-000000000000",
+          "migrations_dir": "../../packages/db/migrations",
+        },
+      ],
+      "r2_buckets": [
+        {
+          "binding": "RAW_EMAILS",
+          "bucket_name": "cloudflare-inbox-replacement-staging-raw",
+        },
+      ],
+      "send_email": [
+        {
+          "name": "EMAIL",
+        },
+      ],
+      "vars": {
+        "APP_ORIGIN": "https://inbox-staging.example.test",
+        "MAIL_DOMAIN": "mail-staging.example.test",
+        "OWNER_EMAIL": "owner@example.test",
+        "ENVIRONMENT": "staging",
+        "RAW_EMAIL_RETENTION_DAYS": "365",
+        "APPLICATION_RECORD_RETENTION_DAYS": "365",
+        "RETENTION_BATCH_SIZE": "100",
+      },
+    },
+    "production": {
+      "name": "cloudflare-inbox-replacement-production-mail",
+      "workers_dev": false,
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "cloudflare-inbox-replacement-production-db",
+          "database_id": "00000000-0000-0000-0000-000000000000",
+          "migrations_dir": "../../packages/db/migrations",
+        },
+      ],
+      "r2_buckets": [
+        {
+          "binding": "RAW_EMAILS",
+          "bucket_name": "cloudflare-inbox-replacement-production-raw",
+        },
+      ],
+      "send_email": [
+        {
+          "name": "EMAIL",
+        },
+      ],
+      "vars": {
+        "APP_ORIGIN": "https://inbox.example.test",
+        "MAIL_DOMAIN": "mail.example.test",
+        "OWNER_EMAIL": "owner@example.test",
+        "ENVIRONMENT": "production",
+        "RAW_EMAIL_RETENTION_DAYS": "365",
+        "APPLICATION_RECORD_RETENTION_DAYS": "365",
+        "RETENTION_BATCH_SIZE": "100",
+      },
+    },
+  },
+}

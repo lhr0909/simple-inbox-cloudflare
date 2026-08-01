@@ -1,0 +1,12 @@
+From: Inbox Owner <owner@example.test>
+To: reply+abcdefghijklmnopqrstuvwxyz234567@example.test
+Cc: Mallory <mallory@outside.example.test>
+Subject: Re: Synthetic support request
+Date: Fri, 01 Aug 2026 04:05:00 +0000
+Message-ID: <synthetic-owner-reply-1@example.test>
+In-Reply-To: <synthetic-inbound-1@sender.example.test>
+References: <synthetic-root@sender.example.test> <synthetic-inbound-1@sender.example.test>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+This is a synthetic owner reply.
