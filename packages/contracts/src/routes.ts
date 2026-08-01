@@ -33,6 +33,7 @@ import {
   SendRequestHeadersSchema,
   SendResponseSchema,
 } from './send'
+import { CompleteSetupRequestSchema, SetupStatusResponseSchema } from './setup'
 import { ThreadDetailResponseSchema, ThreadListResponseSchema } from './threads'
 import { ThreadListQuerySchema } from './queries'
 
@@ -94,6 +95,42 @@ const IdempotencyPathSchema = z.object({
 })
 
 const BinaryBodySchema = z.string().openapi({ format: 'binary' })
+
+export const getSetupStatusRoute = createRoute({
+  method: 'get',
+  path: '/v1/setup',
+  operationId: 'getSetupStatus',
+  tags: ['Setup'],
+  responses: {
+    200: json(SetupStatusResponseSchema),
+    500: standardErrors[500],
+    503: standardErrors[503],
+  },
+})
+
+export const completeSetupRoute = createRoute({
+  method: 'post',
+  path: '/v1/setup',
+  operationId: 'completeSetup',
+  tags: ['Setup'],
+  request: {
+    body: {
+      required: true,
+      content: { 'application/json': { schema: CompleteSetupRequestSchema } },
+    },
+  },
+  responses: {
+    200: json(SetupStatusResponseSchema),
+    201: json(SetupStatusResponseSchema),
+    400: standardErrors[400],
+    403: standardErrors[403],
+    409: standardErrors[409],
+    413: standardErrors[413],
+    415: standardErrors[415],
+    429: standardErrors[429],
+    503: standardErrors[503],
+  },
+})
 
 export const requestMagicLinkRoute = createRoute({
   method: 'post',
@@ -441,6 +478,8 @@ export const internalHealthRoute = createRoute({
 })
 
 export const PUBLIC_API_ROUTES = [
+  getSetupStatusRoute,
+  completeSetupRoute,
   requestMagicLinkRoute,
   verifyMagicLinkRoute,
   getSessionRoute,

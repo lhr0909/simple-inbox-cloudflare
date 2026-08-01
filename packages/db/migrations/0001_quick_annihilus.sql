@@ -1,0 +1,20 @@
+CREATE TABLE `installations` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`setup_version` integer NOT NULL,
+	`app_origin` text NOT NULL,
+	`mail_domain` text NOT NULL,
+	`owner_user_id` text NOT NULL,
+	`primary_mailbox_id` text NOT NULL,
+	`raw_email_retention_days` integer NOT NULL,
+	`application_record_retention_days` integer NOT NULL,
+	`retention_batch_size` integer NOT NULL,
+	`completed_at` integer NOT NULL,
+	FOREIGN KEY (`owner_user_id`) REFERENCES `users`(`id`) ON UPDATE cascade ON DELETE restrict,
+	FOREIGN KEY (`primary_mailbox_id`) REFERENCES `mailboxes`(`id`) ON UPDATE cascade ON DELETE restrict,
+	CONSTRAINT "installations_app_origin_check" CHECK(length("installations"."app_origin") BETWEEN 8 AND 2048 AND "installations"."app_origin" = trim("installations"."app_origin")),
+	CONSTRAINT "installations_mail_domain_check" CHECK(length("installations"."mail_domain") BETWEEN 1 AND 253 AND "installations"."mail_domain" = lower(trim("installations"."mail_domain"))),
+	CONSTRAINT "installations_retention_check" CHECK("installations"."raw_email_retention_days" BETWEEN 1 AND 3650 AND "installations"."application_record_retention_days" BETWEEN "installations"."raw_email_retention_days" AND 3650 AND "installations"."retention_batch_size" BETWEEN 1 AND 100),
+	CONSTRAINT "installations_singleton_check" CHECK("installations"."id" = 1),
+	CONSTRAINT "installations_completed_at_check" CHECK("installations"."completed_at" >= 0),
+	CONSTRAINT "installations_setup_version_check" CHECK("installations"."setup_version" = 1)
+);

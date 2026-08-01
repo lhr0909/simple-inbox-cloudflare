@@ -13,6 +13,7 @@ import type { AttachmentId, IdempotencyKey, MailboxId, MessageId, ThreadId } fro
 import type { MailboxListResponse, MailboxSettings, PatchMailboxRequest } from './mailboxes'
 import type { ThreadListQuery } from './queries'
 import type { NewMessageForm, ReplyMessageForm, SendResponse } from './send'
+import type { CompleteSetupRequest, SetupStatusResponse } from './setup'
 import type { ThreadDetailResponse, ThreadListResponse } from './threads'
 
 type JsonEndpoint<Input, Output, Status extends number> = {
@@ -58,6 +59,13 @@ type WithStandardErrors<Input, Success> = Success | StandardErrors<Input>
  * decoupled from Worker bindings and Hono context types.
  */
 export type PublicApiSchema = {
+  '/v1/setup': {
+    $get: WithStandardErrors<{}, JsonEndpoint<{}, SetupStatusResponse, 200>>
+    $post: WithStandardErrors<
+      { json: CompleteSetupRequest },
+      JsonEndpoint<{ json: CompleteSetupRequest }, SetupStatusResponse, 200 | 201>
+    >
+  }
   '/v1/auth/magic-links': {
     $post: WithStandardErrors<
       { json: MagicLinkRequest },

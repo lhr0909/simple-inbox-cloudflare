@@ -1,16 +1,21 @@
 /// <reference types="@cloudflare/workers-types" />
 /// <reference types="node" />
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { DatabaseSync, type SQLInputValue, type StatementSync } from 'node:sqlite'
 
-const migrationUrl = new URL('../../migrations/0000_initial.sql', import.meta.url)
+const migrationsUrl = new URL('../../migrations/', import.meta.url)
 
 export class TestD1Database {
   readonly sqlite = new DatabaseSync(':memory:')
 
   constructor() {
-    this.sqlite.exec(readFileSync(migrationUrl, 'utf8'))
+    this.sqlite.exec('PRAGMA foreign_keys = ON')
+    for (const migration of readdirSync(migrationsUrl)
+      .filter((file) => file.endsWith('.sql'))
+      .sort()) {
+      this.sqlite.exec(readFileSync(new URL(migration, migrationsUrl), 'utf8'))
+    }
   }
 
   asD1(): D1Database {
