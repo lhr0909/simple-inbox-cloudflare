@@ -7,15 +7,9 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "dev": "vp dev --port 8788",
-    "build": "vp build",
-    "preview": "vp build && vp preview",
-    "deploy": "node ../../tooling/scripts/deploy-worker.mjs api",
-    "cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "generate-openapi": "tsx scripts/generate-openapi.ts",
     "check": "vp check",
-    "test": "vp test",
-    "test:worker": "vitest run --config vitest.worker.config.ts"
+    "test": "vp test"
   },
   "dependencies": {
     "@cloudflare-inbox/contracts": "workspace:*",
@@ -27,13 +21,10 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "catalog:",
-    "@cloudflare/vitest-pool-workers": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:",
-    "vitest": "catalog:",
-    "wrangler": "catalog:"
+    "vitest": "catalog:"
   }
 }

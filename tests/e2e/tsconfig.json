@@ -8,5 +8,5 @@
     },
     "types": ["node"]
   },
-  "include": ["**/*.ts", "../harness/src/**/*.ts", "../../workers/api/worker-configuration.d.ts"]
+  "include": ["**/*.ts", "../harness/src/**/*.ts", "../../apps/web/worker-configuration.d.ts"]
 }

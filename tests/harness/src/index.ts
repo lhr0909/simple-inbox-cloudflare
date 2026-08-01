@@ -3,7 +3,7 @@ import { access, readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { InstallationRepository } from '@cloudflare-inbox/db'
+import { InstallationRepository, MailboxScopedRepository } from '@cloudflare-inbox/db'
 import { seedSyntheticInbox } from '@cloudflare-inbox/db/testing'
 import {
   createTestHarness,
@@ -119,9 +119,11 @@ export async function migrateAndSeedHarness(harness: InboxTestHarness): Promise<
     now,
     users: [{ email: TEST_ADDRESSES.secondUser, id: TEST_IDS.secondUser }],
   })
-  await DB.prepare('UPDATE mailboxes SET sender_alias = ? WHERE id = ?')
-    .bind('Integration Inbox', TEST_IDS.mailbox)
-    .run()
+  await new MailboxScopedRepository(DB, { userId: TEST_IDS.user }).updateMailboxSettings(
+    TEST_IDS.mailbox,
+    { senderAlias: 'Integration Inbox' },
+    now,
+  )
 }
 
 export async function injectSyntheticInbound(

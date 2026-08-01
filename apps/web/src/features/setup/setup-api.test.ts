@@ -11,7 +11,8 @@ describe('setup client', () => {
       expect(init?.credentials).toBe('same-origin')
       expect(init?.method).toBe('POST')
       expect(new Headers(init?.headers).get('content-type')).toBe('application/json')
-      expect(JSON.parse(String(init?.body))).toMatchObject({
+      if (typeof init?.body !== 'string') throw new TypeError('Expected a JSON request body.')
+      expect(JSON.parse(init.body)).toMatchObject({
         setupToken: 'setup-token-0000000000000000000000000000',
       })
       return Response.json({ status: 'complete' }, { status: 201 })
