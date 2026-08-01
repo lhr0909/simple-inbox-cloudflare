@@ -172,7 +172,7 @@ export function SetupWizard() {
         <div className="grid items-start gap-8 md:grid-cols-[15rem_minmax(0,1fr)] lg:gap-12">
           <StepRail step={step} />
           <section className="overflow-hidden rounded-2xl border bg-background shadow-sm">
-            <form onSubmit={(event) => void submit(event)}>
+            <form action="/setup" method="post" onSubmit={(event) => void submit(event)}>
               <div className="border-b px-6 py-6 sm:px-8 sm:py-7">
                 <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                   Step {step + 1} of {STEPS.length}
@@ -294,7 +294,6 @@ function InstallationStep({
           autoComplete="off"
           autoFocus
           id="setup-token"
-          name="setup-token"
           onChange={(event) => setSetupToken(event.currentTarget.value)}
           placeholder="Paste the secret entered during deployment"
           required

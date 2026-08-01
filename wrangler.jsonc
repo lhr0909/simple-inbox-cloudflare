@@ -26,7 +26,7 @@
   "ratelimits": [
     {
       "name": "AUTH_RATE_LIMIT",
-      "namespace_id": "1001",
+      "namespace_id": "2274074914",
       "simple": {
         "limit": 5,
         "period": 60,
