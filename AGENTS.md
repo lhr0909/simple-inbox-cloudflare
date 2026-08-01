@@ -13,7 +13,7 @@ Use the pinned Node, pnpm, and Vite+ versions. Keep dependency versions exact, c
 
 Do not provision, deploy, modify DNS/custom-domain routes, change Email Routing, run a live-mail
 smoke test, or cut over production unless the user explicitly authorizes that specific external
-action. Local builds, the isolated multi-Worker harness, and Playwright against that harness are the
+action. Local builds, the isolated single-Worker harness, and Playwright against that harness are the
 default verification path.
 
 All future remote resources must use the replacement names documented in `docs/operations.md`.

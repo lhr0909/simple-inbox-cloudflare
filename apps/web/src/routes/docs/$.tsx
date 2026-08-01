@@ -38,10 +38,7 @@ export const Route = createFileRoute('/docs/$')({
     const title = page?.data.title ?? 'Documentation'
     const description = page?.data.description ?? 'Simple Inbox documentation.'
     return {
-      meta: [
-        { title: `${title} | Simple Inbox` },
-        { name: 'description', content: description },
-      ],
+      meta: [{ title: `${title} | Simple Inbox` }, { name: 'description', content: description }],
     }
   },
   loader: async ({ params }) => {

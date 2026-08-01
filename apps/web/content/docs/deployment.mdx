@@ -1,144 +1,158 @@
 ---
 title: Deployment
-description: Provision isolated Cloudflare environments and deploy mail, API, and web Workers safely.
+description: Deploy one Worker, complete first-run setup, and activate Cloudflare mail services safely.
 ---
 
-Deploy staging before production. Each environment needs its own Workers, D1 database, R2 bucket,
-secrets, and Email Routing target. Replacement Workers remain on isolated `workers.dev` hostnames
-before cutover; custom-domain routes and Email Routing changes are separate manual actions. Never
-point staging at production mail storage.
+Simple Inbox deploys as `simple-inbox-cf`. The root `wrangler.jsonc` declares its D1 database
+`simple-inbox-cf-db`, private R2 bucket `simple-inbox-cf-raw`, Email Sending and rate-limit bindings,
+and daily retention cron. Wrangler provisions D1/R2 when needed; you do not copy resource IDs into
+the repository.
+
+Deployment never changes DNS, custom domains, or Email Routing, and never reads or mutates a legacy
+Inbox installation.
 
 ## Prerequisites
 
-- Node.js 24 and pnpm 11, as pinned by the repository.
-- A Cloudflare account with Workers, D1, R2, Email Routing, Email Sending, and Service Bindings
-  available for the target zone.
-- A verified owner address for operational email.
-- Wrangler authenticated to the intended Cloudflare account.
-- A clean checkout with the lockfile and generated artifacts in sync.
+- A Cloudflare account with Workers, D1, R2, Email Routing, and Email Sending.
+- Wrangler authenticated to the intended account.
+- The repository's pinned Node, pnpm, and Vite+ versions.
+- Two different secret values of at least 32 random bytes.
+- An owner-controlled mail domain/subdomain and allowlisted test destination.
+- An approved raw/application retention policy.
 
-Provider availability is an external prerequisite. Before cutover, prove arbitrary-recipient Email
-Sending and the combined `fetch`/`email()` mail Worker in staging with synthetic messages only.
+## Verify locally
 
-## Environment resources
-
-Provision a separate set for `staging` and `production`:
-
-| Resource                     | Binding or purpose                                 |
-| ---------------------------- | -------------------------------------------------- |
-| Web Worker                   | Public UI, docs, and same-origin API bridge        |
-| API Worker                   | Browser API and authorization                      |
-| Mail Worker                  | Inbound Email Routing and private send commands    |
-| Service Binding `API`        | Web Worker to API Worker                           |
-| Service Binding `MAIL`       | API Worker to mail Worker                          |
-| D1 binding `DB`              | Queryable mailbox state and authentication records |
-| R2 binding `RAW_EMAILS`      | Canonical raw messages                             |
-| Email binding `EMAIL`        | Magic-link, forwarding, and outbound delivery      |
-| Rate limit `AUTH_RATE_LIMIT` | Magic-link request and verification protection     |
-
-Public configuration includes `APP_ORIGIN`, `ENVIRONMENT`, `MAIL_DOMAIN`, `OWNER_EMAIL`,
-`RAW_EMAIL_RETENTION_DAYS`, `APPLICATION_RECORD_RETENTION_DAYS`, and `RETENTION_BATCH_SIZE`. Set
-real resource IDs and names in environment-specific Wrangler configuration. Store
-`AUTH_TOKEN_PEPPER` as a Worker secret; use at least 32 random bytes and never commit or print it.
-
-Keep structured application logs enabled but provider invocation logs and automatic traces
-disabled: generated Fetch metadata can contain full URLs (including magic-link tokens and search
-terms), and Email invocation metadata includes recipients. Configure a private R2 lifecycle rule
-manually to expire raw objects a short grace, such as two days, after the approved raw-retention
-window. The application cron should delete first; the lifecycle is only an orphan backstop if
-execution stops between the R2 write and D1 projection.
-
-All examples in this documentation use `example.test`. Replace them only in private environment
-configuration, not in source examples or fixtures.
-
-## Deploy sequence
-
-From the repository root:
-
-```bash
+```sh
 vp install --frozen-lockfile
+vp run check:generated
 vp run check
+vp run test:boundaries
 vp test
 vp run build
-vp run db:migrate -- --env staging --dry-run
-vp run db:migrate -- --env staging --confirm-migrate
-vp run deploy -- --env staging --dry-run
-vp run deploy -- --env staging --confirm-replacement-deploy
+vp run test:integration
+vp exec playwright install chromium
+vp run test:e2e
+vp exec wrangler whoami
 ```
 
-The aggregate deployment enforces this order:
+The test harness uses local D1/R2 and simulated Email Sending. It sends no real mail.
 
-1. Verify source, generated state, local harnesses, and Cloudflare authentication.
-2. Build mail, API, and web directly with `CLOUDFLARE_ENV=staging`, then validate every flattened
-   Vite output and deployment redirect before mutation.
-3. Apply checked-in D1 migrations once and bootstrap the exact deterministic owner/mailbox records.
-4. Deploy the mail Worker.
-5. Deploy the API Worker and verify its private mail binding.
-6. Deploy the web Worker.
-7. Verify version identifiers and health endpoints.
-8. Run non-destructive smoke tests.
+## Deploy manually
 
-The Cloudflare Vite plugin selects the Wrangler environment during `vite build`; passing `--env` to
-`wrangler deploy` does not select it. The guarded scripts therefore set `CLOUDFLARE_ENV` only on a
-fresh direct package build, verify the exact generated name/vars/bindings and
-`.wrangler/deploy/config.json`, and then run plain `wrangler deploy` from that package. D1 migration
-is the exception and intentionally uses the source config with `--env` and `--remote`. Vite+ script
-caching is disabled for state-changing tasks.
+For the first manual deployment, after confirming Wrangler's account, run:
 
-There is no GitHub deployment workflow. Production is a guarded manual operator action and requires
-both explicit confirmations:
-
-```bash
-vp run deploy -- \
-  --env production \
-  --confirm-production \
-  --confirm-replacement-deploy
+```sh
+vp run deploy:first
 ```
 
-## Retention and export
+This command is immediately remote and state-changing. It builds and deploys the fail-closed Worker
+so Wrangler can provision D1/R2, then applies the checked-in migrations. Once migration completes,
+the app is ready for `/setup` without another upload.
 
-The committed `365`-day raw-email and application-record values are deliberate pre-launch
-placeholders, not an approved policy. Choose and document both before provisioning. Each must be
-from 1 through 3,650 days, raw retention cannot exceed application-record retention, and the batch
-size must be from 1 through 100.
+For later upgrades, run:
 
-The daily mail-Worker job deletes the private R2 raw object first, treats an already-missing object
-as success, then transactionally removes the D1 message children and repairs or deletes the thread.
-Durable content-free tombstones retain safe retry state and failure codes. A later cron run retries
-expired claims; the job never retries or sends mail.
+```sh
+vp run deploy
+```
 
-Code or Worker-version rollback cannot restore retained data after deletion. Before shortening a
-window, export required raw messages and attachments through the per-message owner-authorized
-endpoints to encrypted storage, test D1 backup restoration in staging, and record content-free
-counts/digests. There is no bulk export command yet. The application performs no AI inference and
-sends no mailbox data to AI services.
+The upgrade command:
 
-## Email Routing cutover
+1. builds the TanStack Start Worker;
+2. applies checked-in D1 migrations remotely;
+3. deploys the generated `apps/web/dist/server/wrangler.json`.
 
-Deploying a Worker does not move inbound mail by itself. After the new mail Worker passes staging
-checks, update the zone's catch-all Email Routing target in a controlled change window. Send a
-synthetic message from an external domain and verify capture, D1 projection, optional forwarding,
-reply alias handling, and attachment download before declaring cutover complete.
+Deploy to Cloudflare provisions resources before invoking the regular `deploy` script, so its
+one-click flow also follows the migration-before-upload sequence. There is no separate provision,
+bootstrap, dry-run, or multi-Worker deploy script. Do not deploy a stale generated config or
+generate migrations during deployment.
 
-Avoid dual writers. Two mail Workers receiving the same catch-all route can produce duplicates even
-when each Worker is internally idempotent.
+## Configure secrets
 
-## Smoke checklist
+The Deploy to Cloudflare flow prompts for both values. For a manual deployment, add them through the
+Worker's Cloudflare Dashboard settings or Wrangler's interactive prompts:
 
-- `GET /api/v1/health` returns the API service health document.
-- The public `/docs` page and `/api/search` index load without authentication.
-- An unknown magic-link address receives the same `202` representation as a known address.
-- A known synthetic owner can request and consume one magic link, then cannot reuse it.
-- Mailbox listing, search, read/archive mutations, sign-out, and a re-login work in the browser.
-- A synthetic inbound message and attachment can be downloaded only by an authorized caller.
-- A synthetic outbound send is idempotent when the same request is repeated.
-- Logs contain request IDs and safe state, not message bodies, addresses, tokens, or object keys.
+```sh
+vp exec wrangler secret put AUTH_TOKEN_PEPPER --config wrangler.jsonc
+vp exec wrangler secret put SETUP_TOKEN --config wrangler.jsonc
+```
 
-## Rollback
+`AUTH_TOKEN_PEPPER` protects magic-link, session, and API-token digests. Rotating it invalidates
+those outstanding credentials. `SETUP_TOKEN` authorizes installation setup and must be independently
+generated. Never pass either plaintext value in command arguments or store it in the repository.
 
-Preserve every Worker version ID emitted during deployment. Roll back in reverse order: web, API,
-then mail. Restore the previous Email Routing target separately if cutover changed it.
+## Choose the origin and finish setup
 
-Rollback restores code and routing; it does not merge messages captured into another environment's
-storage during the replacement window. Record the cutover times and reconcile those messages with an
-explicit, reviewed recovery procedure.
+Setup stores the origin from its verified same-origin HTTPS request. Before opening `/setup`, either
+keep the generated `workers.dev` origin or manually attach the intended custom domain. Do not finish
+setup on one origin and silently move to another later.
+
+At `/setup`, enter the setup token and installation values. Synthetic examples are:
+
+- owner: `owner@example.test`
+- mail domain: `mail.example.test`
+- inbox: `inbox@mail.example.test`
+- raw retention: 30 days
+- application-record retention: 90 days
+- batch size: 100
+
+Raw retention must be 1–3,650 days, application retention must be at least as long and no more than
+3,650 days, and the batch must be 1–100.
+
+One D1 transaction creates the owner, primary mailbox, sole owner membership, canonical app origin,
+mail domain, and retention settings. Exact replay is idempotent; conflicting or partial state fails
+closed. The setup token is never stored, returned, or logged.
+
+Before setup completes, inbound mail is rejected, the scheduled job is idle, and protected API
+routes return unavailable.
+
+## Dashboard-only mail and lifecycle setup
+
+These owner actions are not part of deployment:
+
+1. Onboard the Email Sending domain and verify SPF/DKIM.
+2. Verify only owner-controlled test destinations; keep arbitrary sending disabled until reviewed.
+3. Confirm the Worker's `EMAIL` binding can deliver a magic link and synthetic outbound mail.
+4. Keep `simple-inbox-cf-raw` private with no `r2.dev` URL/custom domain.
+5. Add an R2 lifecycle rule at approved raw retention plus a short grace, such as two days.
+6. Only after setup and outbound validation, add a test-domain Email Routing rule/catch-all targeting
+   `simple-inbox-cf`'s `email()` handler.
+7. Do not modify an existing legacy mail rule as part of this process.
+
+## Acceptance
+
+Check public pages and metadata, then perform owner-only live validation with uniquely identifiable
+synthetic content:
+
+- request, consume, and attempt to reuse a magic link;
+- capture one inbound message in D1 and private R2;
+- verify forwarding and a reply round trip;
+- round-trip a small non-sensitive attachment and authorize its download;
+- confirm repeated outbound idempotency keys do not duplicate delivery;
+- confirm public `/internal/*` probes return 404;
+- correlate safe request IDs without recording addresses, bodies, tokens, or R2 keys;
+- confirm no legacy resource or route changed.
+
+There is no automated live-smoke command. Real mail and route changes require the owner's explicit
+approval.
+
+## Future Deploy to Cloudflare button
+
+Once the source repository is public:
+
+[Deploy Simple Inbox to Cloudflare](https://deploy.workers.cloudflare.com/?url=https://github.com/lhr0909/simple-inbox-cloudflare)
+
+Cloudflare can clone the repository, prompt for described secrets, run the custom deploy command,
+and provision supported resources. Private repositories do not work for other deploy-button users,
+so this link is future guidance until the repository is public. See Cloudflare's
+[deploy-button documentation](https://developers.cloudflare.com/workers/platform/deploy-buttons/).
+
+## Upgrades and rollback
+
+For upgrades, back up D1 when the migration warrants it, run the full local suite, and run
+`vp run deploy`. Pending migrations are applied before the new code is uploaded; setup and secrets
+are not recreated.
+
+Preserve the Worker version and change record. A Worker rollback restores code only: it does not
+undo D1 migrations or restore deleted D1/R2 data. Custom-domain and Email Routing rollback are
+manual. Keep replacement storage intact for investigation, and never expect captured mail to merge
+automatically into another store.

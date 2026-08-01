@@ -1,8 +1,9 @@
 # Contributing
 
-Thanks for helping build Cloudflare Inbox. This repository is an independent clean-room,
-multi-Worker implementation. Product work belongs in `apps/`, `workers/`, or `packages/`; no
-legacy application source or deployment configuration is retained here.
+Thanks for helping build Simple Inbox. This repository is an independent clean-room
+implementation. Product work belongs in `apps/`, `workers/`, or `packages/`; no legacy application
+source or deployment configuration is retained here. The web, API, and mail packages are composed
+into one deployable Cloudflare Worker.
 
 ## Prerequisites
 
@@ -22,11 +23,12 @@ must use the root pnpm catalog, and internal dependencies must use `workspace:*`
 ## Local workflow
 
 ```sh
-vp run dev                 # start package dev tasks in parallel
+vp run dev                 # migrate a local D1 database and start the Worker app
 vp run check               # format, lint, type-check, and architecture boundaries
 vp test                    # fast unit tests
-vp run test:worker         # Workers runtime tests
-vp run build               # production builds in dependency order
+vp run test:integration    # isolated single-Worker runtime tests
+vp run build               # build the deployable Worker
+vp run test:e2e            # Playwright against the isolated local harness
 ```
 
 Run `vp config --hooks-dir .vite-hooks --no-agent` once if you want Vite+'s pre-commit integration.
@@ -37,7 +39,7 @@ Package-specific commands can be targeted without changing directories:
 ```sh
 vp run @cloudflare-inbox/web#dev
 vp run @cloudflare-inbox/api#test
-vp run @cloudflare-inbox/mail#cf-typegen
+vp run @cloudflare-inbox/mail#test
 ```
 
 Keep `.dev.vars` local. Copy only documented example keys and use synthetic email data in fixtures.
@@ -47,11 +49,12 @@ for private accounts in commits, issues, snapshots, or logs.
 ## Architecture rules
 
 - Import another workspace only through an export declared by that package.
-- Keep web code independent of D1, R2, and mail-core.
+- Keep browser-facing web code independent of D1, R2, and mail-core; access bindings only from the
+  server entry and its private composition adapter.
 - Keep contracts and mail-core independent of React, concrete Cloudflare bindings, and request
   context objects.
 - Put SQL and D1 access in `packages/db`; route handlers call repositories.
-- Put direct `MAIL.fetch()` calls behind the API mail client.
+- Keep private API-to-mail dispatch behind the API mail client and the single server-only adapter.
 - Read Worker configuration from typed `env` bindings, never `process.env`.
 - Use the structured logger and do not log message content or credentials.
 
@@ -79,9 +82,10 @@ Keep commits and pull requests focused on one concern. Include:
 - binding, migration, privacy, and rollback impact when applicable;
 - an ADR update when intentionally changing a recorded decision.
 
-Use synthetic data in all examples. Do not deploy a contributor branch to production. This
-repository has no automatic deployment workflow: maintainers run the guarded replacement-only
-operator scripts manually after CI, with both explicit confirmations required for production.
+Use synthetic data in all examples. Do not deploy a contributor branch to production. Maintainers
+can validate locally, then deploy deliberately with the root Wrangler configuration; public users
+will use the repository's Deploy to Cloudflare button. Email Routing, domains, and cutover remain
+manual owner actions.
 
 ## License status
 

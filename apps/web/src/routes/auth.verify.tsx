@@ -60,10 +60,7 @@ export const Route = createFileRoute('/auth/verify')({
   },
   component: VerifyMagicLinkPage,
   head: () => ({
-    meta: [
-      { title: 'Sign-in link · Simple Inbox' },
-      { name: 'referrer', content: 'no-referrer' },
-    ],
+    meta: [{ title: 'Sign-in link · Simple Inbox' }, { name: 'referrer', content: 'no-referrer' }],
   }),
 })
 

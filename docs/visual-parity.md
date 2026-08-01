@@ -37,7 +37,7 @@ deterministic `example.test` fixture from `tests/fixtures/messages`.
 ## Verification record
 
 `tests/e2e/inbox.e2e.ts` exercises the structural and interaction checklist at all three viewports
-against the isolated multi-Worker harness. When `CLOUDFLARE_INBOX_SCREENSHOT_DIR` is set, it writes
+against the isolated single-Worker harness. When `SIMPLE_INBOX_SCREENSHOT_DIR` is set, it writes
 sanitized desktop and mobile implementation captures outside the repository for manual comparison.
 The tests also reject horizontal overflow and unexpected browser console/page errors.
 
