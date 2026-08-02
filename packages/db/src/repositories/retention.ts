@@ -52,7 +52,7 @@ export interface RetentionClaim extends RetentionTombstoneRecord {
 }
 
 /**
- * Privileged retention repository for scheduled mail-Worker jobs.
+ * Privileged retention repository for scheduled mail jobs.
  *
  * The workflow is deliberately one-way and never calls outbound-send code:
  * `raw_pending` -> R2 delete -> `application_pending` -> D1 cleanup -> `completed`.

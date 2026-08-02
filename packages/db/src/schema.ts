@@ -90,6 +90,50 @@ export const mailboxMembers = sqliteTable(
   }),
 )
 
+/**
+ * A completed installation has exactly one singleton row. Owner and primary
+ * mailbox identity stay normalized in their canonical tables and are joined
+ * by the installation repository when runtime configuration is loaded.
+ */
+export const installations = sqliteTable(
+  'installations',
+  {
+    id: integer('id', { mode: 'number' }).primaryKey().notNull(),
+    setupVersion: integer('setup_version', { mode: 'number' }).notNull(),
+    appOrigin: text('app_origin').notNull(),
+    mailDomain: text('mail_domain').notNull(),
+    ownerUserId: text('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict', onUpdate: 'cascade' }),
+    primaryMailboxId: text('primary_mailbox_id')
+      .notNull()
+      .references(() => mailboxes.id, { onDelete: 'restrict', onUpdate: 'cascade' }),
+    rawEmailRetentionDays: integer('raw_email_retention_days', { mode: 'number' }).notNull(),
+    applicationRecordRetentionDays: integer('application_record_retention_days', {
+      mode: 'number',
+    }).notNull(),
+    retentionBatchSize: integer('retention_batch_size', { mode: 'number' }).notNull(),
+    completedAt: integer('completed_at', { mode: 'number' }).notNull(),
+  },
+  (table) => ({
+    appOrigin: check(
+      'installations_app_origin_check',
+      sql`length(${table.appOrigin}) BETWEEN 8 AND 2048 AND ${table.appOrigin} = trim(${table.appOrigin})`,
+    ),
+    mailDomain: check(
+      'installations_mail_domain_check',
+      sql`length(${table.mailDomain}) BETWEEN 1 AND 253 AND ${table.mailDomain} = lower(trim(${table.mailDomain}))`,
+    ),
+    retention: check(
+      'installations_retention_check',
+      sql`${table.rawEmailRetentionDays} BETWEEN 1 AND 3650 AND ${table.applicationRecordRetentionDays} BETWEEN ${table.rawEmailRetentionDays} AND 3650 AND ${table.retentionBatchSize} BETWEEN 1 AND 100`,
+    ),
+    singleton: check('installations_singleton_check', sql`${table.id} = 1`),
+    timestamp: check('installations_completed_at_check', sql`${table.completedAt} >= 0`),
+    version: check('installations_setup_version_check', sql`${table.setupVersion} = 1`),
+  }),
+)
+
 export const magicLinks = sqliteTable(
   'magic_links',
   {
@@ -724,6 +768,7 @@ export const retentionTombstones = sqliteTable(
 export const schema = {
   apiTokens,
   attachments,
+  installations,
   magicLinks,
   mailboxMembers,
   mailboxes,
@@ -742,6 +787,7 @@ export const schema = {
 
 export type ApiTokenRow = typeof apiTokens.$inferSelect
 export type AttachmentRow = typeof attachments.$inferSelect
+export type InstallationRow = typeof installations.$inferSelect
 export type MagicLinkRow = typeof magicLinks.$inferSelect
 export type MailboxMemberRow = typeof mailboxMembers.$inferSelect
 export type MailboxRow = typeof mailboxes.$inferSelect

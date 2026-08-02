@@ -21,8 +21,8 @@ export const MAGIC_LINK_COOLDOWN_MS = 60 * 1_000
 export const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1_000
 export const SESSION_COOKIE_MAX_AGE_SECONDS = SESSION_LIFETIME_MS / 1_000
 
-const PRODUCTION_SESSION_COOKIE = '__Host-cloudflare-inbox-session'
-const DEVELOPMENT_SESSION_COOKIE = 'cloudflare-inbox-development-session'
+const PRODUCTION_SESSION_COOKIE = '__Host-simple-inbox-session'
+const DEVELOPMENT_SESSION_COOKIE = 'simple-inbox-development-session'
 const ALL_SCOPES: ApiTokenScope[] = ['read', 'send', 'settings']
 
 export type AuthenticationResult =

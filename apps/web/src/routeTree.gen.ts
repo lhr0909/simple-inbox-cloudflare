@@ -11,11 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InboxRouteImport } from './routes/inbox'
+import { Route as SetupRouteImport } from './routes/setup'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as AuthVerifyRouteImport } from './routes/auth.verify'
 import { Route as DocsSplatRouteImport } from './routes/docs/$'
-import { Route as ApiV1SplatRouteImport } from './routes/api/v1/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -25,6 +25,11 @@ const IndexRoute = IndexRouteImport.update({
 const InboxRoute = InboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignInRoute = SignInRouteImport.update({
@@ -47,78 +52,73 @@ const DocsSplatRoute = DocsSplatRouteImport.update({
   path: '/docs/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiV1SplatRoute = ApiV1SplatRouteImport.update({
-  id: '/api/v1/$',
-  path: '/api/v1/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/inbox': typeof InboxRoute
+  '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/api/search': typeof ApiSearchRoute
   '/auth/verify': typeof AuthVerifyRoute
   '/docs/$': typeof DocsSplatRoute
-  '/api/v1/$': typeof ApiV1SplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/inbox': typeof InboxRoute
+  '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/api/search': typeof ApiSearchRoute
   '/auth/verify': typeof AuthVerifyRoute
   '/docs/$': typeof DocsSplatRoute
-  '/api/v1/$': typeof ApiV1SplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/inbox': typeof InboxRoute
+  '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/api/search': typeof ApiSearchRoute
   '/auth/verify': typeof AuthVerifyRoute
   '/docs/$': typeof DocsSplatRoute
-  '/api/v1/$': typeof ApiV1SplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/inbox'
+    | '/setup'
     | '/sign-in'
     | '/api/search'
     | '/auth/verify'
     | '/docs/$'
-    | '/api/v1/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/inbox'
+    | '/setup'
     | '/sign-in'
     | '/api/search'
     | '/auth/verify'
     | '/docs/$'
-    | '/api/v1/$'
   id:
     | '__root__'
     | '/'
     | '/inbox'
+    | '/setup'
     | '/sign-in'
     | '/api/search'
     | '/auth/verify'
     | '/docs/$'
-    | '/api/v1/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   InboxRoute: typeof InboxRoute
+  SetupRoute: typeof SetupRoute
   SignInRoute: typeof SignInRoute
   ApiSearchRoute: typeof ApiSearchRoute
   AuthVerifyRoute: typeof AuthVerifyRoute
   DocsSplatRoute: typeof DocsSplatRoute
-  ApiV1SplatRoute: typeof ApiV1SplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -135,6 +135,13 @@ declare module '@tanstack/react-router' {
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof InboxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sign-in': {
@@ -165,24 +172,17 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocsSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/v1/$': {
-      id: '/api/v1/$'
-      path: '/api/v1/$'
-      fullPath: '/api/v1/$'
-      preLoaderRoute: typeof ApiV1SplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   InboxRoute: InboxRoute,
+  SetupRoute: SetupRoute,
   SignInRoute: SignInRoute,
   ApiSearchRoute: ApiSearchRoute,
   AuthVerifyRoute: AuthVerifyRoute,
   DocsSplatRoute: DocsSplatRoute,
-  ApiV1SplatRoute: ApiV1SplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

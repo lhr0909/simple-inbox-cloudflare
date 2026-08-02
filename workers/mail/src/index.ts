@@ -174,6 +174,7 @@ export async function scheduledRetention(
 
 export const app = createMailApp()
 export type MailApp = typeof app
+export type { MailBindings } from './types'
 
 export default {
   email: receiveEmail,

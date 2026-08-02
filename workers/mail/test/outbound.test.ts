@@ -279,17 +279,20 @@ describe('internal outbound submission', () => {
     )
   })
 
-  it('validates attachment descriptors and the API request/contract metadata field aliases', async () => {
+  it('validates attachment descriptors and accepts only the canonical metadata field', async () => {
     const file = new File(['synthetic attachment'], 'evidence.txt', { type: 'text/plain' })
     const prepared = await newMessage({ attachments: [file] })
-    for (const fieldName of ['request', 'metadata'] as const) {
-      const form = new FormData()
-      form.set(fieldName, JSON.stringify(prepared.request))
-      form.append('attachments', file, file.name)
-      await expect(parseInternalSendRequest(form)).resolves.toMatchObject({
-        attachments: [expect.objectContaining({ name: 'evidence.txt' })],
-      })
-    }
+    const form = new FormData()
+    form.set('metadata', JSON.stringify(prepared.request))
+    form.append('attachments', file, file.name)
+    await expect(parseInternalSendRequest(form)).resolves.toMatchObject({
+      attachments: [expect.objectContaining({ name: 'evidence.txt' })],
+    })
+
+    const retiredAlias = new FormData()
+    retiredAlias.set('request', JSON.stringify(prepared.request))
+    retiredAlias.append('attachments', file, file.name)
+    await expect(parseInternalSendRequest(retiredAlias)).rejects.toBeInstanceOf(MailFault)
 
     const mismatch = new FormData()
     mismatch.set('metadata', JSON.stringify(prepared.request))

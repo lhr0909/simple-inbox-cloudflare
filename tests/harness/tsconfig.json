@@ -7,5 +7,5 @@
     },
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "../../workers/api/worker-configuration.d.ts"]
+  "include": ["src/**/*.ts", "../../apps/web/worker-configuration.d.ts"]
 }

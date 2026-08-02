@@ -105,7 +105,7 @@ describe('scheduled retention service', () => {
     ).toThrow('decimal integer')
   })
 
-  it('wires the scheduled handler on the deployed Worker export', () => {
+  it('wires the scheduled handler on the mail module export', () => {
     expect(worker.scheduled).toBe(scheduledRetention)
   })
 })

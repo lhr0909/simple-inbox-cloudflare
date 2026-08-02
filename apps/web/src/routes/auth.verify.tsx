@@ -3,6 +3,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { OpaqueAuthTokenSchema } from '@cloudflare-inbox/contracts/ids'
 
 import { verifyMagicLinkServer } from '#/features/inbox/inbox-server'
+import { getSetupState } from '#/features/setup/setup-server'
 
 type VerifySearch = Readonly<{
   error?: 'expired' | 'unavailable'
@@ -32,6 +33,9 @@ export const Route = createFileRoute('/auth/verify')({
   validateSearch: parseVerifySearch,
   loaderDeps: ({ search }) => parseVerifySearch(search),
   loader: async ({ deps }) => {
+    if ((await getSetupState()) === 'required') {
+      throw redirect({ to: '/setup', replace: true })
+    }
     if (deps.error === 'expired') return { status: 'invalid' as const }
     if (deps.error === 'unavailable') return { status: 'retryable' as const }
     if (deps.token === undefined) {
@@ -56,10 +60,7 @@ export const Route = createFileRoute('/auth/verify')({
   },
   component: VerifyMagicLinkPage,
   head: () => ({
-    meta: [
-      { title: 'Sign-in link · Cloudflare Inbox' },
-      { name: 'referrer', content: 'no-referrer' },
-    ],
+    meta: [{ title: 'Sign-in link · Simple Inbox' }, { name: 'referrer', content: 'no-referrer' }],
   }),
 })
 

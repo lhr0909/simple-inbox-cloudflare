@@ -30,7 +30,15 @@ const GENERATED_MUTATION_COMMANDS = [
 ]
 
 const ALLOWED_INTERNAL_DEPENDENCIES = new Map([
-  [`${INTERNAL_SCOPE}web`, new Set([`${INTERNAL_SCOPE}contracts`])],
+  [
+    `${INTERNAL_SCOPE}web`,
+    new Set([
+      `${INTERNAL_SCOPE}api`,
+      `${INTERNAL_SCOPE}contracts`,
+      `${INTERNAL_SCOPE}db`,
+      `${INTERNAL_SCOPE}mail`,
+    ]),
+  ],
   [
     `${INTERNAL_SCOPE}api`,
     new Set([`${INTERNAL_SCOPE}contracts`, `${INTERNAL_SCOPE}db`, `${INTERNAL_SCOPE}mail-core`]),
@@ -382,7 +390,7 @@ function inspectSource(root, workspacePackage, packagesByName, file) {
     checks.push({
       code: 'direct-mail-fetch',
       pattern: /\bMAIL\s*\.\s*fetch\s*\(/gu,
-      message: 'Only the API mail client may call the MAIL Service Binding directly',
+      message: 'Only the API mail client may call the private MAIL fetcher directly',
     })
   }
 

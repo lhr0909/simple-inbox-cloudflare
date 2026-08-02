@@ -9,13 +9,15 @@ import {
 } from '@cloudflare-inbox/contracts'
 import { computeIdempotencyRequestDigest, sha256Hex } from '@cloudflare-inbox/mail-core'
 
+import type { InternalFetcher } from '../types'
+
 const MAIL_ORIGIN = 'https://mail.internal'
 const HEALTH_DEADLINE_MS = 5_000
 const MAGIC_LINK_DEADLINE_MS = 10_000
 const SEND_DEADLINE_MS = 30_000
 
 export async function fetchMailHealth(
-  mail: Fetcher,
+  mail: InternalFetcher,
   requestId: string,
   signal: AbortSignal,
 ): Promise<Response> {
@@ -30,7 +32,7 @@ export async function fetchMailHealth(
 }
 
 export async function deliverMagicLink(
-  mail: Fetcher,
+  mail: InternalFetcher,
   delivery: InternalMagicLinkDelivery,
   signal: AbortSignal,
 ): Promise<Response> {
@@ -51,7 +53,7 @@ export async function deliverMagicLink(
 }
 
 export async function submitSend(
-  mail: Fetcher,
+  mail: InternalFetcher,
   input: {
     actor: InternalActor
     attachments: readonly File[]

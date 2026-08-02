@@ -1,93 +1,82 @@
 ---
 title: Architecture
-description: The three-Worker topology, data ownership boundaries, and mail processing flows.
+description: The single-Worker runtime, logical module boundaries, storage, and event flows.
 ---
 
-Cloudflare Inbox is a pnpm monorepo deployed as three Cloudflare Workers. The split keeps public web
-traffic, authorization, and mail-domain behavior in separate trust zones.
+Simple Inbox is deployed as one Cloudflare Worker named `simple-inbox-cf`.
 
 ```text
-browser  ->  web Worker  ->  API Worker  ->  mail Worker
-                              |                |
-                              v                v
-                              D1  <----------  R2
+                       +-------------------------------+
+browser ---- fetch() ->|                               |----> D1
+Email Routing email() ->      simple-inbox-cf          |----> private R2
+Cloudflare Cron -------->                               |----> Email Sending
+                       +-------------------------------+
+                          web -> API -> mail modules
+                               (in process)
 ```
 
-The arrows between Workers are Cloudflare Service Bindings. The mail Worker's `fetch` entry point is
-private infrastructure; inbound email reaches its separate `email()` handler through Email Routing.
+The root entry exports `fetch`, `email`, and `scheduled`. Web, API, and mail remain separate source
+packages, but they run in one isolate and use in-process adapters rather than Service Bindings.
 
-## Service responsibilities
+## Logical responsibilities
 
-| Component   | Owns                                                                                  | Does not own                                       |
-| ----------- | ------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| Web Worker  | TanStack Start UI, public docs, same-origin `/api/v1` bridge                          | D1, R2, mail credentials                           |
-| API Worker  | HTTP contracts, sessions, CSRF, scopes, mailbox authorization                         | MIME rendering, public HTML pages                  |
-| Mail Worker | Inbound capture, parsing, threading, forwarding, outbound delivery                    | Public browser authentication                      |
-| D1          | Mailboxes, membership, threads, projections, sessions, delivery and idempotency state | Raw message or attachment bytes                    |
-| R2          | Canonical raw `.eml` objects under opaque keys                                        | Browser-visible indexes or authorization decisions |
+| Component | Owns                                                                                      |
+| --------- | ----------------------------------------------------------------------------------------- |
+| Root/web  | Public routing, UI/SSR, docs, security headers, setup redirects, `/api/v1` bridge         |
+| API       | Setup, sessions, CSRF, scopes, mailbox authorization, contracts, orchestration            |
+| Mail      | Inbound capture, MIME parsing, threading, forwarding, outbound delivery, retention        |
+| D1        | Installation, users, mailboxes, projections, sessions, idempotency, workflows, tombstones |
+| R2        | Canonical raw `.eml` objects under opaque keys                                            |
 
-Shared packages keep the boundaries explicit: contracts define stable request and response schemas,
-the database package owns SQL invariants, and mail-core contains runtime-neutral parsing, threading,
-rendering, filename, and size helpers.
+The root router is the only HTTP edge. The API calls mail through a narrow in-memory fetcher that
+accepts only the fixed `https://mail.internal/internal/*` surface. The public router never maps those
+mail routes, so `/internal/*` is not externally reachable.
+
+Because all bindings share one physical Worker, source-package APIs, explicit binding construction,
+repository ownership, authorization checks, and boundary tests enforce the logical trust zones.
+
+## Installation flow
+
+Before setup, only setup and public service metadata are usable. Protected APIs return unavailable,
+inbound messages are rejected, scheduled retention is idle, and UI navigation goes to `/setup`.
+
+The setup request must be same-origin and HTTPS, is source-rate-limited, and requires the independent
+`SETUP_TOKEN`. One transactional D1 batch creates the normalized owner, primary mailbox, only owner
+membership, and singleton installation record. The record stores the verified public origin, mail
+domain, and retention values. Exact replay is idempotent; conflicting or incomplete state fails
+closed.
 
 ## Browser request flow
 
-The browser calls `/api/v1/*` on the web origin. The web Worker preserves the method, body, query, and
-authorization headers while forwarding the request through its `API` Service Binding. The API Worker
-then authenticates the caller, verifies the required scope and mailbox access, validates the
-contract, and calls a repository or the private mail binding.
+The browser calls same-origin `/api/v1/*`. The root Worker forwards only reviewed headers into the
+API app and regenerates a request ID. The API authenticates the caller, enforces the required scope
+and mailbox membership, validates the contract, and invokes a repository or private mail adapter.
 
-The web Worker has no D1 or R2 binding. This prevents a UI route from bypassing authorization even if
-it is implemented incorrectly.
+Every raw-message or attachment response authorizes against D1 metadata before reading R2. Private
+responses use no-store caching, and object keys never appear in browser DTOs.
 
-## Inbound message flow
+## Inbound and outbound mail
 
-```text
-Email Routing
-  -> validate envelope and provider limits
-  -> persist canonical raw message in R2
-  -> parse and project safe metadata into D1
-  -> associate or create a thread
-  -> optionally forward to the mailbox owner
-```
+Inbound `email()` processing persists the canonical raw message in R2, projects bounded searchable
+content into D1, associates or creates a thread, and then optionally forwards to the owner. Durable
+capture precedes forwarding, so forwarding failure does not erase mail.
 
-Durable capture happens before optional forwarding. D1 holds the searchable representation; R2
-remains the source of truth for raw bytes. Attachment downloads are authorized from D1 metadata and
-extracted from the corresponding raw message, so internal object keys never need to appear in a
-public response.
+Outbound operations reserve idempotency before invoking Email Sending. Provider interruption or an
+ambiguous response remains `unknown`; the application does not blindly retry and risk a duplicate.
+R2 remains outside D1 transactions and has a separate repair/lifecycle path.
 
-Threading follows deterministic evidence in descending strength: an active reply alias, RFC
-`In-Reply-To` and `References` identifiers, then normalized subject matching. A new inbound message
-moves the thread to **Needs reply**. A successful outbound message moves it to **Waiting**.
+## Retention
 
-## Outbound message flow
+The daily `scheduled()` handler advances at most the configured batch size. It deletes raw R2 bytes
+first, then transactionally removes expired D1 message data and repairs/deletes threads. Durable
+content-free tombstones retain retry state. Retention never invokes Email Sending, and Worker
+rollback cannot restore deleted data.
 
-The API validates multipart input and reserves the idempotency key before calling the mail Worker.
-The mail Worker renders a canonical MIME message, applies recipient and encoded-size limits, uses the
-Email Sending binding, and records the delivery result. The API reports a safe state such as
-`queued`, `sending`, `sent`, `failed`, or `unknown` without exposing provider internals.
+## Deployment boundary
 
-An `unknown` result is deliberately distinct from a failure: the caller lost certainty about the
-provider response and should inspect state before attempting a differently keyed send.
+The root Wrangler config declares one Worker, D1, R2, Email Sending, rate limiting, and cron.
+Wrangler provisions D1/R2 and the root deploy task builds, migrates, and uploads the generated
+Worker config. Email domain verification, R2 lifecycle, custom domains, and Email Routing remain
+manual Cloudflare Dashboard owner actions.
 
-## Consistency and failure semantics
-
-- D1 transactions and uniqueness constraints protect one-time tokens, projections, and idempotency.
-- Raw content is written under opaque R2 keys and is never copied into structured logs.
-- API responses include an opaque request ID that can be correlated across Worker hops.
-- Private data responses use `Cache-Control: private, no-store`.
-- Staging and production use separate Worker names, bindings, databases, buckets, secrets, routes,
-  and Email Routing targets.
-
-These boundaries make a partial failure visible and recoverable: captured mail survives forwarding
-failure, archive state survives workflow changes, and an ambiguous send is not silently retried as a
-new message.
-
-## Retention flow
-
-The mail Worker's daily scheduled handler advances durable deletion tombstones in batches of at
-most 100. Raw R2 bytes are deleted first; a missing object is already a successful result. Once the
-application deadline is reached, one D1 transaction removes message recipients, references,
-attachments, and the message, preserves detached outbound-send history, and repairs the remaining
-thread aggregates or removes an empty thread. Failed or expired claims are safely retried by a later
-run. The retention handler never invokes Email Sending.
+No repository command discovers, imports, switches, or deletes a legacy resource.

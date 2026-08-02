@@ -1,4 +1,5 @@
 export * from './auth-repository'
+export * from './installation'
 export * from './mail-projection'
 export * from './outbound-send'
 export * from './retention'

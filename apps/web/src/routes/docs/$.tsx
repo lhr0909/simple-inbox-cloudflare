@@ -23,10 +23,10 @@ const resolveDocsPage = createServerFn({ method: 'GET' })
     if (page === undefined) throw notFound()
 
     return {
-      description: page.data.description ?? 'Cloudflare Inbox documentation.',
+      description: page.data.description ?? 'Simple Inbox documentation.',
       pageTree: await source.serializePageTree(source.getPageTree()),
       path: page.path,
-      title: page.data.title ?? 'Cloudflare Inbox',
+      title: page.data.title ?? 'Simple Inbox',
     } satisfies DocsPageDescriptor
   })
 
@@ -36,12 +36,9 @@ export const Route = createFileRoute('/docs/$')({
     const slugs = params._splat?.split('/').filter(Boolean) ?? []
     const page = source.getPage(slugs)
     const title = page?.data.title ?? 'Documentation'
-    const description = page?.data.description ?? 'Cloudflare Inbox documentation.'
+    const description = page?.data.description ?? 'Simple Inbox documentation.'
     return {
-      meta: [
-        { title: `${title} | Cloudflare Inbox` },
-        { name: 'description', content: description },
-      ],
+      meta: [{ title: `${title} | Simple Inbox` }, { name: 'description', content: description }],
     }
   },
   loader: async ({ params }) => {
@@ -60,7 +57,7 @@ function DocumentationPage() {
   return (
     <DocsLayout
       tree={descriptor.pageTree}
-      nav={{ title: 'Cloudflare Inbox', url: '/docs' }}
+      nav={{ title: 'Simple Inbox', url: '/docs' }}
       links={[
         { text: 'Documentation', url: '/docs', active: 'nested-url' },
         { text: 'Open inbox', url: '/inbox', type: 'button' },

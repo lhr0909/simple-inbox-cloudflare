@@ -1,44 +1,45 @@
-# Cloudflare Inbox
+# Simple Inbox
 
-Cloudflare Inbox is a clean-room, self-hosted mail workspace built as three Cloudflare Workers:
+Simple Inbox is a clean-room, self-hosted mail workspace deployed as one Cloudflare Worker named
+`simple-inbox-cf`. That Worker exports all three Cloudflare entry points the application needs:
 
-- a TanStack Start web Worker with shadcn/Base UI and embedded Fumadocs;
-- a Hono API Worker for authentication, authorization, OpenAPI, and inbox operations;
-- a private Hono mail Worker with both `fetch()` and Email Routing `email()` entry points.
+- `fetch()` serves the TanStack Start UI, public documentation, and the versioned Hono API;
+- `email()` receives messages from Cloudflare Email Routing;
+- `scheduled()` runs the bounded daily retention job.
 
-D1 is the source of truth for queryable state. R2 stores only canonical raw RFC 822 `.eml`
-objects. The browser never receives direct D1 or R2 access.
+D1 is the source of truth for queryable state. A private R2 bucket stores canonical RFC 822 `.eml`
+objects. The browser never receives a D1 or R2 binding or a public R2 object URL.
 
-This repository is independent from the legacy Cloudflare Inbox repository and deployment. Its
-Workers and storage use `simple-inbox-cf-<environment>-*` names. Repository automation
-never changes legacy Workers, routes, D1/R2 resources, DNS, or Email Routing; cutover is an explicit
-manual owner operation described in [the operations runbook](docs/operations.md).
+This repository is independent from every legacy Cloudflare Inbox repository and deployment. Its
+automation creates or updates only `simple-inbox-cf`, `simple-inbox-cf-db`, and
+`simple-inbox-cf-raw`. It contains no legacy resource identifiers and never changes DNS, custom
+domains, or Email Routing rules.
 
 ## Architecture
 
 ```text
-browser -> web Worker -> API Worker -> mail Worker
-                         |              |
-                         +---- D1 ------+
-                         +---- R2 ------+
+browser --fetch()--> simple-inbox-cf --> D1
+                         |              R2 (private)
+Email Routing --email()--+              Email Sending
+Cloudflare Cron --scheduled()-----------+
 ```
 
-Private Cloudflare Service Bindings connect `web -> API` and `API -> mail`. The web Worker
-proxies the browser's same-origin `/api/v1/*` requests; the API independently authenticates and
-authorizes every mailbox, thread, message, raw object, and attachment request.
+The API and mail implementations remain separate packages, but the root Worker calls them through
+in-process adapters rather than Cloudflare Service Bindings. Only the root router is public; the
+mail package's internal Hono routes are not mapped to public URLs.
 
-| Workspace            | Responsibility                                                           |
-| -------------------- | ------------------------------------------------------------------------ |
-| `apps/web`           | TanStack Start routes, inbox UI, same-origin API bridge, public Fumadocs |
-| `workers/api`        | Hono `/v1` API, magic-link sessions, authorization, OpenAPI              |
-| `workers/mail`       | inbound capture, MIME projection, forwarding, alias relay, outbound mail |
-| `packages/contracts` | Zod wire contracts, DTOs, errors, route metadata                         |
-| `packages/db`        | Drizzle schema, checked-in D1 migration, scoped repositories             |
-| `packages/mail-core` | runtime-neutral parsing, threading, rendering, and limit rules           |
+| Workspace            | Responsibility                                                        |
+| -------------------- | --------------------------------------------------------------------- |
+| `apps/web`           | Root Worker entry, TanStack Start UI, setup wizard, API bridge, docs  |
+| `workers/api`        | Hono `/v1` contracts, setup, authentication, authorization, inbox API |
+| `workers/mail`       | Inbound capture, MIME projection, forwarding, sending, retention      |
+| `packages/contracts` | Zod wire contracts, DTOs, errors, and route metadata                  |
+| `packages/db`        | Drizzle schema, checked-in D1 migrations, scoped repositories         |
+| `packages/mail-core` | Runtime-neutral parsing, threading, rendering, and limit rules        |
 
-See [the architecture guide](docs/architecture.md), [ADR 0001](docs/adr/0001-stack-and-topology.md),
-the [visual parity checklist](docs/visual-parity.md), and the
-[migration handoff](TANSTACK_START_MIGRATION_HANDOFF.md) for the design invariants.
+See [the architecture guide](docs/architecture.md),
+[ADR 0001](docs/adr/0001-stack-and-topology.md), and
+[the operations runbook](docs/operations.md).
 
 ## Pinned toolchain
 
@@ -46,83 +47,101 @@ the [visual parity checklist](docs/visual-parity.md), and the
 - pnpm 11.18.0
 - Vite+ 0.2.7
 
-Install the pinned Vite+ launcher, then let it provision the exact Node and pnpm versions declared by
-the workspace.
+Install with the pinned Vite+ launcher:
 
 ```sh
 vp install --frozen-lockfile
+vp run check:generated
 vp run check
 vp test
 vp run build
 ```
 
-Useful root tasks include:
-
-```sh
-vp run dev
-vp run typegen
-vp run db:generate
-vp run db:migrate -- --env staging --dry-run
-vp run bootstrap -- --env staging --dry-run
-vp run deploy -- --env staging --dry-run
-```
-
-Remote mutation requires a second, explicit command: migrations need `--confirm-migrate`, and the
-aggregate deploy needs `--confirm-replacement-deploy` (plus `--confirm-production` in production).
-The deploy command is deliberately ordered and guarded: verify, build each package directly with
-the selected `CLOUDFLARE_ENV`, validate all flattened Vite deployment output, migrate replacement
-D1, bootstrap the exact deterministic owner/mailbox records, deploy replacement mail, API, and web
-Workers, then run non-destructive smoke checks. It refuses placeholder or legacy resource
-identifiers and cannot switch traffic. See the runbook for the complete commands.
-
 ## Local development
 
-All committed configuration uses synthetic `example.test` identities and local resource
-placeholders. Never point routine local development at production D1 or R2 resources.
+Local development uses Wrangler's local D1/R2 implementations and synthetic `example.test`
+identities. It does not configure or send through Cloudflare Email Routing or Email Sending.
 
-1. Copy the relevant values from `.dev.vars.example` into the package-local `.dev.vars` files.
-2. Generate binding types with `vp run typegen`.
-3. Apply the checked-in D1 migration locally.
-4. Start the three packages with `vp run dev`.
+```sh
+cp .dev.vars.example .dev.vars
+# Replace both placeholders with different local-only values of at least 32 random bytes.
+vp run typegen
+vp run dev
+```
 
-The primary routes are:
+`vp run dev` applies the checked-in D1 migrations locally before starting the app. Visit `/setup`
+and use synthetic values such as `owner@example.test`, `mail.example.test`, and
+`inbox@mail.example.test`.
 
-- `/` — auth-aware redirect only;
+Primary routes:
+
+- `/setup` — one-time owner, mailbox, and retention initialization;
 - `/sign-in` and `/auth/verify` — passwordless sign-in;
 - `/inbox` — authenticated inbox;
 - `/docs` — public embedded documentation;
-- `/api/v1/*` — same-origin bridge to the API Worker.
+- `/api/v1/*` — same-origin versioned API.
 
-Cloudflare Email Routing and Email Sending require account-level setup that local emulation cannot
-fully prove. Use only synthetic messages and allowlisted staging recipients for live smoke tests.
+## Deploy
 
-## Security model
+The root [wrangler.jsonc](wrangler.jsonc) declares the one Worker, D1 database, private R2 bucket,
+Email Sending binding, rate limiter, and daily cron. Wrangler provisions the declared D1 and R2
+resources when the deployment first needs them; no resource IDs are copied into the repository.
 
-Magic-link and session tokens are opaque random values; D1 stores only HMAC digests. Production
-sessions use a Secure, HttpOnly, SameSite=Lax `__Host-` cookie. Cookie-authenticated mutations
-enforce same-origin/fetch-metadata checks, and resource queries are scoped by mailbox membership.
+Before a real deployment, authenticate Wrangler to the intended Cloudflare account and run the
+local verification suite in [the operations runbook](docs/operations.md). Cloudflare requires Email
+Routing to be enabled and at least one owner-controlled destination to be verified before it can
+attach the `EMAIL` binding; do that on the intended new mail zone without changing a legacy route.
+Full compose and reply delivery to arbitrary recipients also requires Workers Paid and an onboarded
+Email Sending domain.
 
-Raw email is sensitive. R2 buckets must remain private, message bodies and recipient lists must not
-be logged, and raw/attachment downloads are authorized on every request with private no-store
-responses. Provider invocation logs and automatic traces remain disabled because their generated
-metadata can contain full URLs, magic-link query tokens, search terms, or Email recipients; only
-content-safe structured application logs are enabled.
+Deploy to Cloudflare uses the following remote, state-changing command after it provisions the
+declared resources; it builds the app, applies checked-in D1 migrations remotely, and deploys the
+generated Worker configuration:
 
-The committed 365-day raw-email and application-record retention values are deliberate pre-launch
-placeholders, not an implicit policy decision. Review them before provisioning: raw retention must
-not exceed application retention, the scheduled deletion batch is capped at 100, and an owner must
-export required data before shortening either window. The application performs no AI inference and
-sends mailbox content to no AI service.
+```sh
+vp run deploy
+```
 
-Report vulnerabilities through the process in [SECURITY.md](SECURITY.md).
+For a first manual deployment outside Deploy to Cloudflare, use `vp run deploy:first` so Wrangler
+can provision and bind the empty D1/R2 resources before migrations run. Subsequent manual upgrades
+use `vp run deploy`.
 
-## Deployment status
+Create two independent Worker secrets of at least 32 random bytes:
 
-The repository contains local implementations, checked-in migrations, deterministic tests, Worker
-configs, and production build paths. Before a real staging or production deployment, an operator
-must supply Cloudflare resource IDs, a replacement `workers.dev` origin, verified sending
-domains/destinations, secrets, and isolated Email Routing rules, then execute the documented live
-mail/auth/browser smoke tests. Custom-domain and routing cutover remains manual.
+- `AUTH_TOKEN_PEPPER` protects magic-link, session, and API-token digests;
+- `SETUP_TOKEN` authorizes the first and only installation setup.
 
-A public license must be chosen deliberately before the first public distribution. The migration
-handoff recommends evaluating Apache-2.0 and AGPL-3.0 rather than accepting a scaffold default.
+After deployment, open the Worker's HTTPS origin at `/setup`. The wizard verifies `SETUP_TOKEN` and
+atomically creates the owner, primary mailbox, owner membership, application origin, mail domain,
+and retention settings in D1. Until setup completes, inbound email is rejected, retention is idle,
+and protected API routes fail closed.
+
+Email Sending domain verification, the private R2 lifecycle backstop, and activation of an Email
+Routing rule remain explicit Cloudflare Dashboard owner actions. Deploying code never switches an
+existing route or touches a legacy Worker or data store.
+
+### Future Deploy to Cloudflare button
+
+Once this repository is public, it can use Cloudflare's one-click flow:
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/lhr0909/simple-inbox-cloudflare)
+
+Cloudflare's deploy button only works for public GitHub or GitLab repositories. This repository is
+currently private, so the link is guidance for the future public release and will not work for other
+users until then. See Cloudflare's
+[Deploy to Cloudflare button documentation](https://developers.cloudflare.com/workers/platform/deploy-buttons/).
+
+## Security and retention
+
+Magic links and sessions are opaque random values; D1 stores only keyed digests. Deployed sessions
+use a Secure, HttpOnly, SameSite=Lax `__Host-` cookie. Cookie-authenticated mutations require a
+same-origin request, and every mailbox/thread/message lookup is scoped to the authenticated owner.
+
+Raw mail is sensitive. Keep R2 private, invocation logs and automatic traces disabled, and message
+content, addresses, tokens, object keys, and attachment bytes out of logs. The setup wizard requires
+an explicit retention decision: raw retention must not exceed application-record retention, both
+must be 1–3,650 days, and each scheduled batch is capped at 100. Export required data and test D1
+restoration before shortening a policy; Worker rollback cannot restore deleted D1/R2 data.
+
+The application performs no AI inference and sends mailbox content to no AI service. Report
+vulnerabilities through [SECURITY.md](SECURITY.md).

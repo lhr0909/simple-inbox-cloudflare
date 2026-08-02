@@ -1,6 +1,6 @@
 /// <reference types="node" />
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
 
 import { afterEach, describe, expect, it } from 'vitest'
@@ -14,7 +14,7 @@ import {
   NOW,
 } from './support/fixtures'
 
-const migrationUrl = new URL('../migrations/0000_initial.sql', import.meta.url)
+const migrationsUrl = new URL('../migrations/', import.meta.url)
 const openDatabases: DatabaseSync[] = []
 
 afterEach(() => {
@@ -35,6 +35,7 @@ describe('reviewed D1 baseline migration', () => {
       expect.arrayContaining([
         'api_tokens',
         'attachments',
+        'installations',
         'magic_links',
         'mailbox_members',
         'mailboxes',
@@ -154,7 +155,11 @@ describe('reviewed D1 baseline migration', () => {
 function migratedDatabase(): DatabaseSync {
   const database = new DatabaseSync(':memory:')
   database.exec('PRAGMA foreign_keys = ON')
-  database.exec(readFileSync(migrationUrl, 'utf8'))
+  for (const migration of readdirSync(migrationsUrl)
+    .filter((file) => file.endsWith('.sql'))
+    .sort()) {
+    database.exec(readFileSync(new URL(migration, migrationsUrl), 'utf8'))
+  }
   openDatabases.push(database)
   return database
 }

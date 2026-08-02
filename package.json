@@ -1,34 +1,24 @@
 {
-  "name": "cloudflare-inbox",
+  "name": "simple-inbox-cf",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vp run -r build",
+    "build": "vp run @cloudflare-inbox/web#build",
     "check": "vp check && node tooling/scripts/check-boundaries.mjs",
     "check:boundaries": "node tooling/scripts/check-boundaries.mjs",
     "check:generated": "node tooling/scripts/check-generated.mjs",
-    "dev": "vp run -r --parallel dev",
-    "typegen": "vp run -r cf-typegen",
+    "dev": "wrangler d1 migrations apply DB --local --config wrangler.jsonc && vp run @cloudflare-inbox/web#dev",
+    "typegen": "vp run @cloudflare-inbox/web#cf-typegen",
     "test": "vp test",
-    "test:worker": "vp run -r test:worker",
     "test:integration": "vp run -r test:integration",
     "test:e2e": "vp run -r test:e2e",
     "test:boundaries": "node --test tooling/scripts/check-boundaries.test.mjs",
-    "test:operator": "vp test run tests/operator/operator.test.mjs",
     "db:generate": "vp run @cloudflare-inbox/db#db:generate",
-    "db:migrate": "node tooling/scripts/migrate.mjs",
-    "provision": "node tooling/scripts/provision.mjs",
-    "bootstrap": "node tooling/scripts/bootstrap.mjs",
-    "api-token:create": "node tooling/scripts/api-token.mjs create",
-    "api-token:list": "node tooling/scripts/api-token.mjs list",
-    "api-token:revoke": "node tooling/scripts/api-token.mjs revoke",
-    "deploy:mail": "node tooling/scripts/deploy-worker.mjs mail",
-    "deploy:api": "node tooling/scripts/deploy-worker.mjs api",
-    "deploy:web": "node tooling/scripts/deploy-worker.mjs web",
-    "smoke": "node tooling/scripts/smoke.mjs",
-    "smoke:live": "node tooling/scripts/live-smoke.mjs",
-    "deploy": "node tooling/scripts/deploy.mjs"
+    "db:migrate": "wrangler d1 migrations apply DB --remote --config wrangler.jsonc",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local --config wrangler.jsonc",
+    "deploy": "vp run @cloudflare-inbox/web#build && wrangler d1 migrations apply DB --remote --config wrangler.jsonc && CI=1 wrangler deploy --config apps/web/dist/server/wrangler.json",
+    "deploy:first": "vp run @cloudflare-inbox/web#build && CI=1 wrangler deploy --config apps/web/dist/server/wrangler.json && wrangler d1 migrations apply DB --remote --config wrangler.jsonc"
   },
   "devDependencies": {
     "@playwright/test": "catalog:",
@@ -55,5 +45,15 @@
     "node": "24.18.1",
     "pnpm": "11.18.0"
   },
-  "packageManager": "pnpm@11.18.0"
+  "packageManager": "pnpm@11.18.0",
+  "cloudflare": {
+    "bindings": {
+      "AUTH_TOKEN_PEPPER": {
+        "description": "Generate a new random value of at least 32 bytes. It protects sign-in and API tokens."
+      },
+      "SETUP_TOKEN": {
+        "description": "Generate a different random value of at least 32 bytes. You will enter it once in the setup wizard."
+      }
+    }
+  }
 }

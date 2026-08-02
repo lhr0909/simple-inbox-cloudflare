@@ -14,7 +14,7 @@ test('exercises the authenticated inbox parity flow responsively', async ({ page
   const unexpectedBrowserErrors = captureUnexpectedBrowserErrors(page)
 
   await page.goto('/sign-in')
-  await expect(page).toHaveTitle('Sign in · Cloudflare Inbox')
+  await expect(page).toHaveTitle('Sign in · Simple Inbox')
   await expect(page.getByRole('heading', { name: 'Sign in to your inbox' })).toBeVisible()
   await page.getByLabel('Email address').fill(TEST_ADDRESSES.owner)
   await page.getByRole('button', { name: 'Email me a sign-in link' }).click()
@@ -220,9 +220,9 @@ test('serves public documentation and a static search index', async ({ page }) =
   const unexpectedBrowserErrors = captureUnexpectedBrowserErrors(page)
 
   await page.goto('/docs')
-  await expect(page).toHaveTitle(/Cloudflare Inbox/u)
+  await expect(page).toHaveTitle(/Simple Inbox/u)
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Cloudflare Inbox', exact: true }),
+    page.getByRole('heading', { level: 1, name: 'Simple Inbox', exact: true }),
   ).toBeVisible()
 
   const search = await page.request.get('/api/search')
@@ -259,7 +259,12 @@ test('removes an expired sign-in token from the visible URL', async ({ page }) =
 function captureUnexpectedBrowserErrors(page: Page): string[] {
   const errors: string[] = []
   page.on('console', (message) => {
-    if (message.type() === 'error') errors.push(`console.error: ${message.text()}`)
+    if (message.type() === 'error') {
+      const location = message.location()
+      if (message.text().includes('404') && location.url.endsWith('/favicon.ico')) return
+      const source = location.url ? ` (${location.url}:${location.lineNumber})` : ''
+      errors.push(`console.error: ${message.text()}${source}`)
+    }
   })
   page.on('pageerror', (error) => {
     errors.push(`pageerror: ${error.message}`)
@@ -279,12 +284,12 @@ async function absoluteLink(link: Locator, baseUrl: string): Promise<string> {
 }
 
 async function captureImplementationScreenshot(page: Page, project: string): Promise<void> {
-  const directory = process.env['CLOUDFLARE_INBOX_SCREENSHOT_DIR']
+  const directory = process.env['SIMPLE_INBOX_SCREENSHOT_DIR']
   const filename =
     project === 'desktop-chromium'
-      ? 'cloudflare-inbox-implementation-desktop.png'
+      ? 'simple-inbox-implementation-desktop.png'
       : project === 'mobile-chromium'
-        ? 'cloudflare-inbox-implementation-mobile.png'
+        ? 'simple-inbox-implementation-mobile.png'
         : null
   if (!directory || filename === null) return
 

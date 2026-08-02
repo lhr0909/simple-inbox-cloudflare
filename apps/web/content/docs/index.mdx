@@ -1,81 +1,81 @@
 ---
-title: Cloudflare Inbox
-description: A focused, self-hosted inbox built on Cloudflare Workers, D1, R2, Email Routing, and Email Sending.
+title: Simple Inbox
+description: A private, self-hosted inbox on one Cloudflare Worker.
 ---
 
-Cloudflare Inbox turns a domain's inbound email into a small team inbox. It captures every message
-before optional forwarding, groups related messages into threads, and sends new mail and replies from
-the mailbox address.
+Simple Inbox is a clean-room mail workspace that runs as one Cloudflare Worker named
+`simple-inbox-cf`. One deployment serves the web app and API, receives Email Routing events, and
+runs scheduled retention.
 
-This documentation is public and contains no mailbox data, credentials, account identifiers, or
-deployment secrets.
+```text
+browser ---- fetch() ----> simple-inbox-cf ----> D1
+Email Routing -- email() ------|                 private R2
+Cloudflare Cron -- scheduled() ----------------> Email Sending
+```
 
-## What it provides
+D1 holds queryable mailbox state. A private R2 bucket holds canonical raw `.eml` objects. The
+browser reaches both only through authenticated API routes.
 
-- Catch-all receiving through Cloudflare Email Routing.
-- Durable raw-message storage with searchable thread metadata.
-- Optional forwarding to an owner address with an opaque reply alias.
-- New messages and threaded replies with To, CC, BCC, and attachments.
-- Mailbox-specific sender names and forwarding destinations.
-- Passwordless browser sessions and scoped bearer tokens for integrations.
+## What is included
 
-## The mailbox model
+- Passwordless owner sign-in with one-time magic links.
+- Thread, search, archive, unread, workflow, compose, and reply flows.
+- Canonical raw-message and attachment download after mailbox authorization.
+- Inbound capture, owner forwarding, opaque reply aliases, and outbound Email Sending.
+- Durable send idempotency and explicit `unknown` delivery state.
+- Bounded daily retention across private R2 and D1.
+- A first-run `/setup` wizard for owner, mailbox, origin, mail domain, and retention settings.
+- Embedded OpenAPI and operator/security documentation.
 
-Every authorized mailbox has its own address and settings. Messages are projected into threads, and
-threads carry two independent kinds of organization:
+## First deployment
 
-| Concept    | Values                             | Meaning                                        |
-| ---------- | ---------------------------------- | ---------------------------------------------- |
-| Workflow   | Needs reply, Waiting, Resolved     | What should happen next                        |
-| Archive    | Active or archived                 | Whether the thread appears in the active views |
-| Read state | Read or unread per inbound message | Whether new content has been reviewed          |
+The root Wrangler config declares one Worker plus D1, R2, Email Sending, rate limiting, and a daily
+cron. Wrangler provisions D1/R2, and the root deploy task builds, migrates, and deploys:
 
-The primary folders are **All**, **Needs reply**, **Sent**, and **Archive**. Archiving never silently
-changes a thread's workflow state, so restoring a thread also restores its previous context.
+```sh
+vp run deploy
+```
 
-## Receiving and forwarding
+This is a remote, state-changing command. Before using it, follow the local verification and account
+checks in [Deployment](/docs/deployment). Cloudflare also requires Email Routing to be enabled and
+one owner-controlled destination verified before it can attach the Worker's email binding.
 
-1. Email Routing invokes the mail Worker for a configured mailbox domain.
-2. The Worker validates the envelope and size, writes the canonical raw RFC 822 message to R2, and
-   projects safe, queryable metadata into D1.
-3. Threading prefers a known reply alias, then standard message references, then a normalized subject
-   fallback.
-4. If the mailbox has a forwarding destination, a reconstructed copy is delivered after durable
-   capture. It includes the sender, mailbox recipient, subject, safe text and sanitized HTML
-   projections, and only eligible attachments. Its `Reply-To` uses an opaque alias at the mailbox
-   domain.
+Create two independent secret values of at least 32 random bytes:
 
-Forwarding is best-effort after storage: a forwarding failure does not erase the captured message.
-The inbox exposes forwarding state so operators can distinguish capture from delivery.
+- `AUTH_TOKEN_PEPPER` protects authentication-token digests;
+- `SETUP_TOKEN` authorizes the first-run wizard.
 
-The application performs no AI inference and sends no mailbox content or metadata to AI services.
+After deployment, open the chosen HTTPS origin at `/setup`. For a synthetic local test, use values
+such as `owner@example.test`, `mail.example.test`, and `inbox@mail.example.test`. Setup writes all
+installation records atomically; until it succeeds, protected APIs fail closed, inbound mail is
+rejected, and retention stays idle.
 
-## Sending and replying
+Email Sending domain verification, a private R2 lifecycle rule, and Email Routing activation remain
+explicit Cloudflare Dashboard owner steps.
 
-Composing supports plain text or Markdown, multiple To/CC/BCC recipients, and file attachments.
-New messages require a mailbox selection. Replies infer the mailbox from the existing thread and can
-target a specific inbound message for threading headers.
+## Future one-click deployment
 
-Every send request requires an idempotency key. Retrying the same request with the same key is safe;
-reusing the key for different content returns a conflict rather than risking a duplicate message.
+After the source repository becomes public, this link can launch Cloudflare's deployment flow:
 
-The public upload contract allows at most 50 recipients, 20 attachments, 10 MiB per attachment, and
-20 MiB of attachments in total. The sending provider applies a stricter encoded wire-size budget, so
-keep ordinary outbound messages well below 5 MiB after base64 and MIME overhead.
+[Deploy Simple Inbox to Cloudflare](https://deploy.workers.cloudflare.com/?url=https://github.com/lhr0909/simple-inbox-cloudflare)
 
-## Signing in
+Deploy to Cloudflare does not work for other users while the source repository is private.
 
-Browser access uses a one-time magic link. Requesting a link always returns the same generic accepted
-response, whether or not the address is recognized. A successful verification creates an HTTP-only
-session; signing out revokes it server-side and clears the browser cookie.
+## Routes
 
-Integrations use separately provisioned bearer tokens with `read`, `send`, and/or `settings` scopes.
-See the [API guide](/docs/api) for the request surface and the [security guide](/docs/security) for
-the trust model.
+- `/setup` — required only before the first installation completes.
+- `/sign-in` and `/auth/verify` — passwordless authentication.
+- `/inbox` — authenticated mail workspace.
+- `/docs` — this public guide.
+- `/api/v1/health`, `/api/v1/capabilities`, `/api/v1/openapi.json` — public service metadata.
+- Other `/api/v1/*` inbox routes — authenticated and mailbox scoped.
 
-## Where to go next
+The mail package's `/internal/*` Hono routes are in-process infrastructure and are never exposed by
+the public Worker router.
 
-- [Architecture](/docs/architecture) explains service and data boundaries.
-- [Deployment](/docs/deployment) gives the environment and rollout sequence.
-- [Security](/docs/security) documents authentication, content handling, and response policy.
-- [API guide](/docs/api) lists the versioned endpoints and request examples.
+## Continue reading
+
+- [Deployment](/docs/deployment) — deploy, complete setup, configure Cloudflare, test, and recover.
+- [Architecture](/docs/architecture) — the single-Worker runtime and logical module boundaries.
+- [Security](/docs/security) — secrets, authorization, privacy, retention, and incident safeguards.
+- [API](/docs/api) — versioned contracts and error behavior.

@@ -15,9 +15,9 @@ const config = defineConfig({
   plugins: [
     tailwindcss(),
     fumadocsMdx(),
-    cloudflare({ viteEnvironment: { name: 'ssr' } }),
+    cloudflare({ configPath: '../../wrangler.jsonc', viteEnvironment: { name: 'ssr' } }),
 
-    tanstackStart(),
+    tanstackStart({ server: { entry: 'server.ts' } }),
     viteReact(),
   ],
 })

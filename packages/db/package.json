@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "db:generate": "drizzle-kit generate --config drizzle.config.ts",
-    "db:migrate": "node ../../tooling/scripts/migrate.mjs",
+    "db:migrate": "wrangler d1 migrations apply DB --remote --config ../../wrangler.jsonc",
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json"
   },

@@ -14,7 +14,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import type { InboxTestHarness } from '@cloudflare-inbox/test-harness'
 
-describe('production multi-Worker topology', () => {
+describe('production single-Worker topology', () => {
   let harness: InboxTestHarness
 
   beforeAll(async () => {
@@ -24,6 +24,18 @@ describe('production multi-Worker topology', () => {
 
   afterAll(async () => {
     await harness.close()
+  })
+
+  it.each([
+    '/internal/health',
+    '/internal/v1/send',
+    '/internal/v1/auth/magic-link',
+    '/internal/v1/sends/public-probe',
+    '/api/v1/internal/health',
+  ])('never exposes the private mail surface at %s', async (path) => {
+    const response = await harness.server.fetch(path)
+    expect(response.status).toBe(404)
+    expect(await response.text()).not.toContain('"service":"mail"')
   })
 
   it('exercises web -> API -> mail with isolated D1/R2 and simulated email delivery', async () => {

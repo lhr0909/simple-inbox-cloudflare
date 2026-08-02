@@ -3,9 +3,9 @@ title: API guide
 description: Versioned same-origin endpoints for authentication, inbox reads, settings, downloads, and sending.
 ---
 
-The browser-facing API is versioned under `/api/v1` on the web origin. The web Worker forwards those
-requests to the API Worker through a private Service Binding; clients never call a Worker-internal
-hostname.
+The browser-facing API is versioned under `/api/v1` on the Worker origin. The single Worker
+dispatches those requests to the API module in-process; clients cannot call the private mail module
+or its internal routes.
 
 Use the generated OpenAPI 3.1 document at `/api/v1/openapi.json` as the machine-readable contract.
 Check `/api/v1/capabilities` before depending on optional behavior.
@@ -31,7 +31,7 @@ origin check, but still need the appropriate scope and mailbox membership.
 
 | Method   | Path                                               | Auth                      | Purpose                                       |
 | -------- | -------------------------------------------------- | ------------------------- | --------------------------------------------- |
-| `GET`    | `/health`                                          | Public                    | API Worker health                             |
+| `GET`    | `/health`                                          | Public                    | API health                                    |
 | `GET`    | `/capabilities`                                    | Public                    | Supported optional behavior                   |
 | `GET`    | `/openapi.json`                                    | Public                    | OpenAPI 3.1 contract                          |
 | `POST`   | `/auth/magic-links`                                | Public                    | Request a one-time sign-in link               |

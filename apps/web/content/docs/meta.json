@@ -1,5 +1,5 @@
 {
-  "title": "Cloudflare Inbox",
-  "description": "Operate, secure, deploy, and integrate Cloudflare Inbox.",
+  "title": "Simple Inbox",
+  "description": "Operate, secure, deploy, and integrate Simple Inbox.",
   "pages": ["index", "architecture", "deployment", "security", "api"]
 }

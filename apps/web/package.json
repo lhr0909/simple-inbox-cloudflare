@@ -11,14 +11,16 @@
     "generate-routes": "tsr generate",
     "build": "vp build",
     "preview": "vp build && vp preview",
-    "deploy": "node ../../tooling/scripts/deploy-worker.mjs web",
-    "cf-typegen": "wrangler types",
+    "cf-typegen": "wrangler types worker-configuration.d.ts --config ../../wrangler.jsonc",
     "check": "vp check",
     "test": "vp test --config vitest.config.ts"
   },
   "dependencies": {
     "@base-ui/react": "catalog:",
+    "@cloudflare-inbox/api": "workspace:*",
     "@cloudflare-inbox/contracts": "workspace:*",
+    "@cloudflare-inbox/db": "workspace:*",
+    "@cloudflare-inbox/mail": "workspace:*",
     "@fontsource-variable/geist": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "catalog:",

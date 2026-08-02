@@ -29,6 +29,7 @@ import type { InboxSearch } from '#/features/inbox/inbox-search'
 import { loadInboxServer } from '#/features/inbox/inbox-server'
 import type { InboxServerResult } from '#/features/inbox/inbox-server'
 import { InboxShell } from '#/features/inbox/inbox-shell'
+import { getSetupState } from '#/features/setup/setup-server'
 import type {
   InboxData,
   InboxQuery,
@@ -50,6 +51,9 @@ export const Route = createFileRoute('/inbox')({
   validateSearch: parseInboxSearch,
   loaderDeps: ({ search }) => search,
   loader: async ({ deps }): Promise<ReadyInbox> => {
+    if ((await getSetupState()) === 'required') {
+      throw redirect({ to: '/setup', replace: true })
+    }
     const result = await loadInboxServer({ data: deps })
     if (result.status === 'anonymous') {
       throw redirect({ to: '/sign-in', replace: true })
@@ -60,7 +64,7 @@ export const Route = createFileRoute('/inbox')({
     return result
   },
   component: Inbox,
-  head: () => ({ meta: [{ title: 'Inbox · Cloudflare Inbox' }] }),
+  head: () => ({ meta: [{ title: 'Inbox · Simple Inbox' }] }),
 })
 
 function Inbox() {

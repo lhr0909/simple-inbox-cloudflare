@@ -3,7 +3,7 @@ import { AttachmentIdSchema, MessageIdSchema } from '@cloudflare-inbox/contracts
 import { parseInboxSearch } from './inbox-search'
 import type { InboxSearch } from './inbox-search'
 
-export const RETURN_PATH_COOKIE = 'cloudflare_inbox_return'
+export const RETURN_PATH_COOKIE = 'simple_inbox_return'
 
 export function returnPathCookie(value: string, maxAge: number, secure: boolean): string {
   return `${RETURN_PATH_COOKIE}=${encodeURIComponent(value)}; Max-Age=${maxAge}; Path=/; HttpOnly; SameSite=Lax${secure ? '; Secure' : ''}`

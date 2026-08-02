@@ -1,4 +1,5 @@
 import { sha256Hex } from '@cloudflare-inbox/mail-core'
+import type { CompleteInstallationInput } from '@cloudflare-inbox/db'
 import { describe, expect, it, vi } from 'vitest'
 
 import { SESSION_COOKIE_MAX_AGE_SECONDS } from '../src/auth'
@@ -25,7 +26,7 @@ const NOW = Date.parse('2026-08-01T05:00:00.000Z')
 const EXPIRES_AT = NOW + 30 * 24 * 60 * 60 * 1_000
 const RAW_SHA256 = 'd'.repeat(64)
 
-describe('API Worker', () => {
+describe('API module', () => {
   it('serves liveness and generated OpenAPI with stable request IDs', async () => {
     const fixture = createFixture()
     const health = await fixture.app.request(
@@ -43,6 +44,7 @@ describe('API Worker', () => {
     expect(document.status).toBe(200)
     const json = (await document.json()) as { paths: Record<string, unknown> }
     expect(json.paths).toHaveProperty('/v1/auth/magic-links')
+    expect(json.paths).toHaveProperty('/v1/setup')
     expect(json.paths).toHaveProperty('/v1/messages/{messageId}/raw')
     expect(json.paths).not.toHaveProperty('/internal/v1/send')
 
@@ -55,6 +57,37 @@ describe('API Worker', () => {
     )
     expect(replaced.headers.get('x-request-id')).toMatch(/^[A-Za-z0-9_-]{16,64}$/u)
     expect(replaced.headers.get('x-request-id')).not.toBe('too-short')
+  })
+
+  it('reports first-run state and completes setup only with the deployment secret and origin', async () => {
+    const fixture = createFixture()
+    const status = await fixture.app.request('/v1/setup', undefined, fixture.env)
+    expect(status.status).toBe(200)
+    expect(await status.json()).toEqual({ status: 'required' })
+
+    const denied = await postSetup(fixture, {
+      ...setupRequest(),
+      setupToken: 'wrong-setup-token-that-is-still-long-enough',
+    })
+    expect(denied.status).toBe(403)
+    expect(fixture.completeInstallation).not.toHaveBeenCalled()
+
+    const completed = await postSetup(fixture, setupRequest())
+    expect(completed.status).toBe(201)
+    expect(await completed.json()).toEqual({ status: 'complete' })
+    expect(fixture.completeInstallation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appOrigin: 'https://inbox.example.test',
+        mailDomain: 'mail.example.test',
+        mailboxAddress: 'inbox@mail.example.test',
+        ownerEmail: 'owner@example.test',
+      }),
+    )
+
+    const crossOrigin = await postSetup(fixture, setupRequest(), {
+      origin: 'https://attacker.example.test',
+    })
+    expect(crossOrigin.status).toBe(403)
   })
 
   it('emits one safe structured completion event per request', async () => {
@@ -276,7 +309,7 @@ describe('API Worker', () => {
       session: { id: SESSION_ID },
     })
     const cookie = verified.headers.get('set-cookie') ?? ''
-    expect(cookie).toContain(`__Host-cloudflare-inbox-session=${SESSION_TOKEN}`)
+    expect(cookie).toContain(`__Host-simple-inbox-session=${SESSION_TOKEN}`)
     expect(cookie).toContain('HttpOnly')
     expect(cookie).toContain('Secure')
     expect(cookie).toContain('SameSite=Lax')
@@ -331,7 +364,7 @@ describe('API Worker', () => {
       token: MAGIC_TOKEN,
     })
     const localCookie = localVerify.headers.get('set-cookie') ?? ''
-    expect(localCookie).toContain(`cloudflare-inbox-development-session=${SESSION_TOKEN}`)
+    expect(localCookie).toContain(`simple-inbox-development-session=${SESSION_TOKEN}`)
     expect(localCookie).not.toContain('__Host-')
     expect(localCookie).not.toContain('Secure')
 
@@ -343,7 +376,7 @@ describe('API Worker', () => {
       token: MAGIC_TOKEN,
     })
     const stagingCookie = stagingVerify.headers.get('set-cookie') ?? ''
-    expect(stagingCookie).toContain(`__Host-cloudflare-inbox-session=${SESSION_TOKEN}`)
+    expect(stagingCookie).toContain(`__Host-simple-inbox-session=${SESSION_TOKEN}`)
     expect(stagingCookie).toContain('Secure')
 
     const concurrent = createFixture()
@@ -367,7 +400,7 @@ describe('API Worker', () => {
 
   it('enforces cookie CSRF while allowing correctly scoped bearer tokens', async () => {
     const fixture = createFixture({ apiTokenScopes: 4 })
-    const cookie = `__Host-cloudflare-inbox-session=${SESSION_TOKEN}`
+    const cookie = `__Host-simple-inbox-session=${SESSION_TOKEN}`
     const cookieMutation = await fixture.app.request(
       `/v1/mailboxes/${MAILBOX_ID}`,
       {
@@ -413,7 +446,7 @@ describe('API Worker', () => {
 
   it('projects mailbox/thread DTOs and applies folder and mutation semantics', async () => {
     const fixture = createFixture()
-    const cookie = `__Host-cloudflare-inbox-session=${SESSION_TOKEN}`
+    const cookie = `__Host-simple-inbox-session=${SESSION_TOKEN}`
     const mailboxes = await fixture.app.request(
       '/v1/mailboxes',
       { headers: { cookie } },
@@ -478,7 +511,7 @@ describe('API Worker', () => {
 
   it('returns indistinguishable membership-scoped 404s without touching R2', async () => {
     const fixture = createFixture({ rawMessage: undefined, threadDetail: undefined })
-    const cookie = `__Host-cloudflare-inbox-session=${SESSION_TOKEN}`
+    const cookie = `__Host-simple-inbox-session=${SESSION_TOKEN}`
     const thread = await fixture.app.request(
       `/v1/threads/${THREAD_ID}`,
       { headers: { cookie } },
@@ -505,7 +538,7 @@ describe('API Worker', () => {
     const fixture = createFixture({ threadFailure: failure })
     const response = await fixture.app.request(
       `/v1/threads/${THREAD_ID}`,
-      { headers: { cookie: `__Host-cloudflare-inbox-session=${SESSION_TOKEN}` } },
+      { headers: { cookie: `__Host-simple-inbox-session=${SESSION_TOKEN}` } },
       fixture.env,
     )
 
@@ -539,7 +572,7 @@ describe('API Worker', () => {
       ].join('\r\n'),
     )
     const fixture = createFixture({ attachmentRaw: rawEmail })
-    const cookie = `__Host-cloudflare-inbox-session=${SESSION_TOKEN}`
+    const cookie = `__Host-simple-inbox-session=${SESSION_TOKEN}`
     const raw = await fixture.app.request(
       `/v1/messages/${MESSAGE_ID}/raw`,
       { headers: { cookie } },
@@ -573,7 +606,7 @@ describe('API Worker', () => {
     const fixture = createFixture({ r2Sha256: 'e'.repeat(64) })
     const response = await fixture.app.request(
       `/v1/messages/${MESSAGE_ID}/raw`,
-      { headers: { cookie: `__Host-cloudflare-inbox-session=${SESSION_TOKEN}` } },
+      { headers: { cookie: `__Host-simple-inbox-session=${SESSION_TOKEN}` } },
       fixture.env,
     )
 
@@ -595,7 +628,7 @@ describe('API Worker', () => {
       {
         body,
         headers: {
-          cookie: `__Host-cloudflare-inbox-session=${SESSION_TOKEN}`,
+          cookie: `__Host-simple-inbox-session=${SESSION_TOKEN}`,
           'idempotency-key': 'send-test-key-0001',
           origin: 'https://inbox.example.test',
           'sec-fetch-site': 'same-origin',
@@ -623,7 +656,7 @@ describe('API Worker', () => {
     expect(internalForm?.getAll('attachments')).toHaveLength(1)
   })
 
-  it('preserves a deterministic mail-worker size rejection as 413', async () => {
+  it('preserves a deterministic mail-module size rejection as 413', async () => {
     const fixture = createFixture({ sendFailureStatus: 413 })
     const body = new FormData()
     body.append('mailboxId', MAILBOX_ID)
@@ -636,7 +669,7 @@ describe('API Worker', () => {
       {
         body,
         headers: {
-          cookie: `__Host-cloudflare-inbox-session=${SESSION_TOKEN}`,
+          cookie: `__Host-simple-inbox-session=${SESSION_TOKEN}`,
           'idempotency-key': 'send-test-key-oversize',
           origin: 'https://inbox.example.test',
           'sec-fetch-site': 'same-origin',
@@ -912,15 +945,34 @@ function createFixture(
     OWNER_EMAIL: 'owner@example.test',
     RAW_EMAILS: { get: r2Get } as unknown as R2Bucket,
     RAW_EMAIL_RETENTION_DAYS: '365',
+    SETUP_TOKEN: 'setup-secret-00000000000000000000000000000000',
   } satisfies ApiBindings
   const tokenQueue = [MAGIC_TOKEN, SESSION_TOKEN]
   const idQueue = [MAGIC_LINK_ID, SESSION_ID]
+  const completeInstallation = vi.fn(async (input: CompleteInstallationInput) => ({
+    created: true,
+    settings: {
+      applicationRecordRetentionDays: input.applicationRecordRetentionDays,
+      appOrigin: input.appOrigin,
+      completedAt: input.completedAt,
+      mailDomain: input.mailDomain,
+      mailboxAddress: input.mailboxAddress,
+      ownerEmail: input.ownerEmail,
+      rawEmailRetentionDays: input.rawEmailRetentionDays,
+      retentionBatchSize: input.retentionBatchSize,
+      setupVersion: 1 as const,
+    },
+  }))
   const dependencies = {
     authRepository: () => auth,
     digestToken: (token: string) => tokenDigest(token),
     generateId: () => idQueue.shift() ?? SESSION_ID,
     generateToken: () => tokenQueue.shift() ?? SESSION_TOKEN,
     inboxRepository: () => inbox,
+    installationRepository: () => ({
+      complete: completeInstallation,
+      getStatus: async () => ({ status: 'required' as const }),
+    }),
     now: () => NOW,
   } satisfies ApiDependencies
 
@@ -928,12 +980,39 @@ function createFixture(
     app: createApiApp(dependencies),
     auth: authState,
     dependencies,
+    completeInstallation,
     env,
     inbox,
     mailRequests,
     rateLimit,
     r2Get,
   }
+}
+
+function setupRequest() {
+  return {
+    applicationRecordRetentionDays: 90,
+    mailDomain: 'mail.example.test',
+    mailboxAddress: 'inbox@mail.example.test',
+    ownerEmail: 'owner@example.test',
+    rawEmailRetentionDays: 30,
+    retentionBatchSize: 100,
+    setupToken: 'setup-secret-00000000000000000000000000000000',
+  }
+}
+
+function postSetup(
+  fixture: ReturnType<typeof createFixture>,
+  body: unknown,
+  headers: Record<string, string> = {},
+): Promise<Response> {
+  return postJson(fixture, '/v1/setup', body, {
+    origin: 'https://inbox.example.test',
+    'sec-fetch-site': 'same-origin',
+    'x-forwarded-host': 'inbox.example.test',
+    'x-forwarded-proto': 'https',
+    ...headers,
+  })
 }
 
 async function postJson(

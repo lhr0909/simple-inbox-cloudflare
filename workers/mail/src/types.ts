@@ -11,23 +11,17 @@ import type {
 } from '@cloudflare-inbox/db'
 import type { SubjectThreadCandidate } from '@cloudflare-inbox/mail-core'
 
-export type MailBindings = Omit<
-  CloudflareBindings,
-  | 'APPLICATION_RECORD_RETENTION_DAYS'
-  | 'APP_ORIGIN'
-  | 'ENVIRONMENT'
-  | 'MAIL_DOMAIN'
-  | 'OWNER_EMAIL'
-  | 'RAW_EMAIL_RETENTION_DAYS'
-  | 'RETENTION_BATCH_SIZE'
-> & {
+export type MailBindings = {
   APPLICATION_RECORD_RETENTION_DAYS: string
   APP_ORIGIN: string
+  DB: D1Database
+  EMAIL: SendEmail
   ENVIRONMENT: string
   /** Optional defense in depth for deliberately exposed HTTP deployments. */
   INTERNAL_REQUEST_SECRET?: string
   MAIL_DOMAIN: string
   OWNER_EMAIL: string
+  RAW_EMAILS: R2Bucket
   RAW_EMAIL_RETENTION_DAYS: string
   RETENTION_BATCH_SIZE: string
 }

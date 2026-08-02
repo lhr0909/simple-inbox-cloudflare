@@ -10,8 +10,8 @@ import type { ApiEnv } from '../types'
 
 export const OPENAPI_CONFIGURATION = {
   info: {
-    description: 'Cloudflare Inbox public API. Internal Worker topology is intentionally omitted.',
-    title: 'Cloudflare Inbox API',
+    description: 'Simple Inbox public API. Internal runtime topology is intentionally omitted.',
+    title: 'Simple Inbox API',
     version: '1.0.0',
   },
   openapi: '3.1.0',

@@ -117,7 +117,7 @@ describe('mail internal HTTP boundary', () => {
       requestId: 'trace_http_send_001',
     })
     const form = new FormData()
-    form.set('request', JSON.stringify(internal))
+    form.set('metadata', JSON.stringify(internal))
     const submitted = await request(app, runtime.env, '/internal/v1/send', {
       body: form,
       method: 'POST',

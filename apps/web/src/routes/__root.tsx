@@ -14,7 +14,7 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'Cloudflare Inbox',
+        title: 'Simple Inbox',
       },
       {
         name: 'description',
@@ -104,7 +104,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <body>
         <RootProvider
           search={{ options: { api: '/api/search', type: 'static' } }}
-          theme={{ enabled: true, storageKey: 'cloudflare-inbox-theme' }}
+          theme={{ enabled: true, storageKey: 'simple-inbox-theme' }}
         >
           {children}
         </RootProvider>

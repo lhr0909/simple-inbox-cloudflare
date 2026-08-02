@@ -24,9 +24,7 @@ const ignoredDirectoryNames = new Set([
 
 const generatedEntries = [
   { label: 'TanStack route tree', path: 'apps/web/src/routeTree.gen.ts' },
-  { label: 'web Cloudflare binding types', path: 'apps/web/worker-configuration.d.ts' },
-  { label: 'API Cloudflare binding types', path: 'workers/api/worker-configuration.d.ts' },
-  { label: 'mail Cloudflare binding types', path: 'workers/mail/worker-configuration.d.ts' },
+  { label: 'Cloudflare binding types', path: 'apps/web/worker-configuration.d.ts' },
   { label: 'API OpenAPI document', path: 'workers/api/openapi.json' },
   { label: 'Drizzle migration SQL and metadata', path: 'packages/db/migrations' },
 ]
@@ -39,22 +37,10 @@ const generators = [
     label: 'TanStack route tree (production web build)',
   },
   {
-    arguments_: ['types', 'worker-configuration.d.ts'],
+    arguments_: ['types', 'worker-configuration.d.ts', '--config', '../../wrangler.jsonc'],
     binary: 'node_modules/.bin/wrangler',
     cwd: 'apps/web',
-    label: 'web Cloudflare binding types',
-  },
-  {
-    arguments_: ['types', 'worker-configuration.d.ts', '--env-interface', 'CloudflareBindings'],
-    binary: 'node_modules/.bin/wrangler',
-    cwd: 'workers/api',
-    label: 'API Cloudflare binding types',
-  },
-  {
-    arguments_: ['types', 'worker-configuration.d.ts', '--env-interface', 'CloudflareBindings'],
-    binary: 'node_modules/.bin/wrangler',
-    cwd: 'workers/mail',
-    label: 'mail Cloudflare binding types',
+    label: 'Cloudflare binding types',
   },
   {
     arguments_: ['--import', 'tsx', 'scripts/generate-openapi.ts'],
@@ -71,7 +57,7 @@ const generators = [
 ]
 
 async function main() {
-  const temporaryParent = await mkdtemp(join(tmpdir(), 'cloudflare-inbox-generated-'))
+  const temporaryParent = await mkdtemp(join(tmpdir(), 'simple-inbox-generated-'))
   const temporaryRoot = join(temporaryParent, 'workspace')
   try {
     process.stdout.write('Regenerating artifacts in an isolated workspace copy...\n')
@@ -91,7 +77,7 @@ async function main() {
     }
     process.stdout.write('Generated files match fresh generator output.\n')
   } finally {
-    if (process.env.CLOUDFLARE_INBOX_KEEP_GENERATED_CHECK === '1') {
+    if (process.env.SIMPLE_INBOX_KEEP_GENERATED_CHECK === '1') {
       process.stdout.write(`Kept isolated workspace for inspection: ${temporaryRoot}\n`)
     } else {
       await rm(temporaryParent, { force: true, recursive: true })

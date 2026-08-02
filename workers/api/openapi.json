@@ -1,18 +1,18 @@
 {
   "info": {
-    "description": "Cloudflare Inbox public API. Internal Worker topology is intentionally omitted.",
-    "title": "Cloudflare Inbox API",
+    "description": "Simple Inbox public API. Internal runtime topology is intentionally omitted.",
+    "title": "Simple Inbox API",
     "version": "1.0.0"
   },
   "openapi": "3.1.0",
   "components": {
     "schemas": {
-      "MagicLinkAcceptedResponse": {
+      "SetupStatusResponse": {
         "type": "object",
         "properties": {
           "status": {
             "type": "string",
-            "enum": ["accepted"]
+            "enum": ["required", "complete"]
           }
         },
         "required": ["status"],
@@ -114,6 +114,73 @@
             }
           ]
         }
+      },
+      "CompleteSetupRequest": {
+        "type": "object",
+        "properties": {
+          "applicationRecordRetentionDays": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3650
+          },
+          "mailDomain": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253,
+            "example": "mail.example.test"
+          },
+          "mailboxAddress": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 320,
+            "format": "email",
+            "example": "owner@example.test"
+          },
+          "ownerEmail": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 320,
+            "format": "email",
+            "example": "owner@example.test"
+          },
+          "rawEmailRetentionDays": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3650
+          },
+          "retentionBatchSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "setupToken": {
+            "type": "string",
+            "minLength": 32,
+            "maxLength": 512,
+            "example": "replace-with-a-random-one-time-setup-secret"
+          }
+        },
+        "required": [
+          "applicationRecordRetentionDays",
+          "mailDomain",
+          "mailboxAddress",
+          "ownerEmail",
+          "rawEmailRetentionDays",
+          "retentionBatchSize",
+          "setupToken"
+        ],
+        "additionalProperties": false
+      },
+      "MagicLinkAcceptedResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["accepted"]
+          }
+        },
+        "required": ["status"],
+        "additionalProperties": false
       },
       "MagicLinkRequest": {
         "type": "object",
@@ -1094,6 +1161,150 @@
     "parameters": {}
   },
   "paths": {
+    "/v1/setup": {
+      "get": {
+        "operationId": "getSetupStatus",
+        "tags": ["Setup"],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatusResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required service is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "completeSetup",
+        "tags": ["Setup"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteSetupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatusResponse"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request was not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The operation is not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with existing state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is too large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request content type is not supported.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The request was rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required service is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/auth/magic-links": {
       "post": {
         "operationId": "requestMagicLink",
