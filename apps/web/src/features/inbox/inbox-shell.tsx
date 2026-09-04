@@ -599,9 +599,12 @@ function ThreadListPane({
   onSelectThread?: InboxShellProps['onSelectThread']
 }>) {
   const [searchDraft, setSearchDraft] = useState(query.search)
+  const previousQuerySearch = useRef(query.search)
 
   useEffect(() => {
-    setSearchDraft(query.search)
+    const previousSearch = previousQuerySearch.current
+    previousQuerySearch.current = query.search
+    setSearchDraft((current) => (current === previousSearch ? query.search : current))
   }, [query.search])
 
   useEffect(() => {
