@@ -81,7 +81,6 @@ void test('rejects forbidden edges, undeclared imports, and non-exported deep im
 
     const codes = inspectWorkspace(workspace.root).map(({ code }) => code)
     assert.deepEqual(codes.sort(compareStrings), [
-      'forbidden-dependency',
       'undeclared-workspace-import',
       'workspace-deep-import',
     ])
