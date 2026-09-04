@@ -90,7 +90,16 @@ safe structured application logs without message content.
 
 Inbound email enters the root `email()` export. After the installation gate, the mail service writes
 the canonical raw object to R2, parses and projects it into D1, associates it with a thread, and then
-optionally forwards it. Forwarding failure never erases captured mail.
+optionally forwards it. Cloudflare Email Routing is the inbound trust boundary: every valid envelope
+recipient delivered to the Worker is accepted and auto-provisioned as an owner mailbox, regardless
+of whether its domain matches the primary domain chosen during setup. Forwarding failure never
+erases captured mail.
+
+Each forwarded message uses the assigned mailbox as its sender and an opaque, same-domain reply
+alias as `Reply-To`. A reply from the configured owner resolves that alias in D1, is sent from the
+assigned mailbox with the original thread headers, and is projected back into the same D1 thread.
+Catch-all routing delivers both ordinary mailbox addresses and these aliases without requiring
+plus-addressing rules.
 
 Outbound delivery is claimed durably before Email Sending is invoked. A claimed operation is never
 blindly retried: interruption or an ambiguous provider result remains `unknown` for manual
