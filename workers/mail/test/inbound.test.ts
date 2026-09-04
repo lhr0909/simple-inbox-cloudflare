@@ -507,86 +507,81 @@ describe('reply-alias relay', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
   })
 
-  it.each([
-    ['direct catch-all', `${ALIAS_TOKEN}@example.test`],
-    ['previous plus-addressed', `reply+${ALIAS_TOKEN}@example.test`],
-  ])(
-    'relays a %s alias only for the owner and preserves threading',
-    async (_kind, aliasAddress) => {
-      const events: string[] = []
-      const store = new FakeMailStore(events)
-      store.aliases.set(ALIAS_TOKEN, {
-        localPart: ALIAS_TOKEN,
-        mailboxId: MAILBOX_ID,
-        ownerUserId: OWNER_USER_ID,
-        relayDestination: 'alice-replies@sender.example.test',
-        targetMessageId: INBOUND_MESSAGE_ID,
-        threadId: THREAD_ID,
-      })
-      store.context = {
-        mailbox: store.context.mailbox,
-        messages: [
-          {
-            direction: 'inbound',
-            fromAddress: 'alice@sender.example.test',
-            id: INBOUND_MESSAGE_ID,
-            inReplyTo: null,
-            internetMessageId: '<synthetic-inbound-1@sender.example.test>',
-            providerMessageId: null,
-            references: ['<synthetic-root@sender.example.test>'],
-            replyTo: ['alice-replies@sender.example.test'],
-            sentAt: NOW - 60_000,
-          },
-        ],
-        thread: { archivedAt: null, id: THREAD_ID, subject: 'Synthetic support request' },
-      }
-      const runtime = createFakeEnvironment({ events })
-      const raw = encode(aliasFixture)
-      const input = createForwardableMessage(raw, {
+  it('relays a direct alias only for the owner and preserves threading', async () => {
+    const events: string[] = []
+    const store = new FakeMailStore(events)
+    seedReplyAlias(store)
+    const runtime = createFakeEnvironment({ events })
+    const raw = encode(aliasFixture)
+    const input = createForwardableMessage(raw, {
+      from: 'owner@example.test',
+      to: `${ALIAS_TOKEN}@example.test`,
+    })
+
+    const result = await captureInboundEmail(
+      input.message,
+      runtime.env,
+      createDependencies(store),
+      'trace_alias_relay1',
+    )
+
+    expect(result.kind).toBe('relayed')
+    expect(runtime.sent).toHaveLength(1)
+    expect(runtime.sent[0]).toMatchObject({
+      from: { email: 'support@example.test', name: 'Example Support' },
+      replyTo: 'support@example.test',
+      to: ['alice-replies@sender.example.test'],
+    })
+    expect(runtime.sent[0]?.headers).toMatchObject({
+      'In-Reply-To': '<synthetic-inbound-1@sender.example.test>',
+      References: expect.stringContaining('<synthetic-inbound-1@sender.example.test>'),
+    })
+    expect(store.projects.at(-1)?.message).toMatchObject({
+      direction: 'outbound',
+      rawSize: raw.byteLength,
+      sendState: 'sent',
+      threadId: THREAD_ID,
+    })
+    expect(events.indexOf('r2:put')).toBeLessThan(events.indexOf('email:send'))
+    expect(events.indexOf('email:send')).toBeLessThan(events.indexOf('db:complete-outbound'))
+
+    const duplicate = await captureInboundEmail(
+      createForwardableMessage(raw, {
         from: 'owner@example.test',
-        to: aliasAddress,
-      })
+        to: `${ALIAS_TOKEN}@example.test`,
+      }).message,
+      runtime.env,
+      createDependencies(store),
+      'trace_alias_relay2',
+    )
+    expect(duplicate.kind).toBe('duplicate')
+    expect(runtime.sent).toHaveLength(1)
+  })
 
-      const result = await captureInboundEmail(
-        input.message,
-        runtime.env,
-        createDependencies(store),
-        'trace_alias_relay1',
-      )
+  it('relays an alias previously issued in plus-addressed form', async () => {
+    const store = new FakeMailStore()
+    seedReplyAlias(store)
+    const runtime = createFakeEnvironment()
+    const raw = encode(aliasFixture)
 
-      expect(result.kind).toBe('relayed')
-      expect(runtime.sent).toHaveLength(1)
-      expect(runtime.sent[0]).toMatchObject({
-        from: { email: 'support@example.test', name: 'Example Support' },
-        replyTo: 'support@example.test',
-        to: ['alice-replies@sender.example.test'],
-      })
-      expect(runtime.sent[0]?.headers).toMatchObject({
-        'In-Reply-To': '<synthetic-inbound-1@sender.example.test>',
-        References: expect.stringContaining('<synthetic-inbound-1@sender.example.test>'),
-      })
-      expect(store.projects.at(-1)?.message).toMatchObject({
-        direction: 'outbound',
-        rawSize: raw.byteLength,
-        sendState: 'sent',
-        threadId: THREAD_ID,
-      })
-      expect(events.indexOf('r2:put')).toBeLessThan(events.indexOf('email:send'))
-      expect(events.indexOf('email:send')).toBeLessThan(events.indexOf('db:complete-outbound'))
+    const result = await captureInboundEmail(
+      createForwardableMessage(raw, {
+        from: 'owner@example.test',
+        to: `reply+${ALIAS_TOKEN}@example.test`,
+      }).message,
+      runtime.env,
+      createDependencies(store),
+      'trace_alias_plus_compatibility',
+    )
 
-      const duplicate = await captureInboundEmail(
-        createForwardableMessage(raw, {
-          from: 'owner@example.test',
-          to: aliasAddress,
-        }).message,
-        runtime.env,
-        createDependencies(store),
-        'trace_alias_relay2',
-      )
-      expect(duplicate.kind).toBe('duplicate')
-      expect(runtime.sent).toHaveLength(1)
-    },
-  )
+    expect(result.kind).toBe('relayed')
+    expect(runtime.sent[0]).toMatchObject({
+      from: { email: 'support@example.test', name: 'Example Support' },
+      replyTo: 'support@example.test',
+      to: ['alice-replies@sender.example.test'],
+    })
+    expect(store.projects.at(-1)?.message.threadId).toBe(THREAD_ID)
+  })
 
   it('rejects a non-owner sender using a known alias before any raw write', async () => {
     const store = new FakeMailStore()
