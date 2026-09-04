@@ -10,7 +10,11 @@ import type {
   ReserveOutboundSendResult,
 } from '@cloudflare-inbox/db'
 import { retryabilityForOutboundSendState } from '@cloudflare-inbox/db'
-import type { SubjectThreadCandidate } from '@cloudflare-inbox/mail-core'
+import {
+  parseMailbox,
+  parseReplyAlias,
+  type SubjectThreadCandidate,
+} from '@cloudflare-inbox/mail-core'
 
 import type {
   MailBindings,
@@ -36,6 +40,7 @@ export const ALIAS_TOKEN = 'abcdefghijklmnopqrstuvwxyz234567'
 export class FakeMailStore implements MailStore {
   readonly aliases = new Map<string, ReplyAliasRecord>()
   readonly events: string[]
+  readonly mailboxAddresses = new Map<string, string>([[MAILBOX_ID, 'support@example.test']])
   readonly projects: InsertMessageProjectionInput[] = []
   readonly sends = new Map<string, OutboundSendRecord>()
   readonly threads = new Map<string, NewThread>()
@@ -134,6 +139,7 @@ export class FakeMailStore implements MailStore {
     userId: string
   }): Promise<MailboxRecord> {
     this.events.push('db:ensure-mailbox')
+    this.mailboxAddresses.set(MAILBOX_ID, input.mailboxAddress)
     return {
       ...mailboxRecord(),
       address: input.mailboxAddress,
@@ -302,8 +308,16 @@ export class FakeMailStore implements MailStore {
     return { kind: 'reserved', send }
   }
 
-  async resolveReplyAlias(localPart: string): Promise<ReplyAliasRecord | undefined> {
-    return this.aliases.get(localPart)
+  async resolveReplyAlias(address: string): Promise<ReplyAliasRecord | undefined> {
+    const candidate = parseMailbox(address)
+    const parsedAlias = parseReplyAlias(candidate.address, { domain: candidate.domain })
+    if (parsedAlias === null) return undefined
+    const alias = this.aliases.get(parsedAlias.token)
+    if (alias === undefined) return undefined
+    const mailboxAddress = this.mailboxAddresses.get(alias.mailboxId)
+    return mailboxAddress !== undefined && parseMailbox(mailboxAddress).domain === candidate.domain
+      ? alias
+      : undefined
   }
 
   async updateForwardResult(input: {

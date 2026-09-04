@@ -53,6 +53,10 @@ describe('internal outbound submission', () => {
     })
     expect(second.response).toEqual(first.response)
     expect(runtime.sent).toHaveLength(1)
+    expect(runtime.sent[0]).toMatchObject({
+      from: { email: 'support@example.test', name: 'Example Support' },
+      replyTo: 'support@example.test',
+    })
     expect(store.projects).toHaveLength(1)
     expect(events.indexOf('db:reserve-send')).toBeLessThan(events.indexOf('email:send'))
     expect(events.indexOf('email:send')).toBeLessThan(events.indexOf('r2:put'))

@@ -166,10 +166,12 @@ export function formatAddress(value: MailAddress): string {
 
 export interface ReplyAliasOptions {
   domain: string
-  prefix?: string
-  minimumTokenLength?: number
 }
 
+/**
+ * Parse a direct catch-all reply address such as `<opaque-token>@example.test`.
+ * The former `reply+<opaque-token>` form remains readable during upgrades.
+ */
 export function parseReplyAlias(
   input: string,
   options: ReplyAliasOptions,
@@ -178,11 +180,10 @@ export function parseReplyAlias(
   const expectedDomain = parseMailbox(`alias@${options.domain}`).domain
   if (mailbox.domain !== expectedDomain) return null
 
-  const prefix = (options.prefix ?? 'reply+').toLowerCase()
-  if (!mailbox.localPart.startsWith(prefix)) return null
-  const token = mailbox.localPart.slice(prefix.length)
-  const minimumLength = options.minimumTokenLength ?? 16
-  if (token.length < minimumLength || token.length > 80 || !/^[a-z2-7]+$/u.test(token)) {
+  const token = mailbox.localPart.startsWith('reply+')
+    ? mailbox.localPart.slice('reply+'.length)
+    : mailbox.localPart
+  if (token.length < 16 || token.length > 80 || !/^[a-z2-7]+$/u.test(token)) {
     return null
   }
   return { address: mailbox.address, token }

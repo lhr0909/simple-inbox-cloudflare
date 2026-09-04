@@ -23,7 +23,11 @@ import {
   type ReserveOutboundSendInput,
   type ReserveOutboundSendResult,
 } from '@cloudflare-inbox/db'
-import type { SubjectThreadCandidate } from '@cloudflare-inbox/mail-core'
+import {
+  parseMailbox,
+  parseReplyAlias,
+  type SubjectThreadCandidate,
+} from '@cloudflare-inbox/mail-core'
 import { and, asc, desc, eq, gte, isNull, lte, or } from 'drizzle-orm'
 
 import type {
@@ -221,25 +225,16 @@ export class D1MailStore implements MailStore {
     return this.#findReplyAliasForMessage(input)
   }
 
-  async resolveReplyAlias(localPart: string): Promise<ReplyAliasRecord | undefined> {
-    const resolved = await this.#projection.resolveReplyAlias(localPart)
+  async resolveReplyAlias(address: string): Promise<ReplyAliasRecord | undefined> {
+    const candidate = parseMailbox(address)
+    const parsedAlias = parseReplyAlias(candidate.address, { domain: candidate.domain })
+    if (parsedAlias === null) return undefined
+    const resolved = await this.#projection.resolveReplyAlias(parsedAlias.token)
     if (resolved === undefined) return undefined
-    const [owner] = await this.#db
-      .select({ ownerUserId: users.id })
-      .from(mailboxMembers)
-      .innerJoin(users, eq(users.id, mailboxMembers.userId))
-      .where(
-        and(
-          eq(mailboxMembers.mailboxId, resolved.mailboxId),
-          eq(mailboxMembers.role, 'owner'),
-          isNull(users.disabledAt),
-        ),
-      )
-      .orderBy(asc(users.id))
-      .limit(1)
-    return owner === undefined
+    const mailbox = await this.#findOwnedMailboxById(resolved.mailboxId)
+    return mailbox === undefined || parseMailbox(mailbox.address).domain !== candidate.domain
       ? undefined
-      : { ...resolved, localPart, ownerUserId: owner.ownerUserId }
+      : { ...resolved, localPart: parsedAlias.token, ownerUserId: mailbox.ownerUserId }
   }
 
   async listAllowedRelayDestinations(mailboxId: string, threadId: string): Promise<string[]> {

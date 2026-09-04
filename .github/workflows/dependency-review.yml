@@ -9,6 +9,9 @@ permissions:
 jobs:
   dependency-review:
     name: Review dependency changes
+    # Private repositories need GitHub Advanced Security for this action. The
+    # required production audit remains enforced by ci.yml on every PR.
+    if: ${{ !github.event.repository.private || vars.DEPENDENCY_REVIEW_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository

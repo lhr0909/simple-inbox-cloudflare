@@ -217,6 +217,10 @@ One atomic D1 batch creates:
 - the sole owner membership for that mailbox;
 - the singleton installation record containing origin, mail domain, and retention settings.
 
+The setup mail domain anchors the primary mailbox and malformed-message fallback identity. It is
+not an application-level allowlist. After setup, any valid envelope recipient that Cloudflare Email
+Routing delivers to the Worker is auto-provisioned as another owner mailbox in D1.
+
 An exact replay is idempotent. Different values, an existing different owner, or partial pre-existing
 user/mailbox state fails closed. If installation state is reported as inconsistent, stop and restore
 D1 from a known-good backup rather than manually adding records.
@@ -240,6 +244,10 @@ After the Worker and wizard are ready:
 4. Confirm the Worker's `EMAIL` binding can send magic links, forwarding, and owner-composed mail.
 5. Keep arbitrary-recipient sending disabled until provider and abuse controls are reviewed.
 
+Repeat sender-domain onboarding for every routed domain whose mailboxes will be used as forwarding
+or outbound `From` addresses. The Worker records mail from any routed domain, but Cloudflare Email
+Sending can reject forwarding or replies from a domain that has not been onboarded for sending.
+
 Use a separate test domain/subdomain and synthetic content for acceptance. A successful Worker
 deployment alone does not prove Email Sending authorization.
 
@@ -257,11 +265,22 @@ objects.
 ### Email Routing activation
 
 1. Confirm setup, sign-in, health, and outbound test delivery on the new Worker.
-2. Add a new staging/test-domain Email Routing rule or catch-all whose destination is the
-   `simple-inbox-cf` Worker's `email()` handler.
-3. Do not edit an existing legacy rule as part of deployment.
-4. Send a uniquely titled synthetic inbound message and verify D1 projection, private R2 raw bytes,
-   optional forwarding, reply alias behavior, and authorized attachment download.
+2. Add an owner-approved catch-all whose destination is the `simple-inbox-cf` Worker's `email()`
+   handler. The catch-all is also the route for opaque `<token>@domain` reply aliases; Cloudflare
+   subaddressing is not required.
+3. Treat Email Routing as the mailbox allowlist: every valid recipient delivered to the Worker is
+   recorded as a D1 mailbox and forwarded according to that mailbox's settings.
+4. Do not leave legacy and replacement catch-alls active for the same domain. Record the prior
+   target so the owner can restore it manually if rollback is required.
+5. Send a uniquely titled synthetic inbound message and verify the D1 mailbox/thread/message
+   projection, private R2 raw bytes, forwarding, owner reply relay, and authorized attachment
+   download.
+
+Replacing a legacy catch-all does not import that system's private reply-alias records. Before
+cutover, the owner must explicitly accept that replying from a personal inbox to an older forwarded
+legacy thread will no longer relay through the retired Worker. Complete or move any active legacy
+threads first. Aliases previously issued by this replacement application remain compatible in both
+the direct `<token>@domain` and former `reply+<token>@domain` forms.
 
 Routing activation is a separate owner-approved change. Avoid dual delivery to legacy and new
 stores: two handlers can capture duplicate messages even if each is internally idempotent.

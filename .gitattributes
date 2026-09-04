@@ -3,3 +3,4 @@
 apps/web/worker-configuration.d.ts whitespace=-trailing-space
 workers/api/worker-configuration.d.ts whitespace=-trailing-space
 workers/mail/worker-configuration.d.ts whitespace=-trailing-space
+packages/db/migrations/*.sql text eol=lf

@@ -74,7 +74,11 @@ describe('inbound email capture', () => {
     )
     expect(runtime.sent).toHaveLength(1)
     expect(runtime.sent[0]).toMatchObject({
-      replyTo: `reply+${ALIAS_TOKEN}@example.test`,
+      from: {
+        email: 'support@example.test',
+        name: 'Alice Example (alice@sender.example.test)',
+      },
+      replyTo: `${ALIAS_TOKEN}@example.test`,
       subject: 'Synthetic support request',
       to: 'owner@example.test',
     })
@@ -126,6 +130,80 @@ describe('inbound email capture', () => {
     expect(runtime.sent).toEqual([])
     expect(events).not.toContain('db:ensure-alias')
     expect(events).not.toContain('email:send')
+  })
+
+  it('captures a catch-all recipient outside the primary domain and forwards as that mailbox', async () => {
+    const store = new FakeMailStore()
+    const runtime = createFakeEnvironment()
+    const raw = encode(inboundFixture)
+    const input = createForwardableMessage(raw, { to: 'campaigns@other.example.test' })
+
+    const result = await captureInboundEmail(
+      input.message,
+      runtime.env,
+      createDependencies(store),
+      'trace_catch_all_domain_0001',
+    )
+
+    expect(result.kind).toBe('captured')
+    expect(input.rejected).toEqual([])
+    expect(runtime.sent).toHaveLength(1)
+    expect(runtime.sent[0]).toMatchObject({
+      from: {
+        email: 'campaigns@other.example.test',
+        name: 'Alice Example (alice@sender.example.test)',
+      },
+      replyTo: `${ALIAS_TOKEN}@other.example.test`,
+      to: 'owner@example.test',
+    })
+  })
+
+  it('opens an unallocated opaque catch-all address as a normal mailbox', async () => {
+    const store = new FakeMailStore()
+    const runtime = createFakeEnvironment()
+    const raw = encode(inboundFixture)
+    const mailbox = `${'b'.repeat(32)}@example.test`
+    const input = createForwardableMessage(raw, { to: mailbox })
+
+    const result = await captureInboundEmail(
+      input.message,
+      runtime.env,
+      createDependencies(store),
+      'trace_catch_all_opaque_0001',
+    )
+
+    expect(result.kind).toBe('captured')
+    expect(input.rejected).toEqual([])
+    expect(runtime.sent[0]).toMatchObject({
+      from: expect.objectContaining({ email: mailbox }),
+      to: 'owner@example.test',
+    })
+  })
+
+  it('does not resolve an alias token on a domain where it was not issued', async () => {
+    const store = new FakeMailStore()
+    seedReplyAlias(store)
+    const runtime = createFakeEnvironment()
+    const raw = encode(inboundFixture)
+    const mailbox = `${ALIAS_TOKEN}@other.example.test`
+    const input = createForwardableMessage(raw, {
+      from: 'owner@example.test',
+      to: mailbox,
+    })
+
+    const result = await captureInboundEmail(
+      input.message,
+      runtime.env,
+      createDependencies(store, { generateAliasToken: () => 'c'.repeat(32) }),
+      'trace_alias_other_domain_0001',
+    )
+
+    expect(result.kind).toBe('captured')
+    expect(runtime.sent).toHaveLength(1)
+    expect(runtime.sent[0]).toMatchObject({
+      from: expect.objectContaining({ email: mailbox }),
+      to: 'owner@example.test',
+    })
   })
 
   it('deduplicates logical delivery without forwarding twice', async () => {
@@ -402,21 +480,21 @@ describe('inbound email capture', () => {
     expect(runtime.sent).toEqual([])
   })
 
-  it('rejects an out-of-domain recipient and oversize envelope before buffering', async () => {
+  it('rejects malformed and oversize envelopes before buffering', async () => {
     const store = new FakeMailStore()
     const runtime = createFakeEnvironment()
     const raw = encode(inboundFixture)
     const dependencies = createDependencies(store)
-    const outside = createForwardableMessage(raw, { to: 'support@outside.example.test' })
+    const malformed = createForwardableMessage(raw, { to: 'not-an-address' })
     const oversize = createForwardableMessage(raw, { rawSize: 25 * 1_024 * 1_024 + 1 })
 
     expect(
-      await captureInboundEmail(outside.message, runtime.env, dependencies, 'trace_outside_0001'),
+      await captureInboundEmail(malformed.message, runtime.env, dependencies, 'trace_invalid_0001'),
     ).toEqual({ kind: 'rejected', reason: 'invalid_envelope' })
     expect(
       await captureInboundEmail(oversize.message, runtime.env, dependencies, 'trace_oversize_001'),
     ).toEqual({ kind: 'rejected', reason: 'oversized' })
-    expect(outside.rejected).toHaveLength(1)
+    expect(malformed.rejected).toHaveLength(1)
     expect(oversize.rejected).toHaveLength(1)
     expect(runtime.objects.size).toBe(0)
   })
@@ -429,39 +507,15 @@ describe('reply-alias relay', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
   })
 
-  it('requires the owner, constrains recipients, preserves threading, and projects outbound', async () => {
+  it('relays a direct alias only for the owner and preserves threading', async () => {
     const events: string[] = []
     const store = new FakeMailStore(events)
-    store.aliases.set(ALIAS_TOKEN, {
-      localPart: ALIAS_TOKEN,
-      mailboxId: MAILBOX_ID,
-      ownerUserId: OWNER_USER_ID,
-      relayDestination: 'alice-replies@sender.example.test',
-      targetMessageId: INBOUND_MESSAGE_ID,
-      threadId: THREAD_ID,
-    })
-    store.context = {
-      mailbox: store.context.mailbox,
-      messages: [
-        {
-          direction: 'inbound',
-          fromAddress: 'alice@sender.example.test',
-          id: INBOUND_MESSAGE_ID,
-          inReplyTo: null,
-          internetMessageId: '<synthetic-inbound-1@sender.example.test>',
-          providerMessageId: null,
-          references: ['<synthetic-root@sender.example.test>'],
-          replyTo: ['alice-replies@sender.example.test'],
-          sentAt: NOW - 60_000,
-        },
-      ],
-      thread: { archivedAt: null, id: THREAD_ID, subject: 'Synthetic support request' },
-    }
+    seedReplyAlias(store)
     const runtime = createFakeEnvironment({ events })
     const raw = encode(aliasFixture)
     const input = createForwardableMessage(raw, {
       from: 'owner@example.test',
-      to: `reply+${ALIAS_TOKEN}@example.test`,
+      to: `${ALIAS_TOKEN}@example.test`,
     })
 
     const result = await captureInboundEmail(
@@ -473,7 +527,11 @@ describe('reply-alias relay', () => {
 
     expect(result.kind).toBe('relayed')
     expect(runtime.sent).toHaveLength(1)
-    expect(runtime.sent[0]?.to).toEqual(['alice-replies@sender.example.test'])
+    expect(runtime.sent[0]).toMatchObject({
+      from: { email: 'support@example.test', name: 'Example Support' },
+      replyTo: 'support@example.test',
+      to: ['alice-replies@sender.example.test'],
+    })
     expect(runtime.sent[0]?.headers).toMatchObject({
       'In-Reply-To': '<synthetic-inbound-1@sender.example.test>',
       References: expect.stringContaining('<synthetic-inbound-1@sender.example.test>'),
@@ -490,7 +548,7 @@ describe('reply-alias relay', () => {
     const duplicate = await captureInboundEmail(
       createForwardableMessage(raw, {
         from: 'owner@example.test',
-        to: `reply+${ALIAS_TOKEN}@example.test`,
+        to: `${ALIAS_TOKEN}@example.test`,
       }).message,
       runtime.env,
       createDependencies(store),
@@ -500,27 +558,35 @@ describe('reply-alias relay', () => {
     expect(runtime.sent).toHaveLength(1)
   })
 
-  it('rejects unknown aliases and non-owner senders before any raw write', async () => {
+  it('relays an alias previously issued in plus-addressed form', async () => {
+    const store = new FakeMailStore()
+    seedReplyAlias(store)
+    const runtime = createFakeEnvironment()
+    const raw = encode(aliasFixture)
+
+    const result = await captureInboundEmail(
+      createForwardableMessage(raw, {
+        from: 'owner@example.test',
+        to: `reply+${ALIAS_TOKEN}@example.test`,
+      }).message,
+      runtime.env,
+      createDependencies(store),
+      'trace_alias_plus_compatibility',
+    )
+
+    expect(result.kind).toBe('relayed')
+    expect(runtime.sent[0]).toMatchObject({
+      from: { email: 'support@example.test', name: 'Example Support' },
+      replyTo: 'support@example.test',
+      to: ['alice-replies@sender.example.test'],
+    })
+    expect(store.projects.at(-1)?.message.threadId).toBe(THREAD_ID)
+  })
+
+  it('rejects a non-owner sender using a known alias before any raw write', async () => {
     const store = new FakeMailStore()
     const runtime = createFakeEnvironment()
     const raw = encode(aliasFixture)
-    const unknown = createForwardableMessage(raw, {
-      from: 'owner@example.test',
-      to: `reply+${ALIAS_TOKEN}@example.test`,
-    })
-
-    expect(
-      await captureInboundEmail(
-        unknown.message,
-        runtime.env,
-        createDependencies(store),
-        'trace_unknown_alias',
-      ),
-    ).toEqual({ kind: 'rejected', reason: 'unauthorized_alias' })
-    expect(runtime.objects.size).toBe(0)
-    expect(store.projects).toEqual([])
-    expect(runtime.sent).toEqual([])
-
     store.aliases.set(ALIAS_TOKEN, {
       localPart: ALIAS_TOKEN,
       mailboxId: MAILBOX_ID,
@@ -531,7 +597,7 @@ describe('reply-alias relay', () => {
     })
     const attacker = createForwardableMessage(raw, {
       from: 'attacker@outside.example.test',
-      to: `reply+${ALIAS_TOKEN}@example.test`,
+      to: `${ALIAS_TOKEN}@example.test`,
     })
     expect(
       await captureInboundEmail(
@@ -570,7 +636,7 @@ describe('reply-alias relay', () => {
     const result = await captureInboundEmail(
       createForwardableMessage(raw, {
         from: 'owner@example.test',
-        to: `reply+${ALIAS_TOKEN}@example.test`,
+        to: `${ALIAS_TOKEN}@example.test`,
       }).message,
       runtime.env,
       dependencies,
@@ -599,7 +665,7 @@ describe('reply-alias relay', () => {
     const result = await captureInboundEmail(
       createForwardableMessage(raw, {
         from: 'owner@example.test',
-        to: `reply+${ALIAS_TOKEN}@example.test`,
+        to: `${ALIAS_TOKEN}@example.test`,
       }).message,
       runtime.env,
       dependencies,
@@ -608,7 +674,7 @@ describe('reply-alias relay', () => {
     const replay = await captureInboundEmail(
       createForwardableMessage(raw, {
         from: 'owner@example.test',
-        to: `reply+${ALIAS_TOKEN}@example.test`,
+        to: `${ALIAS_TOKEN}@example.test`,
       }).message,
       runtime.env,
       dependencies,
@@ -636,7 +702,7 @@ describe('reply-alias relay', () => {
     const result = await captureInboundEmail(
       createForwardableMessage(raw, {
         from: 'owner@example.test',
-        to: `reply+${ALIAS_TOKEN}@example.test`,
+        to: `${ALIAS_TOKEN}@example.test`,
       }).message,
       runtime.env,
       createDependencies(store),
@@ -674,7 +740,7 @@ describe('reply-alias relay', () => {
     const first = captureInboundEmail(
       createForwardableMessage(raw, {
         from: 'owner@example.test',
-        to: `reply+${ALIAS_TOKEN}@example.test`,
+        to: `${ALIAS_TOKEN}@example.test`,
       }).message,
       runtime.env,
       dependencies,
@@ -685,7 +751,7 @@ describe('reply-alias relay', () => {
     const loser = await captureInboundEmail(
       createForwardableMessage(raw, {
         from: 'owner@example.test',
-        to: `reply+${ALIAS_TOKEN}@example.test`,
+        to: `${ALIAS_TOKEN}@example.test`,
       }).message,
       runtime.env,
       dependencies,
@@ -710,7 +776,7 @@ describe('reply-alias relay', () => {
     const first = await captureInboundEmail(
       createForwardableMessage(raw, {
         from: 'owner@example.test',
-        to: `reply+${ALIAS_TOKEN}@example.test`,
+        to: `${ALIAS_TOKEN}@example.test`,
       }).message,
       runtime.env,
       dependencies,
@@ -719,7 +785,7 @@ describe('reply-alias relay', () => {
     const replay = await captureInboundEmail(
       createForwardableMessage(raw, {
         from: 'owner@example.test',
-        to: `reply+${ALIAS_TOKEN}@example.test`,
+        to: `${ALIAS_TOKEN}@example.test`,
       }).message,
       runtime.env,
       dependencies,
@@ -766,7 +832,7 @@ async function seedQueuedRelay(store: FakeMailStore, raw: Uint8Array): Promise<v
   const rawSha256 = await sha256Hex(raw)
   const ingestDigest = await computeInboundIngestDigest({
     envelopeFrom: 'owner@example.test',
-    envelopeTo: `reply+${ALIAS_TOKEN}@example.test`,
+    envelopeTo: `${ALIAS_TOKEN}@example.test`,
     rawSha256,
   })
   const requestDigest = await computeIdempotencyRequestDigest({

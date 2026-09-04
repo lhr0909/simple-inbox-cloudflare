@@ -52,35 +52,36 @@ export async function captureInboundEmail(
   const startedAt = dependencies.now()
   const configured = requireInboundConfiguration(env)
   let envelopeTo: string
+  let envelopeDomain: string
   let envelopeFrom: string | null
   try {
     envelopeTo = normalizeEmailAddress(message.to)
+    envelopeDomain = parseMailbox(envelopeTo).domain
     envelopeFrom = normalizeEnvelopeAddress(message.from, { allowNullReversePath: true })
-    if (parseMailbox(envelopeTo).domain !== configured.mailDomain) {
-      message.setReject('Recipient domain is not accepted.')
-      return { kind: 'rejected', reason: 'invalid_envelope' }
-    }
   } catch {
     message.setReject('Envelope address is invalid.')
     return { kind: 'rejected', reason: 'invalid_envelope' }
   }
 
   const store = dependencies.createStore(env.DB)
-  const aliasAddress = parseReplyAlias(envelopeTo, { domain: configured.mailDomain })
+  // Cloudflare Email Routing is the mailbox allowlist. Any valid recipient that
+  // reaches this handler becomes a mailbox unless it resolves to an issued
+  // opaque reply alias on the same domain.
+  const aliasAddress = parseReplyAlias(envelopeTo, { domain: envelopeDomain })
   let authorizedAlias: ReplyAliasRecord | null = null
   if (aliasAddress !== null) {
-    const resolvedAlias = await store.resolveReplyAlias(aliasAddress.token)
-    if (resolvedAlias === undefined || envelopeFrom !== configured.ownerEmail) {
+    const resolvedAlias = await store.resolveReplyAlias(aliasAddress.address)
+    if (resolvedAlias !== undefined && envelopeFrom !== configured.ownerEmail) {
       message.setReject('Reply alias is not active for this sender.')
       logEvent(
         'warn',
         'mail.reply_alias.rejected',
         { environment: env.ENVIRONMENT, outcome: 'rejected', requestId },
-        { reason: resolvedAlias === undefined ? 'unknown_alias' : 'sender_mismatch' },
+        { reason: 'sender_mismatch' },
       )
       return { kind: 'rejected', reason: 'unauthorized_alias' }
     }
-    authorizedAlias = resolvedAlias
+    authorizedAlias = resolvedAlias ?? null
   }
 
   let raw: Uint8Array
@@ -162,7 +163,7 @@ export async function captureInboundEmail(
     parsed = await dependencies.parseMime(raw, receivedAt)
   } catch {
     parseFailed = true
-    parsed = fallbackParsedMessage(envelopeFrom, envelopeTo, configured.mailDomain, receivedAt)
+    parsed = fallbackParsedMessage(envelopeFrom, envelopeTo, envelopeDomain, receivedAt)
     logEvent(
       'warn',
       'mail.inbound.failed',
@@ -499,7 +500,7 @@ async function forwardToOwner(input: {
   store: MailStore
   now(): number
 }): Promise<void> {
-  const replyTo = `reply+${input.alias.localPart}@${parseMailbox(input.mailbox.address).domain}`
+  const replyTo = `${input.alias.localPart}@${parseMailbox(input.mailbox.address).domain}`
   let text = input.parsed.text
   let html = input.parsed.html
   let providerAttachments = input.attachments.map(({ attachment }) =>
@@ -539,7 +540,7 @@ async function forwardToOwner(input: {
   try {
     const result = await input.env.EMAIL.send({
       attachments: providerAttachments,
-      from: senderAddress(input.mailbox),
+      from: forwardedSenderAddress(input.mailbox, input.parsed.from),
       html,
       replyTo,
       subject: input.parsed.subject,
@@ -997,6 +998,17 @@ function senderAddress(mailbox: MailboxRecord): string | EmailAddress {
   return mailbox.senderAlias === null
     ? mailbox.address
     : { email: mailbox.address, name: mailbox.senderAlias }
+}
+
+function forwardedSenderAddress(
+  mailbox: MailboxRecord,
+  originalFrom: NormalizedRecipient,
+): EmailAddress {
+  const name =
+    originalFrom.displayName === null
+      ? originalFrom.address
+      : `${originalFrom.displayName} (${originalFrom.address})`
+  return { email: mailbox.address, name }
 }
 
 function selectContextTarget(

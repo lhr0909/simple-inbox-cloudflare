@@ -343,13 +343,13 @@ CREATE TRIGGER threads_validate_latest_message_insert
 BEFORE INSERT ON threads
 WHEN NEW.latest_message_id IS NOT NULL
 BEGIN
-  SELECT CASE WHEN NOT EXISTS (
+  SELECT (CASE WHEN NOT EXISTS (
     SELECT 1
     FROM messages
     WHERE messages.id = NEW.latest_message_id
       AND messages.thread_id = NEW.id
       AND messages.mailbox_id = NEW.mailbox_id
-  ) THEN RAISE(ABORT, 'latest message must belong to thread') END;
+  ) THEN RAISE(ABORT, 'latest message must belong to thread') END);
 END;
 --> statement-breakpoint
 
@@ -357,13 +357,13 @@ CREATE TRIGGER threads_validate_latest_message_update
 BEFORE UPDATE OF latest_message_id, mailbox_id ON threads
 WHEN NEW.latest_message_id IS NOT NULL
 BEGIN
-  SELECT CASE WHEN NOT EXISTS (
+  SELECT (CASE WHEN NOT EXISTS (
     SELECT 1
     FROM messages
     WHERE messages.id = NEW.latest_message_id
       AND messages.thread_id = NEW.id
       AND messages.mailbox_id = NEW.mailbox_id
-  ) THEN RAISE(ABORT, 'latest message must belong to thread') END;
+  ) THEN RAISE(ABORT, 'latest message must belong to thread') END);
 END;
 --> statement-breakpoint
 
@@ -371,13 +371,13 @@ CREATE TRIGGER reply_aliases_validate_target_insert
 BEFORE INSERT ON reply_aliases
 WHEN NEW.target_message_id IS NOT NULL
 BEGIN
-  SELECT CASE WHEN NOT EXISTS (
+  SELECT (CASE WHEN NOT EXISTS (
     SELECT 1
     FROM messages
     WHERE messages.id = NEW.target_message_id
       AND messages.thread_id = NEW.thread_id
       AND messages.mailbox_id = NEW.mailbox_id
-  ) THEN RAISE(ABORT, 'reply target must belong to thread') END;
+  ) THEN RAISE(ABORT, 'reply target must belong to thread') END);
 END;
 --> statement-breakpoint
 
@@ -385,37 +385,37 @@ CREATE TRIGGER reply_aliases_validate_target_update
 BEFORE UPDATE OF target_message_id, thread_id, mailbox_id ON reply_aliases
 WHEN NEW.target_message_id IS NOT NULL
 BEGIN
-  SELECT CASE WHEN NOT EXISTS (
+  SELECT (CASE WHEN NOT EXISTS (
     SELECT 1
     FROM messages
     WHERE messages.id = NEW.target_message_id
       AND messages.thread_id = NEW.thread_id
       AND messages.mailbox_id = NEW.mailbox_id
-  ) THEN RAISE(ABORT, 'reply target must belong to thread') END;
+  ) THEN RAISE(ABORT, 'reply target must belong to thread') END);
 END;
 --> statement-breakpoint
 
 CREATE TRIGGER outbound_sends_validate_actor_insert
 BEFORE INSERT ON outbound_sends
 BEGIN
-  SELECT CASE WHEN NOT EXISTS (
+  SELECT (CASE WHEN NOT EXISTS (
     SELECT 1
     FROM mailbox_members
     WHERE mailbox_members.mailbox_id = NEW.mailbox_id
       AND mailbox_members.user_id = NEW.actor_user_id
-  ) THEN RAISE(ABORT, 'send actor must be a mailbox member') END;
+  ) THEN RAISE(ABORT, 'send actor must be a mailbox member') END);
 END;
 --> statement-breakpoint
 
 CREATE TRIGGER outbound_sends_validate_actor_update
 BEFORE UPDATE OF actor_user_id, mailbox_id ON outbound_sends
 BEGIN
-  SELECT CASE WHEN NOT EXISTS (
+  SELECT (CASE WHEN NOT EXISTS (
     SELECT 1
     FROM mailbox_members
     WHERE mailbox_members.mailbox_id = NEW.mailbox_id
       AND mailbox_members.user_id = NEW.actor_user_id
-  ) THEN RAISE(ABORT, 'send actor must be a mailbox member') END;
+  ) THEN RAISE(ABORT, 'send actor must be a mailbox member') END);
 END;
 --> statement-breakpoint
 

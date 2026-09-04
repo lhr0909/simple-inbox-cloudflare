@@ -24,6 +24,14 @@ afterEach(() => {
 })
 
 describe('reviewed D1 baseline migration', () => {
+  it('uses trigger syntax accepted by the remote D1 migration splitter', () => {
+    const baseline = readFileSync(new URL('0000_initial.sql', migrationsUrl), 'utf8')
+
+    expect(baseline).not.toContain('\r')
+    expect(baseline).not.toMatch(/\bSELECT\s+CASE\b/u)
+    expect(baseline.match(/\bSELECT\s+\(CASE\b/gu)).toHaveLength(6)
+  })
+
   it('migrates an empty SQLite database with foreign keys and FTS5', () => {
     const db = migratedDatabase()
     const tables = db
