@@ -181,6 +181,19 @@ vp exec wrangler secret list --config wrangler.jsonc
 Until `SETUP_TOKEN` exists and setup succeeds, protected API calls fail closed, inbound mail is
 rejected, and retention is idle. Until `AUTH_TOKEN_PEPPER` is valid, authentication cannot operate.
 
+### Optional magic-link sender
+
+Magic links default to `no-reply@<configured-mail-domain>`. To send authentication mail from a
+separate onboarded domain, set the exact normalized address as `MAGIC_LINK_FROM_EMAIL`. Store this
+value as a Worker secret so a later Wrangler deployment does not remove a dashboard-only variable:
+
+```sh
+vp exec wrangler secret put MAGIC_LINK_FROM_EMAIL --config wrangler.jsonc
+```
+
+The address's domain must be onboarded in Cloudflare Email Sending. This override affects only
+magic links; forwarding, compose, and replies continue to use their assigned mailbox address.
+
 ## Choose the public origin
 
 The setup transaction derives and stores `APP_ORIGIN` from the verified HTTPS request. Decide which

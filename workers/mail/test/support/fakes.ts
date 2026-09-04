@@ -345,6 +345,7 @@ export function createFakeEnvironment(
     failR2?: boolean
     failR2Delete?: boolean
     internalSecret?: string
+    magicLinkFromEmail?: string
   } = {},
 ) {
   const events = options.events ?? []
@@ -386,6 +387,9 @@ export function createFakeEnvironment(
     ...(options.internalSecret === undefined
       ? {}
       : { INTERNAL_REQUEST_SECRET: options.internalSecret }),
+    ...(options.magicLinkFromEmail === undefined
+      ? {}
+      : { MAGIC_LINK_FROM_EMAIL: options.magicLinkFromEmail }),
     MAIL_DOMAIN: 'example.test',
     OWNER_EMAIL: 'owner@example.test',
     RAW_EMAIL_RETENTION_DAYS: '365',

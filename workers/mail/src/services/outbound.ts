@@ -411,7 +411,10 @@ export async function submitInternalSend(
 
 export async function deliverMagicLink(input: unknown, env: MailBindings): Promise<void> {
   const delivery = InternalMagicLinkDeliverySchema.parse(input) as InternalMagicLinkDelivery
-  const domain = parseMailbox(`auth@${env.MAIL_DOMAIN}`).domain
+  const from =
+    env.MAGIC_LINK_FROM_EMAIL === undefined
+      ? `no-reply@${parseMailbox(`auth@${env.MAIL_DOMAIN}`).domain}`
+      : normalizeEmailAddress(env.MAGIC_LINK_FROM_EMAIL)
   const limits = checkProviderLimits('user-send', {
     html: delivery.htmlBody,
     recipientCount: 1,
@@ -419,7 +422,7 @@ export async function deliverMagicLink(input: unknown, env: MailBindings): Promi
   })
   if (!limits.allowed) throw new MailFault('send_failed', 502)
   await env.EMAIL.send({
-    from: `no-reply@${domain}`,
+    from,
     html: delivery.htmlBody,
     subject: delivery.subject,
     text: delivery.textBody,

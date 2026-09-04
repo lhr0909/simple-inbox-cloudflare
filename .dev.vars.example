@@ -2,3 +2,5 @@
 # Generate two independent values of at least 32 random bytes. Never commit them.
 AUTH_TOKEN_PEPPER=replace-with-at-least-32-random-bytes
 SETUP_TOKEN=replace-with-a-different-32-byte-random-value
+# Optional. When absent, magic links use no-reply@<configured-mail-domain>.
+# MAGIC_LINK_FROM_EMAIL=sign-in@auth.example.test

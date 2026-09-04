@@ -23,6 +23,8 @@ export type RootBindings = {
   DB: D1Database
   EMAIL: SendEmail
   ENVIRONMENT: string
+  /** Optional exact sender for authentication mail. Store it as a secret to survive deploys. */
+  MAGIC_LINK_FROM_EMAIL?: string
   RAW_EMAILS: R2Bucket
   /** One-time first-run secret. It is never persisted or returned. */
   SETUP_TOKEN?: string
@@ -103,6 +105,9 @@ function createMailBindings(bindings: RootBindings, settings: InstallationSettin
     DB: bindings.DB,
     EMAIL: bindings.EMAIL,
     ENVIRONMENT: bindings.ENVIRONMENT,
+    ...(bindings.MAGIC_LINK_FROM_EMAIL === undefined
+      ? {}
+      : { MAGIC_LINK_FROM_EMAIL: bindings.MAGIC_LINK_FROM_EMAIL }),
     MAIL_DOMAIN: settings.mailDomain,
     OWNER_EMAIL: settings.ownerEmail,
     RAW_EMAILS: bindings.RAW_EMAILS,
