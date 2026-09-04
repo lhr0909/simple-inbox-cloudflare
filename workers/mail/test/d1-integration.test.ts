@@ -108,6 +108,12 @@ describe('mail module D1 adapter', () => {
       localPart: ALIAS_TOKEN,
       relayDestination: 'alice-replies@sender.example.test',
     })
+    expect(await store.resolveReplyAlias(`${ALIAS_TOKEN}@example.test`)).toMatchObject({
+      localPart: ALIAS_TOKEN,
+      mailboxId: mailbox?.id,
+      threadId: outcome.kind === 'captured' ? outcome.threadId : undefined,
+    })
+    expect(await store.resolveReplyAlias(`${ALIAS_TOKEN}@other.example.test`)).toBeUndefined()
     expect(message?.ingestDigest).toMatch(/^[a-f0-9]{64}$/)
     expect(await store.findInboundByDigest(String(message?.ingestDigest))).toMatchObject({
       messageId: expect.any(String),
@@ -228,6 +234,51 @@ describe('mail module D1 adapter', () => {
         retryability: 'manual_confirmation_required',
       },
     ])
+  })
+
+  it('projects catch-all mailboxes and their thread metadata into D1', async () => {
+    const database = new TestD1Database()
+    databases.push(database)
+    const binding = database.asD1()
+    const store = new D1MailStore(binding)
+    const runtime = createFakeEnvironment()
+    runtime.env.DB = binding
+    let id = 200
+    const dependencies = createDependencies(new FakeMailStore(), {
+      createStore: () => store,
+      generateId: () => testUuid(id++),
+    })
+    const raw = new TextEncoder().encode(inboundFixture)
+
+    const outcome = await captureInboundEmail(
+      createForwardableMessage(raw, { to: 'campaigns@other.example.test' }).message,
+      runtime.env,
+      dependencies,
+      'trace_real_d1_catch_all_0001',
+    )
+
+    expect(outcome.kind).toBe('captured')
+    const db = createInboxDatabase(binding)
+    const [mailbox] = await db
+      .select({ address: mailboxes.address, forwardTo: mailboxes.forwardTo, id: mailboxes.id })
+      .from(mailboxes)
+      .where(eq(mailboxes.address, 'campaigns@other.example.test'))
+    const [thread] = await db
+      .select({ mailboxId: threads.mailboxId, messageCount: threads.messageCount })
+      .from(threads)
+      .where(eq(threads.mailboxId, String(mailbox?.id)))
+    const [message] = await db
+      .select({ mailboxId: messages.mailboxId, rawR2Key: messages.rawR2Key })
+      .from(messages)
+      .where(eq(messages.mailboxId, String(mailbox?.id)))
+
+    expect(mailbox).toMatchObject({
+      address: 'campaigns@other.example.test',
+      forwardTo: 'owner@example.test',
+    })
+    expect(thread).toEqual({ mailboxId: mailbox?.id, messageCount: 1 })
+    expect(message).toMatchObject({ mailboxId: mailbox?.id, rawR2Key: expect.any(String) })
+    expect(runtime.objects.get(String(message?.rawR2Key))).toEqual(raw)
   })
 
   it('enforces actor mailbox scope for outbound context and send reservation', async () => {

@@ -163,7 +163,7 @@ export interface MailStore {
   projectInboundMessage(input: InsertInboundProjectionInput): Promise<void>
   recordOutboundAttempt(input: RecordOutboundAttemptInput): Promise<void>
   reserveOutboundSend(input: ReserveOutboundSendInput): Promise<ReserveOutboundSendResult>
-  resolveReplyAlias(localPart: string): Promise<ReplyAliasRecord | undefined>
+  resolveReplyAlias(address: string): Promise<ReplyAliasRecord | undefined>
   updateForwardResult(input: {
     messageId: string
     now: number

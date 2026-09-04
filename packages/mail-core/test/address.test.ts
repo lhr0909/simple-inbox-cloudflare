@@ -66,18 +66,23 @@ describe('address normalization', () => {
     }
   })
 
-  it('recognizes only opaque base32 reply aliases in the configured domain', () => {
+  it('recognizes only direct opaque base32 reply aliases in the configured domain', () => {
+    expect(
+      parseReplyAlias('abcdefghijklmnopqrstuvwxyz234567@example.test', {
+        domain: 'example.test',
+      }),
+    ).toEqual({
+      address: 'abcdefghijklmnopqrstuvwxyz234567@example.test',
+      token: 'abcdefghijklmnopqrstuvwxyz234567',
+    })
     expect(
       parseReplyAlias('reply+abcdefghijklmnopqrstuvwxyz234567@example.test', {
         domain: 'example.test',
       }),
-    ).toEqual({
-      address: 'reply+abcdefghijklmnopqrstuvwxyz234567@example.test',
-      token: 'abcdefghijklmnopqrstuvwxyz234567',
-    })
-    expect(parseReplyAlias('reply+thread-123@example.test', { domain: 'example.test' })).toBeNull()
+    ).toBeNull()
+    expect(parseReplyAlias('thread-123@example.test', { domain: 'example.test' })).toBeNull()
     expect(
-      parseReplyAlias('reply+abcdefghijklmnopqrstuvwxyz234567@other.test', {
+      parseReplyAlias('abcdefghijklmnopqrstuvwxyz234567@other.test', {
         domain: 'example.test',
       }),
     ).toBeNull()

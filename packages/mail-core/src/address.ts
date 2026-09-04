@@ -170,6 +170,7 @@ export interface ReplyAliasOptions {
   minimumTokenLength?: number
 }
 
+/** Parse a direct catch-all reply address such as `<opaque-token>@example.test`. */
 export function parseReplyAlias(
   input: string,
   options: ReplyAliasOptions,
@@ -178,7 +179,7 @@ export function parseReplyAlias(
   const expectedDomain = parseMailbox(`alias@${options.domain}`).domain
   if (mailbox.domain !== expectedDomain) return null
 
-  const prefix = (options.prefix ?? 'reply+').toLowerCase()
+  const prefix = (options.prefix ?? '').toLowerCase()
   if (!mailbox.localPart.startsWith(prefix)) return null
   const token = mailbox.localPart.slice(prefix.length)
   const minimumLength = options.minimumTokenLength ?? 16
