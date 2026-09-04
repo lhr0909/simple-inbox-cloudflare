@@ -244,6 +244,10 @@ After the Worker and wizard are ready:
 4. Confirm the Worker's `EMAIL` binding can send magic links, forwarding, and owner-composed mail.
 5. Keep arbitrary-recipient sending disabled until provider and abuse controls are reviewed.
 
+Repeat sender-domain onboarding for every routed domain whose mailboxes will be used as forwarding
+or outbound `From` addresses. The Worker records mail from any routed domain, but Cloudflare Email
+Sending can reject forwarding or replies from a domain that has not been onboarded for sending.
+
 Use a separate test domain/subdomain and synthetic content for acceptance. A successful Worker
 deployment alone does not prove Email Sending authorization.
 
@@ -271,6 +275,12 @@ objects.
 5. Send a uniquely titled synthetic inbound message and verify the D1 mailbox/thread/message
    projection, private R2 raw bytes, forwarding, owner reply relay, and authorized attachment
    download.
+
+Replacing a legacy catch-all does not import that system's private reply-alias records. Before
+cutover, the owner must explicitly accept that replying from a personal inbox to an older forwarded
+legacy thread will no longer relay through the retired Worker. Complete or move any active legacy
+threads first. Aliases previously issued by this replacement application remain compatible in both
+the direct `<token>@domain` and former `reply+<token>@domain` forms.
 
 Routing activation is a separate owner-approved change. Avoid dual delivery to legacy and new
 stores: two handlers can capture duplicate messages even if each is internally idempotent.

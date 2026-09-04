@@ -10,7 +10,11 @@ import type {
   ReserveOutboundSendResult,
 } from '@cloudflare-inbox/db'
 import { retryabilityForOutboundSendState } from '@cloudflare-inbox/db'
-import { parseMailbox, type SubjectThreadCandidate } from '@cloudflare-inbox/mail-core'
+import {
+  parseMailbox,
+  parseReplyAlias,
+  type SubjectThreadCandidate,
+} from '@cloudflare-inbox/mail-core'
 
 import type {
   MailBindings,
@@ -306,7 +310,9 @@ export class FakeMailStore implements MailStore {
 
   async resolveReplyAlias(address: string): Promise<ReplyAliasRecord | undefined> {
     const candidate = parseMailbox(address)
-    const alias = this.aliases.get(candidate.localPart)
+    const parsedAlias = parseReplyAlias(candidate.address, { domain: candidate.domain })
+    if (parsedAlias === null) return undefined
+    const alias = this.aliases.get(parsedAlias.token)
     if (alias === undefined) return undefined
     const mailboxAddress = this.mailboxAddresses.get(alias.mailboxId)
     return mailboxAddress !== undefined && parseMailbox(mailboxAddress).domain === candidate.domain

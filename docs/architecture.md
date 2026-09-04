@@ -99,7 +99,8 @@ Each forwarded message uses the assigned mailbox as its sender and an opaque, sa
 alias as `Reply-To`. A reply from the configured owner resolves that alias in D1, is sent from the
 assigned mailbox with the original thread headers, and is projected back into the same D1 thread.
 Catch-all routing delivers both ordinary mailbox addresses and these aliases without requiring
-plus-addressing rules.
+plus-addressing rules. The parser continues to recognize the former `reply+<token>` form so an
+upgrade does not strand aliases previously issued by this application.
 
 Outbound delivery is claimed durably before Email Sending is invoked. A claimed operation is never
 blindly retried: interruption or an ambiguous provider result remains `unknown` for manual

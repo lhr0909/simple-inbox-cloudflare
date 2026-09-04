@@ -23,7 +23,11 @@ import {
   type ReserveOutboundSendInput,
   type ReserveOutboundSendResult,
 } from '@cloudflare-inbox/db'
-import { parseMailbox, type SubjectThreadCandidate } from '@cloudflare-inbox/mail-core'
+import {
+  parseMailbox,
+  parseReplyAlias,
+  type SubjectThreadCandidate,
+} from '@cloudflare-inbox/mail-core'
 import { and, asc, desc, eq, gte, isNull, lte, or } from 'drizzle-orm'
 
 import type {
@@ -223,12 +227,14 @@ export class D1MailStore implements MailStore {
 
   async resolveReplyAlias(address: string): Promise<ReplyAliasRecord | undefined> {
     const candidate = parseMailbox(address)
-    const resolved = await this.#projection.resolveReplyAlias(candidate.localPart)
+    const parsedAlias = parseReplyAlias(candidate.address, { domain: candidate.domain })
+    if (parsedAlias === null) return undefined
+    const resolved = await this.#projection.resolveReplyAlias(parsedAlias.token)
     if (resolved === undefined) return undefined
     const mailbox = await this.#findOwnedMailboxById(resolved.mailboxId)
     return mailbox === undefined || parseMailbox(mailbox.address).domain !== candidate.domain
       ? undefined
-      : { ...resolved, localPart: candidate.localPart, ownerUserId: mailbox.ownerUserId }
+      : { ...resolved, localPart: parsedAlias.token, ownerUserId: mailbox.ownerUserId }
   }
 
   async listAllowedRelayDestinations(mailboxId: string, threadId: string): Promise<string[]> {
