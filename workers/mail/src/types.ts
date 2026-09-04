@@ -19,6 +19,8 @@ export type MailBindings = {
   ENVIRONMENT: string
   /** Optional defense in depth for deliberately exposed HTTP deployments. */
   INTERNAL_REQUEST_SECRET?: string
+  /** Optional exact sender for authentication mail; defaults to the configured mail domain. */
+  MAGIC_LINK_FROM_EMAIL?: string
   MAIL_DOMAIN: string
   OWNER_EMAIL: string
   RAW_EMAILS: R2Bucket

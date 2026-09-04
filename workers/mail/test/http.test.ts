@@ -59,6 +59,33 @@ describe('mail internal HTTP boundary', () => {
     ])
   })
 
+  it('uses the configured authentication sender from a separate domain', async () => {
+    const store = new FakeMailStore()
+    const runtime = createFakeEnvironment({
+      magicLinkFromEmail: 'sign-in@auth.example.test',
+    })
+    const app = createMailApp(createDependencies(store))
+    const response = await request(app, runtime.env, '/internal/v1/auth/magic-link', {
+      body: JSON.stringify({
+        htmlBody: '<p>Synthetic sign in</p>',
+        recipient: 'owner@example.test',
+        requestId: 'trace_magiclink_sender_01',
+        subject: 'Synthetic sign in',
+        textBody: 'Synthetic sign in',
+      }),
+      headers: { 'content-type': 'application/json' },
+      method: 'POST',
+    })
+
+    expect(response.status).toBe(202)
+    expect(runtime.sent).toEqual([
+      expect.objectContaining({
+        from: 'sign-in@auth.example.test',
+        to: 'owner@example.test',
+      }),
+    ])
+  })
+
   it('requires the optional operator secret on every command/read endpoint', async () => {
     const secret = 's'.repeat(32)
     const store = new FakeMailStore()
