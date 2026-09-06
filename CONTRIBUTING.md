@@ -92,10 +92,10 @@ can validate locally, then deploy deliberately with the root Wrangler configurat
 will use the repository's Deploy to Cloudflare button. Email Routing, domains, and cutover remain
 manual owner actions.
 
-## License status
+## License
 
-The public license is an explicit owner decision and is not selected yet. Until a `LICENSE` file is
-added, copyright law reserves reuse rights; contributions do not imply a license choice.
+Simple Inbox is licensed under the [MIT License](LICENSE). Contributions are provided under the
+same license.
 
 By participating, you agree to follow [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md). For security
 reports, follow [SECURITY.md](./SECURITY.md) instead of opening a public issue.

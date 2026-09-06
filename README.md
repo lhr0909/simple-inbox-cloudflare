@@ -150,3 +150,7 @@ restoration before shortening a policy; Worker rollback cannot restore deleted D
 
 The application performs no AI inference and sends mailbox content to no AI service. Report
 vulnerabilities through [SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE) © 2026 Xanthous Tech LLC.
