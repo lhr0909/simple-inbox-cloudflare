@@ -96,7 +96,7 @@ void test('requires workspace protocol for internal dependencies', () => {
       name: '@cloudflare-inbox/contracts',
       exports: './src/index.ts',
     })
-    workspace.package('workers/api', {
+    workspace.package('packages/api', {
       name: '@cloudflare-inbox/api',
       dependencies: { '@cloudflare-inbox/contracts': '0.0.0' },
     })
@@ -110,11 +110,42 @@ void test('requires workspace protocol for internal dependencies', () => {
   }
 })
 
+void test('checks nested test workspaces with their own dependency declarations', () => {
+  const workspace = fixture()
+  try {
+    workspace.package('apps/web', { name: '@cloudflare-inbox/web' })
+    workspace.package(
+      'packages/test-harness',
+      {
+        name: '@cloudflare-inbox/test-harness',
+        exports: './src/index.ts',
+      },
+      { 'src/index.ts': 'export const harness = true\n' },
+    )
+    workspace.package(
+      'apps/web/tests/e2e',
+      {
+        name: '@cloudflare-inbox/e2e-tests',
+        devDependencies: { '@cloudflare-inbox/test-harness': 'workspace:*' },
+      },
+      { 'flow.e2e.ts': "import { harness } from '@cloudflare-inbox/test-harness'\nvoid harness\n" },
+    )
+    assert.deepEqual(inspectWorkspace(workspace.root), [])
+    workspace.package('apps/web/tests/e2e', { name: '@cloudflare-inbox/e2e-tests' })
+    assert.deepEqual(
+      inspectWorkspace(workspace.root).map(({ code }) => code),
+      ['undeclared-workspace-import'],
+    )
+  } finally {
+    workspace.cleanup()
+  }
+})
+
 void test('detects Worker, route, repository, and UI boundary leaks', () => {
   const workspace = fixture()
   try {
     workspace.package(
-      'workers/api',
+      'packages/api',
       { name: '@cloudflare-inbox/api' },
       {
         'src/routes/inbox.ts':

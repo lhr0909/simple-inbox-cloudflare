@@ -3,7 +3,7 @@
   "compilerOptions": {
     "noEmit": true,
     "paths": {
-      "@cloudflare-inbox/db/testing": ["../../packages/db/src/testing.ts"]
+      "@cloudflare-inbox/db/testing": ["../db/src/testing.ts"]
     },
     "types": ["node"]
   },

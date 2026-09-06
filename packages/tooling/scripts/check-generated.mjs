@@ -7,7 +7,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url))
-const repositoryRoot = resolve(moduleDirectory, '../..')
+const repositoryRoot = resolve(moduleDirectory, '../../..')
 
 const ignoredDirectoryNames = new Set([
   '.git',
@@ -25,7 +25,7 @@ const ignoredDirectoryNames = new Set([
 const generatedEntries = [
   { label: 'TanStack route tree', path: 'apps/web/src/routeTree.gen.ts' },
   { label: 'Cloudflare binding types', path: 'apps/web/worker-configuration.d.ts' },
-  { label: 'API OpenAPI document', path: 'workers/api/openapi.json' },
+  { label: 'API OpenAPI document', path: 'packages/api/openapi.json' },
   { label: 'Drizzle migration SQL and metadata', path: 'packages/db/migrations' },
 ]
 
@@ -45,7 +45,7 @@ const generators = [
   {
     arguments_: ['--import', 'tsx', 'scripts/generate-openapi.ts'],
     binary: process.execPath,
-    cwd: 'workers/api',
+    cwd: 'packages/api',
     label: 'API OpenAPI document',
   },
   {
@@ -134,7 +134,7 @@ function runGenerators(temporaryRoot) {
   const executablePaths = [
     join(temporaryRoot, 'node_modules/.bin'),
     join(temporaryRoot, 'apps/web/node_modules/.bin'),
-    join(temporaryRoot, 'workers/api/node_modules/.bin'),
+    join(temporaryRoot, 'packages/api/node_modules/.bin'),
     join(temporaryRoot, 'packages/db/node_modules/.bin'),
     process.env.PATH ?? '',
   ].join(':')

@@ -5,7 +5,7 @@ import { extname, join, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 const INTERNAL_SCOPE = '@cloudflare-inbox/'
-const WORKSPACE_DIRECTORIES = ['apps', 'workers', 'packages', 'tooling', 'tests']
+const WORKSPACE_DIRECTORIES = ['apps', 'packages', 'apps/web/tests']
 const SOURCE_EXTENSIONS = new Set(['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx'])
 const IGNORED_DIRECTORIES = new Set([
   '.git',
@@ -327,7 +327,7 @@ function inspectSource(root, workspacePackage, packagesByName, file) {
   }
 
   const checks = []
-  if (relativeFile.startsWith('workers/')) {
+  if (relativeFile.startsWith('packages/api/') || relativeFile.startsWith('packages/mail/')) {
     checks.push({
       code: 'worker-process-env',
       pattern: /\bprocess\s*\.\s*env\b/gu,
@@ -383,7 +383,7 @@ function inspectSource(root, workspacePackage, packagesByName, file) {
     })
   }
 
-  const isApiMailClient = /^workers\/api\/src\/(?:clients|services)\/mail-client(?:\.|\/)/u.test(
+  const isApiMailClient = /^packages\/api\/src\/(?:clients|services)\/mail-client(?:\.|\/)/u.test(
     relativeFile,
   )
   if (!isApiMailClient) {
@@ -518,7 +518,19 @@ export function inspectWorkspace(rootDirectory) {
   for (const workspacePackage of packages) {
     violations.push(...inspectManifest(root, workspacePackage, packagesByName))
     violations.push(...inspectWorkspaceHygiene(root, workspacePackage))
+    // Tooling inspects source text and intentionally contains synthetic policy violations.
+    if (workspacePackage.name === `${INTERNAL_SCOPE}tooling`) continue
     for (const file of sourceFiles(workspacePackage.root)) {
+      // Nested test workspaces own their imports independently from the web application.
+      if (
+        packages.some(
+          (other) =>
+            other !== workspacePackage &&
+            file.startsWith(other.root + sep) &&
+            other.root.startsWith(workspacePackage.root + sep),
+        )
+      )
+        continue
       violations.push(...inspectSource(root, workspacePackage, packagesByName, file))
     }
   }

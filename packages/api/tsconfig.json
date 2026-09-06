@@ -7,7 +7,6 @@
     "src/**/*.ts",
     "test/**/*.ts",
     "vite.config.ts",
-    "vitest.config.ts",
     "../../apps/web/worker-configuration.d.ts"
   ]
 }

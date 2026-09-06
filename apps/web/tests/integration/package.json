@@ -4,12 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:integration": "vitest run --config vitest.config.ts"
+    "test:integration": "vp test run"
   },
   "devDependencies": {
     "@cloudflare-inbox/test-harness": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
+    "vite-plus": "catalog:",
     "vitest": "catalog:"
   }
 }

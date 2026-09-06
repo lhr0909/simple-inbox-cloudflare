@@ -47,20 +47,7 @@ export default defineConfig({
     ],
   },
   test: {
-    exclude: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/.wrangler/**',
-      'workers/**/test/worker/**',
-      'tests/e2e/**',
-      'tests/integration/**',
-    ],
-    include: [
-      'apps/**/*.{test,spec}.{ts,tsx}',
-      'packages/**/*.{test,spec}.ts',
-      'tests/operator/**/*.{test,spec}.mjs',
-      'workers/**/*.{test,spec}.ts',
-    ],
+    projects: ['apps/web/vite.config.ts', 'packages/*/vite.config.ts'],
   },
   run: {
     cache: {
@@ -70,7 +57,7 @@ export default defineConfig({
   },
   staged: {
     '*.{css,js,json,jsonc,jsx,md,mdx,mjs,ts,tsx,yaml,yml}': 'vp check --fix',
-    '{apps,packages,tooling,workers}/**/*.{js,jsx,mjs,ts,tsx}':
-      'node tooling/scripts/check-boundaries.mjs',
+    '{apps,packages}/**/*.{js,jsx,mjs,ts,tsx}':
+      'node packages/tooling/scripts/check-boundaries.mjs',
   },
 })

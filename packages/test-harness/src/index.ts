@@ -129,7 +129,7 @@ export async function injectSyntheticInbound(
   const source =
     raw ??
     (await readFile(
-      resolve(repositoryRoot, 'tests/fixtures/messages/inbound-with-attachment.eml'),
+      resolve(repositoryRoot, 'apps/web/tests/fixtures/messages/inbound-with-attachment.eml'),
       'utf8',
     ))
   const result = await harness.worker.email({

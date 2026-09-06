@@ -60,7 +60,7 @@ Worker. Security depends on explicit application boundaries:
   mailbox, scope, request-ID, and idempotency context constructed by the authenticated API.
 - Repositories own D1 access invariants. Raw and attachment responses authorize against D1 metadata
   before reading R2.
-- `tooling/scripts/check-boundaries.mjs`, unit tests, and the single-Worker integration harness check
+- `packages/tooling/scripts/check-boundaries.mjs`, unit tests, and the single-Worker integration harness check
   the static and runtime parts of these boundaries.
 
 The lack of a Service Binding hop must not be treated as permission to bypass API authorization or

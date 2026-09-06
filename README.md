@@ -31,11 +31,16 @@ mail package's internal Hono routes are not mapped to public URLs.
 | Workspace            | Responsibility                                                        |
 | -------------------- | --------------------------------------------------------------------- |
 | `apps/web`           | Root Worker entry, TanStack Start UI, setup wizard, API bridge, docs  |
-| `workers/api`        | Hono `/v1` contracts, setup, authentication, authorization, inbox API |
-| `workers/mail`       | Inbound capture, MIME projection, forwarding, sending, retention      |
+| `packages/api`       | Hono `/v1` contracts, setup, authentication, authorization, inbox API |
+| `packages/mail`      | Inbound capture, MIME projection, forwarding, sending, retention      |
 | `packages/contracts` | Zod wire contracts, DTOs, errors, and route metadata                  |
 | `packages/db`        | Drizzle schema, checked-in D1 migrations, scoped repositories         |
 | `packages/mail-core` | Runtime-neutral parsing, threading, rendering, and limit rules        |
+
+Application-owned end-to-end and integration tests live in `apps/web/tests`; shared synthetic
+Worker support lives in `packages/test-harness`, and repository checks live in `packages/tooling`.
+Each tested package owns a `vite.config.ts`. The root Vite+ config selects unit-test projects;
+integration tests and Playwright remain separate commands.
 
 See [the architecture guide](docs/architecture.md),
 [ADR 0001](docs/adr/0001-stack-and-topology.md), and

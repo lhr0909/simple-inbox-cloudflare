@@ -1,0 +1,16 @@
+{
+  "extends": "../../../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "paths": {
+      "@cloudflare-inbox/db/testing": ["../../../../packages/db/src/testing.ts"],
+      "@cloudflare-inbox/test-harness": ["../../../../packages/test-harness/src/index.ts"]
+    },
+    "types": ["node"]
+  },
+  "include": [
+    "**/*.ts",
+    "../../../../packages/test-harness/src/**/*.ts",
+    "../../worker-configuration.d.ts"
+  ]
+}

@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs'
 import { DatabaseSync, type SQLInputValue, type StatementSync } from 'node:sqlite'
 
-const migrationUrl = new URL('../../../../packages/db/migrations/0000_initial.sql', import.meta.url)
+const migrationUrl = new URL('../../../db/migrations/0000_initial.sql', import.meta.url)
 
 export class TestD1Database {
   readonly sqlite = new DatabaseSync(':memory:')

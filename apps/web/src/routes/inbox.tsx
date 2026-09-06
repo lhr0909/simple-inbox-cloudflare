@@ -51,7 +51,6 @@ export const Route = createFileRoute('/inbox')({
   validateSearch: parseInboxSearch,
   // Conversation selection has its own cancellable request; only list filters reload this route.
   loaderDeps: ({ search: { thread: _thread, ...listSearch } }) => listSearch,
-  shouldReload: false,
   loader: async ({ deps, location }): Promise<ReadyInbox> => {
     if ((await getSetupState()) === 'required') {
       throw redirect({ to: '/setup', replace: true })
@@ -90,6 +89,8 @@ function Inbox() {
 
   const currentKey = inboxSearchKey(search)
   const currentListKey = inboxListSearchKey(search)
+  const activeListKey = useRef(currentListKey)
+  activeListKey.current = currentListKey
   const activeSearchKey = useRef(currentKey)
   activeSearchKey.current = currentKey
   const source = refreshed?.listKey === currentListKey ? refreshed : loaded
@@ -109,6 +110,8 @@ function Inbox() {
     [optimistic, query.folder, query.unreadOnly, source.data, conversation.detail],
   )
   const operationPending = operationCount > 0
+
+  useEffect(() => setRefreshed(null), [loaded])
 
   useEffect(() => {
     snapshotRequests.current.invalidate()
@@ -192,6 +195,7 @@ function Inbox() {
   const commitThreadState = useCallback(
     (threadId: string, state: OptimisticThreadState) => {
       setRefreshed((current) => {
+        if (activeListKey.current !== currentListKey) return current
         const base = current?.listKey === currentListKey ? current : source
         return {
           data: applyOptimisticThreadStates(base.data, { [threadId]: state }),
@@ -202,7 +206,7 @@ function Inbox() {
       commitSelectedThread(threadId, state)
       setThreadOptimistic(threadId, null)
     },
-    [commitSelectedThread, currentKey, currentListKey, source],
+    [commitSelectedThread, currentListKey, source],
   )
 
   function beginOperation(): void {

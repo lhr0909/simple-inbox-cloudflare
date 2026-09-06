@@ -3,7 +3,7 @@
 This checklist records the sanitized product behavior used to rebuild the inbox. The legacy
 application and its deployment remain read-only references; no customer message, account value,
 resource identifier, or legacy screenshot is committed here. Automated captures use only the
-deterministic `example.test` fixture from `tests/fixtures/messages`.
+deterministic `example.test` fixture from `apps/web/tests/fixtures/messages`.
 
 ## Reference viewports
 
@@ -36,7 +36,7 @@ deterministic `example.test` fixture from `tests/fixtures/messages`.
 
 ## Verification record
 
-`tests/e2e/inbox.e2e.ts` exercises the structural and interaction checklist at all three viewports
+`apps/web/tests/e2e/inbox.e2e.ts` exercises the structural and interaction checklist at all three viewports
 against the isolated single-Worker harness. When `SIMPLE_INBOX_SCREENSHOT_DIR` is set, it writes
 sanitized desktop and mobile implementation captures outside the repository for manual comparison.
 The tests also reject horizontal overflow and unexpected browser console/page errors.
