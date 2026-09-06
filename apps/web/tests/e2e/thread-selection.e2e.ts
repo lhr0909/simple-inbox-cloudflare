@@ -87,8 +87,19 @@ test('selects immediately, ignores late details, and preserves navigation under 
   await rowB.click()
   await expect(rowB).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByText('Conversation B body.', { exact: true })).toBeVisible()
+  const finishedA = page.waitForEvent(
+    'requestfinished',
+    (request) => new URL(request.url()).pathname === `/api/v1/threads/${idA}`,
+  )
   releaseA()
   await completedA
+  await finishedA
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      }),
+  )
   await expect(page.getByText('Conversation A body.', { exact: true })).toHaveCount(0)
   await expect(rowB).toHaveAttribute('aria-pressed', 'true')
   expect(listRequests).toEqual([])
@@ -116,4 +127,14 @@ test('selects immediately, ignores late details, and preserves navigation under 
   await page.unroute(`**/api/v1/threads/${idB}`)
   await page.getByRole('button', { name: 'Retry conversation' }).click()
   await expect(page.getByText('Conversation B body.', { exact: true })).toBeVisible()
+
+  await page.goto(
+    `/inbox?folder=all&mailbox=${TEST_IDS.mailbox}&thread=019fbbcf-73c9-7a01-8a00-000000000099`,
+  )
+  await expect(page.getByRole('alert')).toContainText('no longer available')
+  await expect(rowA).toBeEnabled()
+  if (mobile) {
+    await page.getByRole('button', { name: 'Back to conversations' }).click()
+    await expect(list).toBeVisible()
+  }
 })
