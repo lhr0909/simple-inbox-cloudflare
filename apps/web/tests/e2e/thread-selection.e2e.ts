@@ -1,10 +1,32 @@
-import { injectSyntheticInbound, TEST_IDS, TEST_MAGIC_TOKEN } from '@cloudflare-inbox/test-harness'
+import {
+  injectSyntheticInbound,
+  migrateAndSeedHarness,
+  startInboxTestHarness,
+  TEST_IDS,
+  TEST_MAGIC_TOKEN,
+  type InboxTestHarness,
+} from '@cloudflare-inbox/test-harness'
 
-import { expect, test } from './fixtures'
+import { expect, test as base } from '@playwright/test'
+
+// This scenario needs its own one-use sign-in token, independent of the parity flow.
+const test = base.extend<{ selectionHarness: InboxTestHarness }>({
+  selectionHarness: async ({ browserName }, use) => {
+    void browserName
+    const harness = await startInboxTestHarness()
+    try {
+      await migrateAndSeedHarness(harness)
+      await use(harness)
+    } finally {
+      await harness.close()
+    }
+  },
+  baseURL: async ({ selectionHarness }, use) => use(selectionHarness.origin),
+})
 
 test('selects immediately, ignores late details, and preserves navigation under slow requests', async ({
   page,
-  inboxHarness,
+  selectionHarness: inboxHarness,
 }) => {
   for (const name of ['A', 'B']) {
     await injectSyntheticInbound(
@@ -36,8 +58,8 @@ test('selects immediately, ignores late details, and preserves navigation under 
   })
   await page.goto(`/auth/verify?token=${encodeURIComponent(TEST_MAGIC_TOKEN)}`)
   const list = page.getByTestId('thread-list')
-  const rowA = list.getByRole('button', { name: /Selection A/u })
-  const rowB = list.getByRole('button', { name: /Selection B/u })
+  const rowA = list.getByRole('button', { name: /Selection A/u, includeHidden: true })
+  const rowB = list.getByRole('button', { name: /Selection B/u, includeHidden: true })
   await expect(rowA).toBeVisible()
   await expect(rowB).toBeVisible()
 
