@@ -28,6 +28,7 @@ import {
 import type { InboxSearch } from '#/features/inbox/inbox-search'
 import { loadInboxServer } from '#/features/inbox/inbox-server'
 import type { InboxServerResult } from '#/features/inbox/inbox-server'
+import { useThreadDetail } from '#/features/inbox/use-thread-detail'
 import { InboxShell } from '#/features/inbox/inbox-shell'
 import { getSetupState } from '#/features/setup/setup-server'
 import type {
@@ -44,21 +45,26 @@ type RefreshedSnapshot = Readonly<{
   data: InboxData
   effectiveMailboxId: string
   listKey: string
-  selectionKey: string
 }>
 
 export const Route = createFileRoute('/inbox')({
   validateSearch: parseInboxSearch,
-  loaderDeps: ({ search }) => search,
-  loader: async ({ deps }): Promise<ReadyInbox> => {
+  // Conversation selection has its own cancellable request; only list filters reload this route.
+  loaderDeps: ({ search: { thread: _thread, ...listSearch } }) => listSearch,
+  shouldReload: false,
+  loader: async ({ deps, location }): Promise<ReadyInbox> => {
     if ((await getSetupState()) === 'required') {
       throw redirect({ to: '/setup', replace: true })
     }
-    const result = await loadInboxServer({ data: deps })
+    const requestedSearch = parseInboxSearch({
+      ...deps,
+      thread: parseInboxSearch(location.search).thread,
+    })
+    const result = await loadInboxServer({ data: requestedSearch })
     if (result.status === 'anonymous') {
       throw redirect({ to: '/sign-in', replace: true })
     }
-    if (!sameInboxSearch(deps, result.search)) {
+    if (!sameInboxSearch(requestedSearch, result.search)) {
       throw redirect({ to: '/inbox', search: result.search, replace: true })
     }
     return result
@@ -86,27 +92,21 @@ function Inbox() {
   const currentListKey = inboxListSearchKey(search)
   const activeSearchKey = useRef(currentKey)
   activeSearchKey.current = currentKey
-  const source = useMemo(() => {
-    if (refreshed?.listKey !== currentListKey) return loaded
-    return {
-      data: {
-        ...refreshed.data,
-        selectedThread:
-          refreshed.selectionKey === currentKey
-            ? refreshed.data.selectedThread
-            : loaded.data.selectedThread,
-      },
-      effectiveMailboxId: refreshed.effectiveMailboxId,
-    }
-  }, [currentKey, currentListKey, loaded, refreshed])
+  const source = refreshed?.listKey === currentListKey ? refreshed : loaded
   const query = inboxQueryFromSearch(search, source.effectiveMailboxId)
+  const conversation = useThreadDetail(query.mailboxId, query.threadId)
+  const { reload: reloadThread, commit: commitSelectedThread } = conversation
   const data = useMemo(
     () =>
-      applyOptimisticThreadStates(source.data, optimistic, {
-        folder: query.folder,
-        unreadOnly: query.unreadOnly,
-      }),
-    [optimistic, query.folder, query.unreadOnly, source.data],
+      applyOptimisticThreadStates(
+        { ...source.data, selectedThread: conversation.detail },
+        optimistic,
+        {
+          folder: query.folder,
+          unreadOnly: query.unreadOnly,
+        },
+      ),
+    [optimistic, query.folder, query.unreadOnly, source.data, conversation.detail],
   )
   const operationPending = operationCount > 0
 
@@ -132,6 +132,7 @@ function Inbox() {
       const request = snapshotRequests.current.begin()
       setLoadingMore(false)
       setRefreshing(visiblePending)
+      reloadThread()
       setError(null)
       try {
         const result = await reloadInbox({ data: targetSearch })
@@ -144,7 +145,6 @@ function Inbox() {
           data: result.data,
           effectiveMailboxId: result.effectiveMailboxId,
           listKey: inboxListSearchKey(result.search),
-          selectionKey: inboxSearchKey(result.search),
         })
         setOptimistic({})
         return true
@@ -158,7 +158,7 @@ function Inbox() {
         if (visiblePending && request.isLatest()) setRefreshing(false)
       }
     },
-    [reloadInbox],
+    [reloadInbox, reloadThread],
   )
 
   const navigateSearch = useCallback(
@@ -197,12 +197,12 @@ function Inbox() {
           data: applyOptimisticThreadStates(base.data, { [threadId]: state }),
           effectiveMailboxId: base.effectiveMailboxId,
           listKey: currentListKey,
-          selectionKey: currentKey,
         }
       })
+      commitSelectedThread(threadId, state)
       setThreadOptimistic(threadId, null)
     },
-    [currentKey, currentListKey, source],
+    [commitSelectedThread, currentKey, currentListKey, source],
   )
 
   function beginOperation(): void {
@@ -333,7 +333,6 @@ function Inbox() {
           data: appendThreadPage(base.data, page),
           effectiveMailboxId: base.effectiveMailboxId,
           listKey: currentListKey,
-          selectionKey: currentKey,
         }
       })
     } catch (cause) {
@@ -373,7 +372,6 @@ function Inbox() {
           },
           effectiveMailboxId: base.effectiveMailboxId,
           listKey: currentListKey,
-          selectionKey: currentKey,
         }
       })
       return result
@@ -403,6 +401,9 @@ function Inbox() {
     <InboxShell
       busy={operationPending || routePending}
       data={data}
+      detailLoading={conversation.loading}
+      detailError={conversation.error}
+      onRetryThread={reloadThread}
       error={error}
       loadingMore={loadingMore}
       onArchiveThread={archiveThread}
