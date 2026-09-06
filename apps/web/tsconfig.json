@@ -9,5 +9,6 @@
       "#/*": ["./src/*"],
       "@/*": ["./src/*"]
     }
-  }
+  },
+  "exclude": ["tests", "node_modules", "dist"]
 }

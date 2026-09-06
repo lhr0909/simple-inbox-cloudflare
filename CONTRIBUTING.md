@@ -1,7 +1,7 @@
 # Contributing
 
 Thanks for helping build Simple Inbox. This repository is an independent clean-room
-implementation. Product work belongs in `apps/`, `workers/`, or `packages/`; no legacy application
+implementation. Product work belongs in `apps/` or `packages/`; no legacy application
 source or deployment configuration is retained here. The web, API, and mail packages are composed
 into one deployable Cloudflare Worker.
 
@@ -41,6 +41,11 @@ vp run @cloudflare-inbox/web#dev
 vp run @cloudflare-inbox/api#test
 vp run @cloudflare-inbox/mail#test
 ```
+
+Put unit-test settings in the owning package's `vite.config.ts`; the root `test.projects` list
+collects these configurations. Use `vp test --project web` to select a unit-test project. The web
+config keeps Worker, routing, and docs build plugins out of Node unit tests. Integration tests use
+`apps/web/tests/integration/vite.config.ts`; Playwright retains its own configuration.
 
 Keep `.dev.vars` local. Copy only documented example keys and use synthetic email data in fixtures.
 Never put customer mail, API tokens, session cookies, magic links, attachment bytes, or resource IDs

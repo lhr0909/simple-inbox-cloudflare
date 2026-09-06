@@ -2,7 +2,10 @@ import { MagicLinkAcceptedResponseSchema } from '@cloudflare-inbox/contracts/aut
 import { MailboxSettingsSchema } from '@cloudflare-inbox/contracts/mailboxes'
 import type { PatchMailboxRequest } from '@cloudflare-inbox/contracts/mailboxes'
 import { SendResponseSchema } from '@cloudflare-inbox/contracts/send'
-import { ThreadListResponseSchema } from '@cloudflare-inbox/contracts/threads'
+import {
+  ThreadDetailResponseSchema,
+  ThreadListResponseSchema,
+} from '@cloudflare-inbox/contracts/threads'
 
 import type { InboxQuery, NewMessageDraft, ReplyDraft } from './inbox-types'
 
@@ -147,4 +150,12 @@ export function sendNewMessage(mailboxId: string, draft: NewMessageDraft) {
     headers: { 'idempotency-key': draft.idempotencyKey },
     body: form,
   })
+}
+
+export function getThreadDetail(threadId: string, signal: AbortSignal) {
+  return requestJson(
+    `/api/v1/threads/${encodeURIComponent(threadId)}`,
+    ThreadDetailResponseSchema,
+    { signal },
+  )
 }

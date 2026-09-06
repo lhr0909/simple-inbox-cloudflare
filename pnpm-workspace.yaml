@@ -1,9 +1,7 @@
 packages:
   - apps/*
-  - workers/*
   - packages/*
-  - tooling/*
-  - tests/*
+  - apps/web/tests/*
 
 allowBuilds:
   esbuild: true

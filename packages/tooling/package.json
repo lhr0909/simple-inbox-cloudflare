@@ -1,0 +1,9 @@
+{
+  "name": "@cloudflare-inbox/tooling",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:boundaries": "node --test scripts/check-boundaries.test.mjs"
+  }
+}

@@ -6,10 +6,7 @@ import {
 } from '@cloudflare-inbox/contracts/auth'
 import type { MagicLinkVerifyRequest } from '@cloudflare-inbox/contracts/auth'
 import { MailboxListResponseSchema } from '@cloudflare-inbox/contracts/mailboxes'
-import {
-  ThreadDetailResponseSchema,
-  ThreadListResponseSchema,
-} from '@cloudflare-inbox/contracts/threads'
+import { ThreadListResponseSchema } from '@cloudflare-inbox/contracts/threads'
 
 import { canonicalInboxSearch } from './inbox-search'
 import type { InboxSearch } from './inbox-search'
@@ -151,23 +148,18 @@ export async function loadProtectedInbox(search: InboxSearch): Promise<InboxServ
   if (search.unread === '1') query.set('unread', '1')
   if (search.q !== undefined) query.set('q', search.q)
 
-  const [threadPage, selectedThread] = await Promise.all([
-    apiJson(`/v1/threads?${query.toString()}`, ThreadListResponseSchema),
-    loadSelectedThread(search.thread),
-  ])
-  const selectedThreadForMailbox =
-    selectedThread?.thread.mailboxId === effectiveMailboxId ? selectedThread : null
+  const threadPage = await apiJson(`/v1/threads?${query.toString()}`, ThreadListResponseSchema)
 
   return {
     status: 'ready',
     data: {
       mailboxes,
       threads: threadPage.items,
-      selectedThread: selectedThreadForMailbox,
+      selectedThread: null,
       nextCursor: threadPage.nextCursor,
     },
     effectiveMailboxId,
-    search: canonicalInboxSearch(search, effectiveMailboxId, selectedThreadForMailbox !== null),
+    search: canonicalInboxSearch(search, effectiveMailboxId, true),
   }
 }
 
@@ -177,14 +169,4 @@ function rememberReturnPath(search: InboxSearch): void {
     'set-cookie',
     returnPathCookie(inboxReturnPath(search), 15 * 60, new URL(incoming.url).protocol === 'https:'),
   )
-}
-
-async function loadSelectedThread(threadId: string | undefined) {
-  if (threadId === undefined) return null
-  try {
-    return await apiJson(`/v1/threads/${encodeURIComponent(threadId)}`, ThreadDetailResponseSchema)
-  } catch (cause) {
-    if (cause instanceof ServerApiError && cause.status === 404) return null
-    throw cause
-  }
 }

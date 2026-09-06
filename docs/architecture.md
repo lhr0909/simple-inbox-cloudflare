@@ -24,15 +24,35 @@ mail bindings and invokes their Hono handlers directly.
 | Workspace            | Responsibility                                                       | May depend on             |
 | -------------------- | -------------------------------------------------------------------- | ------------------------- |
 | `apps/web`           | Worker entry, UI/SSR, docs, setup routing, public `/api/v1` bridge   | API, mail, db, contracts  |
-| `workers/api`        | Setup, HTTP contracts, auth, authorization, inbox orchestration      | contracts, db, mail-core  |
-| `workers/mail`       | Inbound capture, parsing, threading, forwarding, sending, retention  | contracts, db, mail-core  |
+| `packages/api`       | Setup, HTTP contracts, auth, authorization, inbox orchestration      | contracts, db, mail-core  |
+| `packages/mail`      | Inbound capture, parsing, threading, forwarding, sending, retention  | contracts, db, mail-core  |
 | `packages/contracts` | Stable schemas, DTOs, IDs, errors, and API type surface              | runtime-neutral libraries |
 | `packages/db`        | Drizzle schema, migrations, installation and mailbox repositories    | contracts                 |
 | `packages/mail-core` | Runtime-neutral parsing, threading, rendering, encoding, limit rules | contracts                 |
 
 Workspace imports use package exports and `workspace:*`. Source-path imports across package
-boundaries remain forbidden, and `tooling/scripts/check-boundaries.mjs` checks the dependency graph
+boundaries remain forbidden, and `packages/tooling/scripts/check-boundaries.mjs` checks the dependency graph
 and high-value source invariants.
+
+## Inbox selection
+
+The inbox route loader depends only on mailbox and list filters. Thread selection stays in the URL
+but loads through the authenticated thread-detail API independently. Selecting a row immediately
+updates its highlight and the conversation pane's loading state; list buttons remain available.
+Each detail request has an abort signal and a generation guard, so even an uncancellable late
+response cannot replace a newer selection. Detail failures provide a retry without discarding the
+list. Read-state updates remain optimistic and happen after the selected detail arrives.
+
+The initial server render supplies the mailbox and conversation list. Deep-linked conversation
+content loads after hydration, using the same path as subsequent selection and browser history.
+
+## Test ownership
+
+`apps/web/tests/e2e` owns responsive Playwright flows; `apps/web/tests/integration` owns isolated
+single-Worker integration tests. Both use `packages/test-harness`. Unit tests remain with their
+owning packages. Package-local `vite.config.ts` files hold test settings, and the root config lists
+unit-test projects without activating the web application's build/dev plugins during Node tests.
+Repository policy and generated-artifact checks live in `packages/tooling/scripts`.
 
 ## Public and private surfaces
 

@@ -43,3 +43,5 @@ export type OptimisticThreadState = Readonly<{
   readAt?: string
   unreadCount?: number
 }>
+
+export type ComposeStatus = 'idle' | 'sending' | 'accepted' | 'uncertain' | 'error'
