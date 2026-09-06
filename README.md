@@ -153,4 +153,4 @@ vulnerabilities through [SECURITY.md](SECURITY.md).
 
 ## License
 
-[MIT](LICENSE) © 2026 Simon Liang.
+[MIT](LICENSE) © 2026 Xanthous Tech LLC.
