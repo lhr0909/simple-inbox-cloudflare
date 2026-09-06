@@ -86,7 +86,9 @@ test('selects immediately, ignores late details, and preserves navigation under 
   if (mobile) await page.getByRole('button', { name: 'Back to conversations' }).click()
   await rowB.click()
   await expect(rowB).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByText('Conversation B body.', { exact: true })).toBeVisible()
+  await expect(
+    page.getByTestId('conversation-pane').getByText('Conversation B body.', { exact: true }),
+  ).toBeVisible()
   const finishedA = page.waitForEvent(
     'requestfinished',
     (request) => new URL(request.url()).pathname === `/api/v1/threads/${idA}`,
@@ -100,17 +102,26 @@ test('selects immediately, ignores late details, and preserves navigation under 
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
       }),
   )
-  await expect(page.getByText('Conversation A body.', { exact: true })).toHaveCount(0)
+  await expect(
+    page.getByTestId('conversation-pane').getByText('Conversation A body.', { exact: true }),
+  ).toHaveCount(0)
   await expect(rowB).toHaveAttribute('aria-pressed', 'true')
   expect(listRequests).toEqual([])
 
   await page.goBack()
   if (mobile) await expect(list).toBeVisible()
-  else await expect(page.getByText('Conversation A body.', { exact: true })).toBeVisible()
+  else
+    await expect(
+      page.getByTestId('conversation-pane').getByText('Conversation A body.', { exact: true }),
+    ).toBeVisible()
   await page.goForward()
-  await expect(page.getByText('Conversation B body.', { exact: true })).toBeVisible()
+  await expect(
+    page.getByTestId('conversation-pane').getByText('Conversation B body.', { exact: true }),
+  ).toBeVisible()
   await page.reload()
-  await expect(page.getByText('Conversation B body.', { exact: true })).toBeVisible()
+  await expect(
+    page.getByTestId('conversation-pane').getByText('Conversation B body.', { exact: true }),
+  ).toBeVisible()
   expect(new URL(page.url()).searchParams.get('thread')).toBe(idB)
 
   // A failed detail request leaves the list available and supports an explicit retry.
@@ -126,7 +137,9 @@ test('selects immediately, ignores late details, and preserves navigation under 
   await expect(rowA).toBeEnabled()
   await page.unroute(`**/api/v1/threads/${idB}`)
   await page.getByRole('button', { name: 'Retry conversation' }).click()
-  await expect(page.getByText('Conversation B body.', { exact: true })).toBeVisible()
+  await expect(
+    page.getByTestId('conversation-pane').getByText('Conversation B body.', { exact: true }),
+  ).toBeVisible()
 
   await page.goto(
     `/inbox?folder=all&mailbox=${TEST_IDS.mailbox}&thread=019fbbcf-73c9-7a01-8a00-000000000099`,
