@@ -64,8 +64,9 @@ The endpoint rechecks authentication, mailbox membership, the setting, and raw r
 reading R2. Existing retained messages work without backfilling D1. Previews are capped at 4 MB;
 missing, oversized, or unavailable HTML falls back to the existing plain-text projection.
 
-The API sanitizes active markup while preserving email tables, styles, HTTPS images, and raster CID
-images. A response CSP and an iframe sandbox both enforce an opaque origin. Only a fixed, nonced
+The API normalizes full HTML documents before sanitizing active markup, preserving root/body
+styles, stylesheet selectors, link/button presentation, email tables, HTTPS images, and raster CID
+images. Low-specificity preview defaults precede sender styles so they do not override email layouts. A response CSP and an iframe sandbox both enforce an opaque origin. Only a fixed, nonced
 resize/status helper can run; email scripts, forms, embedded frames, external stylesheets, and fonts
 are blocked. Links open separately with no opener or referrer. The parent accepts sizing/status
 messages only from that exact iframe window and its opaque origin. The web bridge preserves this

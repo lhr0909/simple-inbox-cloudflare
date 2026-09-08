@@ -1,4 +1,5 @@
 import sanitizeHtml from 'sanitize-html'
+import { parse, serialize } from 'parse5'
 import type { Attachment } from 'postal-mime'
 
 import { ApiFault } from '../http'
@@ -23,12 +24,22 @@ export function renderEmailDocument(html: string, attachments: Attachment[]): st
     )
   }
 
-  const cleaned = sanitizeHtml(html, {
-    allowedTags: [...sanitizeHtml.defaults.allowedTags, 'img', 'style', 'font', 'center'],
+  const cleaned = sanitizeHtml(serialize(parse(html)), {
+    allowedTags: [
+      ...sanitizeHtml.defaults.allowedTags,
+      'html',
+      'head',
+      'body',
+      'img',
+      'style',
+      'font',
+      'center',
+    ],
     allowedAttributes: {
       '*': [
         'style',
         'class',
+        'id',
         'dir',
         'lang',
         'title',
@@ -62,13 +73,28 @@ export function renderEmailDocument(html: string, attachments: Attachment[]): st
     // No CSS parser is needed or permitted to resolve anything on the server.
     parseStyleAttributes: false,
     allowVulnerableTags: true,
-    nonTextTags: ['script', 'textarea', 'option', 'title', 'iframe', 'object', 'svg', 'math'],
+    nonTextTags: [
+      'script',
+      'textarea',
+      'option',
+      'title',
+      'iframe',
+      'object',
+      'svg',
+      'math',
+      'noscript',
+    ],
     transformTags: {
+      head: () => ({ tagName: 'head', attribs: {} }),
       a: (_tag, attributes) => {
         const href = absoluteLink(attributes['href'])
+        const { href: _href, target: _target, rel: _rel, ...presentation } = attributes
         return {
           tagName: 'a',
-          attribs: href ? { href, target: '_blank', rel: 'noopener noreferrer' } : {},
+          attribs: {
+            ...presentation,
+            ...(href ? { href, target: '_blank', rel: 'noopener noreferrer' } : {}),
+          },
         }
       },
       img: (_tag, attributes) => {
@@ -81,7 +107,11 @@ export function renderEmailDocument(html: string, attachments: Attachment[]): st
       },
     },
   })
-  const document = `<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><style>body{margin:16px;overflow-wrap:anywhere;color:#111;background:#fff}img{max-width:100%;height:auto}table{max-width:100%}</style></head><body>${cleaned}</body></html>`
+  // Keep the document's body/root styling and head CSS. Low-specificity defaults
+  // precede sender styles, so presentation attributes and newsletter rules can win.
+  const defaults =
+    '<meta charset="utf-8"><meta name="referrer" content="no-referrer"><style>:where(body){margin:0;overflow-wrap:anywhere;color:#111;background:#fff}:where(img){max-width:100%;height:auto}</style>'
+  const document = `<!doctype html>${cleaned.replace('<head>', `<head>${defaults}`)}`
   if (new TextEncoder().encode(document).byteLength > MAX_PREVIEW_BYTES) {
     throw new ApiFault('request_too_large')
   }

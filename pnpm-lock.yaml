@@ -280,6 +280,9 @@ catalogs:
     lucide-react:
       specifier: 1.27.0
       version: 1.27.0
+    parse5:
+      specifier: 7.3.0
+      version: 7.3.0
     postal-mime:
       specifier: 2.7.5
       version: 2.7.5
@@ -508,6 +511,9 @@ importers:
       hono:
         specifier: 'catalog:'
         version: 4.12.34
+      parse5:
+        specifier: 'catalog:'
+        version: 7.3.0
       postal-mime:
         specifier: 'catalog:'
         version: 2.7.5
