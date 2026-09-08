@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 import { Button } from '#/components/ui/button'
 
 export function HtmlMessageBody({
   messageId,
   text,
-}: Readonly<{ messageId: string; text: string }>) {
+  renderFooter,
+}: Readonly<{ messageId: string; text: string; renderFooter: (toggle: ReactNode) => ReactNode }>) {
   const frame = useRef<HTMLIFrameElement>(null)
   const [showText, setShowText] = useState(false)
   const [failed, setFailed] = useState(false)
@@ -42,15 +43,18 @@ export function HtmlMessageBody({
           title="HTML email"
         />
       )}
-      <div className="px-4 pb-3 text-xs text-muted-foreground">
-        {failed ? (
-          'HTML is unavailable. Showing plain text.'
-        ) : (
-          <Button onClick={() => setShowText((value) => !value)} size="xs" variant="ghost">
+      {failed ? (
+        <p className="px-4 pb-3 text-xs text-muted-foreground">
+          HTML is unavailable. Showing plain text.
+        </p>
+      ) : null}
+      {renderFooter(
+        failed ? null : (
+          <Button onClick={() => setShowText((value) => !value)} size="sm" variant="ghost">
             {showText ? 'Show HTML' : 'Show plain text'}
           </Button>
-        )}
-      </div>
+        ),
+      )}
     </div>
   )
 }
