@@ -1,3 +1,4 @@
+import { renderEmailDocument } from './html-email'
 import type { AuthorizedAttachment, AuthorizedRawMessage } from '@cloudflare-inbox/db'
 import {
   MAX_INBOUND_BYTES,
@@ -29,6 +30,23 @@ export async function rawMessageResponse(
     contentType: 'message/rfc822',
     etag,
   })
+}
+
+export async function messageHtmlPreview(
+  bucket: R2Bucket,
+  metadata: AuthorizedRawMessage,
+): Promise<{ html: string | null }> {
+  requireBoundedRawMetadata(metadata)
+  const object = await bucket.get(metadata.rawR2Key)
+  if (object === null || !matchesRawObject(object, metadata)) throw new ApiFault('internal_error')
+  const raw = await new Response(object.body).arrayBuffer()
+  if (raw.byteLength !== metadata.rawSize) throw new ApiFault('internal_error')
+  const parsed = await PostalMime.parse(raw, {
+    attachmentEncoding: 'arraybuffer',
+    maxHeadersSize: 256 * 1_024,
+    maxNestingDepth: 20,
+  })
+  return { html: parsed.html ? renderEmailDocument(parsed.html, parsed.attachments) : null }
 }
 
 export async function attachmentResponse(

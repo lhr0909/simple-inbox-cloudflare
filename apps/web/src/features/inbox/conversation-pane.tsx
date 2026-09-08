@@ -1,3 +1,4 @@
+import { HtmlMessageBody } from './html-message-body'
 import { useEffect, useRef, useState } from 'react'
 import ArchiveIcon from 'lucide-react/dist/esm/icons/archive.mjs'
 import ArrowLeftIcon from 'lucide-react/dist/esm/icons/arrow-left.mjs'
@@ -30,6 +31,7 @@ import type { InboxShellProps } from './inbox-shell-types'
 export function ConversationPane({
   className,
   detail,
+  renderHtml = false,
   loading,
   error,
   onRetry,
@@ -39,6 +41,7 @@ export function ConversationPane({
   onReply,
 }: Readonly<{
   className?: string
+  renderHtml?: boolean
   detail: InboxData['selectedThread']
   loading: boolean
   error: string | null
@@ -152,7 +155,7 @@ export function ConversationPane({
       <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5" ref={scrollPane}>
         <div className="mx-auto max-w-3xl space-y-3">
           {detail.messages.map((message) => (
-            <MessageCard key={message.id} message={message} />
+            <MessageCard key={message.id} message={message} renderHtml={renderHtml} />
           ))}
           {composerOpen && canReply ? (
             <ReplyComposer
@@ -182,7 +185,7 @@ export function ConversationPane({
   )
 }
 
-function MessageCard({ message }: Readonly<{ message: Message }>) {
+function MessageCard({ message, renderHtml }: Readonly<{ message: Message; renderHtml: boolean }>) {
   const sender = message.from.displayName ?? message.from.address
   const delivery = messageDeliveryPresentation(message)
   return (
@@ -232,9 +235,13 @@ function MessageCard({ message }: Readonly<{ message: Message }>) {
           {delivery.notice}
         </p>
       ) : null}
-      <div className="whitespace-pre-wrap p-4 text-sm leading-6">
-        {message.textBody || message.preview}
-      </div>
+      {renderHtml && message.rawAvailable ? (
+        <HtmlMessageBody messageId={message.id} text={message.textBody || message.preview} />
+      ) : (
+        <div className="whitespace-pre-wrap p-4 text-sm leading-6">
+          {message.textBody || message.preview}
+        </div>
+      )}
       {message.attachments.length > 0 || message.rawAvailable ? (
         <footer className="flex flex-wrap items-center gap-2 border-t px-4 py-3">
           {message.attachments.map((attachment) => (

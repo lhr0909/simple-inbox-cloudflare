@@ -33,6 +33,59 @@ describe('inbound email capture', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
   })
 
+  it.each([false, true])(
+    'forwards original HTML only when enabled (%s), preserving inline images and safe storage',
+    async (enabled) => {
+      const store = new FakeMailStore()
+      store.forwardHtml = enabled
+      const runtime = createFakeEnvironment()
+      const originalHtml =
+        '<table><tr><td style="color:red"><b>Formatted offer</b><img src="cid:logo"></td></tr></table>'
+      const raw = encode(
+        [
+          'From: sender@example.test',
+          'To: support@example.test',
+          'Subject: HTML preference',
+          'Message-ID: <html-preference@example.test>',
+          'MIME-Version: 1.0',
+          'Content-Type: multipart/related; boundary="html-test"',
+          '',
+          '--html-test',
+          'Content-Type: text/html; charset=utf-8',
+          '',
+          originalHtml,
+          '--html-test',
+          'Content-Type: image/png',
+          'Content-ID: <logo>',
+          'Content-Disposition: inline; filename="logo.png"',
+          'Content-Transfer-Encoding: base64',
+          '',
+          'iVBORw==',
+          '--html-test--',
+          '',
+        ].join('\r\n'),
+      )
+      const input = createForwardableMessage(raw)
+      await captureInboundEmail(
+        input.message,
+        runtime.env,
+        createDependencies(store),
+        'trace_html_forward_0001',
+      )
+      expect(runtime.sent).toHaveLength(1)
+      const delivery = runtime.sent[0] as {
+        html: string
+        attachments: Array<{ contentId?: string }>
+      }
+      if (enabled) expect(delivery.html).toContain(originalHtml)
+      else expect(delivery.html).not.toMatch(/<table|<img|style=/u)
+      expect(delivery.attachments[0]?.contentId).toBe('logo')
+      expect(store.projects[0]?.message.htmlBody).not.toMatch(/<table|<img|style=/u)
+      expect(store.projects[0]?.message.htmlPolicy).toBe('sanitized')
+      expect([...runtime.objects.values()][0]).toEqual(raw)
+    },
+  )
+
   it('preserves exact raw bytes before parsing/projection and forwards only after durable state', async () => {
     const events: string[] = []
     const store = new FakeMailStore(events)

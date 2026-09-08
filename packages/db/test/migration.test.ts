@@ -32,6 +32,29 @@ describe('reviewed D1 baseline migration', () => {
     expect(baseline.match(/\bSELECT\s+\(CASE\b/gu)).toHaveLength(6)
   })
 
+  it('adds disabled HTML preferences to an existing mailbox without changing its data', () => {
+    const db = new DatabaseSync(':memory:')
+    openDatabases.push(db)
+    for (const name of ['0000_initial.sql', '0001_quick_annihilus.sql']) {
+      db.exec(readFileSync(new URL(name, migrationsUrl), 'utf8'))
+    }
+    insertMailbox(db, 'existing_mailbox', 'inbox@example.test')
+    db.prepare('UPDATE mailboxes SET sender_alias = ?, forward_to = ? WHERE id = ?').run(
+      'Existing sender',
+      'owner@example.test',
+      'existing_mailbox',
+    )
+    db.exec(readFileSync(new URL('0002_html_preferences.sql', migrationsUrl), 'utf8'))
+    expect(
+      db.prepare('SELECT sender_alias, forward_to, forward_html, render_html FROM mailboxes').get(),
+    ).toEqual({
+      sender_alias: 'Existing sender',
+      forward_to: 'owner@example.test',
+      forward_html: 0,
+      render_html: 0,
+    })
+  })
+
   it('migrates an empty SQLite database with foreign keys and FTS5', () => {
     const db = migratedDatabase()
     const tables = db

@@ -114,6 +114,7 @@ export async function parseInboundMime(
     cc: recipients.cc,
     from,
     html: rendered.html,
+    ...(parsed.html ? { originalHtml: parsed.html } : {}),
     inReplyTo: normalizeInReplyTo(parsed.inReplyTo),
     internetMessageId: normalizeMessageId(parsed.messageId),
     references: normalizeReferences(parsed.references, {

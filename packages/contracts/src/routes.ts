@@ -343,6 +343,39 @@ export const replyToThreadRoute = createRoute({
   },
 })
 
+export const getMessageHtmlRoute = createRoute({
+  method: 'get',
+  path: '/v1/messages/{messageId}/html',
+  operationId: 'getMessageHtml',
+  tags: ['Messages'],
+  request: { params: MessagePathSchema },
+  responses: {
+    200: {
+      content: { 'text/html': { schema: z.string() } },
+      description:
+        'An isolated HTML preview. Requires the mailbox HTML display setting; never embed without a sandbox.',
+    },
+    ...standardErrors,
+    401: {
+      content: { 'text/html': { schema: z.string() } },
+      description: 'Authentication required; preview unavailable.',
+    },
+    403: {
+      content: { 'text/html': { schema: z.string() } },
+      description: 'Read access required; preview unavailable.',
+    },
+    404: {
+      content: { 'text/html': { schema: z.string() } },
+      description: 'Preview absent, disabled, expired, or unauthorized.',
+    },
+    413: {
+      content: { 'text/html': { schema: z.string() } },
+      description: 'Preview exceeds the bounded size limit.',
+    },
+    500: { content: { 'text/html': { schema: z.string() } }, description: 'Preview unavailable.' },
+  },
+})
+
 export const downloadRawMessageRoute = createRoute({
   method: 'get',
   path: '/v1/messages/{messageId}/raw',

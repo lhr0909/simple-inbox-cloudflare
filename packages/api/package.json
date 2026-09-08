@@ -19,9 +19,11 @@
     "@hono/zod-openapi": "catalog:",
     "hono": "catalog:",
     "postal-mime": "catalog:",
+    "sanitize-html": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@types/sanitize-html": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

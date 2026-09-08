@@ -1,0 +1,2131 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "4b2f73d5-b3ee-4ff8-bb18-b540f0cdb008",
+  "prevId": "0c9dcc3a-9601-495d-8d20-1468a98a5867",
+  "tables": {
+    "api_tokens": {
+      "name": "api_tokens",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "token_digest": {
+          "name": "token_digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "scopes": {
+          "name": "scopes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_used_at": {
+          "name": "last_used_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "api_tokens_token_digest_uidx": {
+          "name": "api_tokens_token_digest_uidx",
+          "columns": ["token_digest"],
+          "isUnique": true
+        },
+        "api_tokens_token_expiry_idx": {
+          "name": "api_tokens_token_expiry_idx",
+          "columns": ["token_digest", "expires_at", "revoked_at"],
+          "isUnique": false
+        },
+        "api_tokens_user_active_idx": {
+          "name": "api_tokens_user_active_idx",
+          "columns": ["user_id", "revoked_at", "expires_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "api_tokens_user_id_users_id_fk": {
+          "name": "api_tokens_user_id_users_id_fk",
+          "tableFrom": "api_tokens",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "api_tokens_digest_check": {
+          "name": "api_tokens_digest_check",
+          "value": "length(\"api_tokens\".\"token_digest\") = 64 AND \"api_tokens\".\"token_digest\" NOT GLOB '*[^0-9a-f]*'"
+        },
+        "api_tokens_name_length_check": {
+          "name": "api_tokens_name_length_check",
+          "value": "length(trim(\"api_tokens\".\"name\")) BETWEEN 1 AND 100"
+        },
+        "api_tokens_scopes_check": {
+          "name": "api_tokens_scopes_check",
+          "value": "\"api_tokens\".\"scopes\" BETWEEN 1 AND 7"
+        },
+        "api_tokens_timestamps_check": {
+          "name": "api_tokens_timestamps_check",
+          "value": "\"api_tokens\".\"created_at\" >= 0 AND (\"api_tokens\".\"expires_at\" IS NULL OR \"api_tokens\".\"expires_at\" > \"api_tokens\".\"created_at\") AND (\"api_tokens\".\"revoked_at\" IS NULL OR \"api_tokens\".\"revoked_at\" >= \"api_tokens\".\"created_at\") AND (\"api_tokens\".\"last_used_at\" IS NULL OR \"api_tokens\".\"last_used_at\" >= \"api_tokens\".\"created_at\")"
+        }
+      }
+    },
+    "attachments": {
+      "name": "attachments",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "message_id": {
+          "name": "message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mime_ordinal": {
+          "name": "mime_ordinal",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "display_filename": {
+          "name": "display_filename",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "media_type": {
+          "name": "media_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "size": {
+          "name": "size",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "disposition": {
+          "name": "disposition",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "content_id": {
+          "name": "content_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "attachments_message_idx": {
+          "name": "attachments_message_idx",
+          "columns": ["message_id", "mime_ordinal"],
+          "isUnique": false
+        },
+        "attachments_message_ordinal_uidx": {
+          "name": "attachments_message_ordinal_uidx",
+          "columns": ["message_id", "mime_ordinal"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "attachments_message_id_messages_id_fk": {
+          "name": "attachments_message_id_messages_id_fk",
+          "tableFrom": "attachments",
+          "tableTo": "messages",
+          "columnsFrom": ["message_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "attachments_disposition_check": {
+          "name": "attachments_disposition_check",
+          "value": "\"attachments\".\"disposition\" IN ('attachment', 'inline', 'unknown')"
+        },
+        "attachments_media_type_normalized_check": {
+          "name": "attachments_media_type_normalized_check",
+          "value": "\"attachments\".\"media_type\" = lower(trim(\"attachments\".\"media_type\")) AND instr(\"attachments\".\"media_type\", '/') > 1"
+        },
+        "attachments_values_check": {
+          "name": "attachments_values_check",
+          "value": "\"attachments\".\"mime_ordinal\" >= 0 AND \"attachments\".\"size\" >= 0 AND \"attachments\".\"created_at\" >= 0 AND (\"attachments\".\"display_filename\" IS NULL OR length(\"attachments\".\"display_filename\") BETWEEN 1 AND 255)"
+        }
+      }
+    },
+    "installations": {
+      "name": "installations",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "setup_version": {
+          "name": "setup_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "app_origin": {
+          "name": "app_origin",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mail_domain": {
+          "name": "mail_domain",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "owner_user_id": {
+          "name": "owner_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "primary_mailbox_id": {
+          "name": "primary_mailbox_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "raw_email_retention_days": {
+          "name": "raw_email_retention_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "application_record_retention_days": {
+          "name": "application_record_retention_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "retention_batch_size": {
+          "name": "retention_batch_size",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "installations_owner_user_id_users_id_fk": {
+          "name": "installations_owner_user_id_users_id_fk",
+          "tableFrom": "installations",
+          "tableTo": "users",
+          "columnsFrom": ["owner_user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "cascade"
+        },
+        "installations_primary_mailbox_id_mailboxes_id_fk": {
+          "name": "installations_primary_mailbox_id_mailboxes_id_fk",
+          "tableFrom": "installations",
+          "tableTo": "mailboxes",
+          "columnsFrom": ["primary_mailbox_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "installations_app_origin_check": {
+          "name": "installations_app_origin_check",
+          "value": "length(\"installations\".\"app_origin\") BETWEEN 8 AND 2048 AND \"installations\".\"app_origin\" = trim(\"installations\".\"app_origin\")"
+        },
+        "installations_mail_domain_check": {
+          "name": "installations_mail_domain_check",
+          "value": "length(\"installations\".\"mail_domain\") BETWEEN 1 AND 253 AND \"installations\".\"mail_domain\" = lower(trim(\"installations\".\"mail_domain\"))"
+        },
+        "installations_retention_check": {
+          "name": "installations_retention_check",
+          "value": "\"installations\".\"raw_email_retention_days\" BETWEEN 1 AND 3650 AND \"installations\".\"application_record_retention_days\" BETWEEN \"installations\".\"raw_email_retention_days\" AND 3650 AND \"installations\".\"retention_batch_size\" BETWEEN 1 AND 100"
+        },
+        "installations_singleton_check": {
+          "name": "installations_singleton_check",
+          "value": "\"installations\".\"id\" = 1"
+        },
+        "installations_completed_at_check": {
+          "name": "installations_completed_at_check",
+          "value": "\"installations\".\"completed_at\" >= 0"
+        },
+        "installations_setup_version_check": {
+          "name": "installations_setup_version_check",
+          "value": "\"installations\".\"setup_version\" = 1"
+        }
+      }
+    },
+    "magic_links": {
+      "name": "magic_links",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "token_digest": {
+          "name": "token_digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "used_at": {
+          "name": "used_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "requested_at": {
+          "name": "requested_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "magic_links_token_digest_uidx": {
+          "name": "magic_links_token_digest_uidx",
+          "columns": ["token_digest"],
+          "isUnique": true
+        },
+        "magic_links_digest_expiry_idx": {
+          "name": "magic_links_digest_expiry_idx",
+          "columns": ["token_digest", "expires_at", "used_at"],
+          "isUnique": false
+        },
+        "magic_links_user_requested_idx": {
+          "name": "magic_links_user_requested_idx",
+          "columns": ["user_id", "\"requested_at\" desc"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "magic_links_user_id_users_id_fk": {
+          "name": "magic_links_user_id_users_id_fk",
+          "tableFrom": "magic_links",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "magic_links_digest_check": {
+          "name": "magic_links_digest_check",
+          "value": "length(\"magic_links\".\"token_digest\") = 64 AND \"magic_links\".\"token_digest\" NOT GLOB '*[^0-9a-f]*'"
+        },
+        "magic_links_timestamps_check": {
+          "name": "magic_links_timestamps_check",
+          "value": "\"magic_links\".\"requested_at\" >= 0 AND \"magic_links\".\"expires_at\" > \"magic_links\".\"requested_at\" AND (\"magic_links\".\"used_at\" IS NULL OR \"magic_links\".\"used_at\" >= \"magic_links\".\"requested_at\")"
+        }
+      }
+    },
+    "mailbox_members": {
+      "name": "mailbox_members",
+      "columns": {
+        "mailbox_id": {
+          "name": "mailbox_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "mailbox_members_user_idx": {
+          "name": "mailbox_members_user_idx",
+          "columns": ["user_id", "mailbox_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "mailbox_members_mailbox_id_mailboxes_id_fk": {
+          "name": "mailbox_members_mailbox_id_mailboxes_id_fk",
+          "tableFrom": "mailbox_members",
+          "tableTo": "mailboxes",
+          "columnsFrom": ["mailbox_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        },
+        "mailbox_members_user_id_users_id_fk": {
+          "name": "mailbox_members_user_id_users_id_fk",
+          "tableFrom": "mailbox_members",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {
+        "mailbox_members_pk": {
+          "columns": ["mailbox_id", "user_id"],
+          "name": "mailbox_members_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "mailbox_members_role_check": {
+          "name": "mailbox_members_role_check",
+          "value": "\"mailbox_members\".\"role\" IN ('owner', 'member')"
+        },
+        "mailbox_members_created_at_check": {
+          "name": "mailbox_members_created_at_check",
+          "value": "\"mailbox_members\".\"created_at\" >= 0"
+        }
+      }
+    },
+    "mailboxes": {
+      "name": "mailboxes",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sender_alias": {
+          "name": "sender_alias",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "forward_to": {
+          "name": "forward_to",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "forward_html": {
+          "name": "forward_html",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "render_html": {
+          "name": "render_html",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "mailboxes_address_uidx": {
+          "name": "mailboxes_address_uidx",
+          "columns": ["address"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "mailboxes_address_normalized_check": {
+          "name": "mailboxes_address_normalized_check",
+          "value": "\"mailboxes\".\"address\" = lower(trim(\"mailboxes\".\"address\")) AND length(\"mailboxes\".\"address\") BETWEEN 3 AND 320"
+        },
+        "mailboxes_forward_to_normalized_check": {
+          "name": "mailboxes_forward_to_normalized_check",
+          "value": "\"mailboxes\".\"forward_to\" IS NULL OR (\"mailboxes\".\"forward_to\" = lower(trim(\"mailboxes\".\"forward_to\")) AND length(\"mailboxes\".\"forward_to\") BETWEEN 3 AND 320)"
+        },
+        "mailboxes_sender_alias_length_check": {
+          "name": "mailboxes_sender_alias_length_check",
+          "value": "\"mailboxes\".\"sender_alias\" IS NULL OR length(\"mailboxes\".\"sender_alias\") BETWEEN 1 AND 200"
+        },
+        "mailboxes_timestamps_check": {
+          "name": "mailboxes_timestamps_check",
+          "value": "\"mailboxes\".\"created_at\" >= 0 AND \"mailboxes\".\"updated_at\" >= \"mailboxes\".\"created_at\""
+        }
+      }
+    },
+    "message_recipients": {
+      "name": "message_recipients",
+      "columns": {
+        "message_id": {
+          "name": "message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "message_recipients_address_idx": {
+          "name": "message_recipients_address_idx",
+          "columns": ["address", "message_id"],
+          "isUnique": false
+        },
+        "message_recipients_message_kind_address_uidx": {
+          "name": "message_recipients_message_kind_address_uidx",
+          "columns": ["message_id", "kind", "address"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "message_recipients_message_id_messages_id_fk": {
+          "name": "message_recipients_message_id_messages_id_fk",
+          "tableFrom": "message_recipients",
+          "tableTo": "messages",
+          "columnsFrom": ["message_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {
+        "message_recipients_pk": {
+          "columns": ["message_id", "kind", "position"],
+          "name": "message_recipients_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "message_recipients_address_normalized_check": {
+          "name": "message_recipients_address_normalized_check",
+          "value": "\"message_recipients\".\"address\" = lower(trim(\"message_recipients\".\"address\")) AND length(\"message_recipients\".\"address\") BETWEEN 3 AND 320"
+        },
+        "message_recipients_kind_check": {
+          "name": "message_recipients_kind_check",
+          "value": "\"message_recipients\".\"kind\" IN ('to', 'cc', 'bcc', 'reply_to')"
+        },
+        "message_recipients_position_check": {
+          "name": "message_recipients_position_check",
+          "value": "\"message_recipients\".\"position\" >= 0"
+        }
+      }
+    },
+    "message_references": {
+      "name": "message_references",
+      "columns": {
+        "message_id": {
+          "name": "message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "internet_message_id": {
+          "name": "internet_message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "message_references_message_reference_uidx": {
+          "name": "message_references_message_reference_uidx",
+          "columns": ["message_id", "internet_message_id"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "message_references_message_id_messages_id_fk": {
+          "name": "message_references_message_id_messages_id_fk",
+          "tableFrom": "message_references",
+          "tableTo": "messages",
+          "columnsFrom": ["message_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {
+        "message_references_pk": {
+          "columns": ["message_id", "position"],
+          "name": "message_references_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "message_references_position_check": {
+          "name": "message_references_position_check",
+          "value": "\"message_references\".\"position\" >= 0"
+        }
+      }
+    },
+    "messages": {
+      "name": "messages",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mailbox_id": {
+          "name": "mailbox_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "thread_id": {
+          "name": "thread_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "direction": {
+          "name": "direction",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ingest_digest": {
+          "name": "ingest_digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "internet_message_id": {
+          "name": "internet_message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "provider_message_id": {
+          "name": "provider_message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "in_reply_to": {
+          "name": "in_reply_to",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "from_address": {
+          "name": "from_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "from_name": {
+          "name": "from_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "subject": {
+          "name": "subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "preview": {
+          "name": "preview",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "text_body": {
+          "name": "text_body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "html_body": {
+          "name": "html_body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "html_policy": {
+          "name": "html_policy",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sent_at": {
+          "name": "sent_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "raw_r2_key": {
+          "name": "raw_r2_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "raw_size": {
+          "name": "raw_size",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "raw_sha256": {
+          "name": "raw_sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "raw_deleted_at": {
+          "name": "raw_deleted_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "read_at": {
+          "name": "read_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "send_state": {
+          "name": "send_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "forward_state": {
+          "name": "forward_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "provider_error_code": {
+          "name": "provider_error_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "retryability": {
+          "name": "retryability",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "send_attempted_at": {
+          "name": "send_attempted_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "forward_attempted_at": {
+          "name": "forward_attempted_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "messages_inbound_ingest_digest_uidx": {
+          "name": "messages_inbound_ingest_digest_uidx",
+          "columns": ["ingest_digest"],
+          "isUnique": true,
+          "where": "\"messages\".\"direction\" = 'inbound'"
+        },
+        "messages_mailbox_internet_message_uidx": {
+          "name": "messages_mailbox_internet_message_uidx",
+          "columns": ["mailbox_id", "internet_message_id"],
+          "isUnique": true,
+          "where": "\"messages\".\"internet_message_id\" IS NOT NULL"
+        },
+        "messages_id_mailbox_uidx": {
+          "name": "messages_id_mailbox_uidx",
+          "columns": ["id", "mailbox_id"],
+          "isUnique": true
+        },
+        "messages_mailbox_thread_idx": {
+          "name": "messages_mailbox_thread_idx",
+          "columns": ["mailbox_id", "thread_id"],
+          "isUnique": false
+        },
+        "messages_thread_sent_idx": {
+          "name": "messages_thread_sent_idx",
+          "columns": ["thread_id", "sent_at", "id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "messages_mailbox_id_mailboxes_id_fk": {
+          "name": "messages_mailbox_id_mailboxes_id_fk",
+          "tableFrom": "messages",
+          "tableTo": "mailboxes",
+          "columnsFrom": ["mailbox_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        },
+        "messages_thread_mailbox_fk": {
+          "name": "messages_thread_mailbox_fk",
+          "tableFrom": "messages",
+          "tableTo": "threads",
+          "columnsFrom": ["thread_id", "mailbox_id"],
+          "columnsTo": ["id", "mailbox_id"],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "messages_direction_check": {
+          "name": "messages_direction_check",
+          "value": "\"messages\".\"direction\" IN ('inbound', 'outbound')"
+        },
+        "messages_direction_states_check": {
+          "name": "messages_direction_states_check",
+          "value": "(\"messages\".\"direction\" = 'inbound' AND \"messages\".\"send_state\" = 'not_applicable' AND \"messages\".\"forward_state\" IN ('not_applicable', 'pending', 'forwarded', 'failed', 'unknown')) OR (\"messages\".\"direction\" = 'outbound' AND \"messages\".\"send_state\" IN ('queued', 'sending', 'sent', 'failed', 'unknown') AND \"messages\".\"forward_state\" = 'not_applicable')"
+        },
+        "messages_provider_error_code_check": {
+          "name": "messages_provider_error_code_check",
+          "value": "\"messages\".\"provider_error_code\" IS NULL OR (length(\"messages\".\"provider_error_code\") BETWEEN 1 AND 128 AND instr(\"messages\".\"provider_error_code\", char(10)) = 0 AND instr(\"messages\".\"provider_error_code\", char(13)) = 0)"
+        },
+        "messages_failure_state_check": {
+          "name": "messages_failure_state_check",
+          "value": "(\"messages\".\"provider_error_code\" IS NOT NULL AND (\"messages\".\"forward_state\" IN ('failed', 'unknown') OR \"messages\".\"send_state\" IN ('failed', 'unknown'))) OR (\"messages\".\"provider_error_code\" IS NULL AND \"messages\".\"forward_state\" NOT IN ('failed', 'unknown') AND \"messages\".\"send_state\" NOT IN ('failed', 'unknown'))"
+        },
+        "messages_html_policy_check": {
+          "name": "messages_html_policy_check",
+          "value": "(\"messages\".\"html_body\" IS NULL AND \"messages\".\"html_policy\" IN ('none', 'blocked')) OR (\"messages\".\"html_body\" IS NOT NULL AND \"messages\".\"html_policy\" = 'sanitized')"
+        },
+        "messages_ingest_digest_check": {
+          "name": "messages_ingest_digest_check",
+          "value": "(\"messages\".\"direction\" = 'inbound' AND length(\"messages\".\"ingest_digest\") = 64 AND \"messages\".\"ingest_digest\" NOT GLOB '*[^0-9a-f]*') OR (\"messages\".\"direction\" = 'outbound' AND \"messages\".\"ingest_digest\" IS NULL)"
+        },
+        "messages_from_address_normalized_check": {
+          "name": "messages_from_address_normalized_check",
+          "value": "\"messages\".\"from_address\" = lower(trim(\"messages\".\"from_address\")) AND length(\"messages\".\"from_address\") BETWEEN 3 AND 320"
+        },
+        "messages_raw_metadata_check": {
+          "name": "messages_raw_metadata_check",
+          "value": "length(\"messages\".\"raw_r2_key\") BETWEEN 1 AND 1024 AND \"messages\".\"raw_size\" >= 0 AND length(\"messages\".\"raw_sha256\") = 64 AND \"messages\".\"raw_sha256\" NOT GLOB '*[^0-9a-f]*'"
+        },
+        "messages_raw_deleted_at_check": {
+          "name": "messages_raw_deleted_at_check",
+          "value": "\"messages\".\"raw_deleted_at\" IS NULL OR \"messages\".\"raw_deleted_at\" >= \"messages\".\"created_at\""
+        },
+        "messages_read_state_check": {
+          "name": "messages_read_state_check",
+          "value": "\"messages\".\"direction\" = 'inbound' OR \"messages\".\"read_at\" IS NULL"
+        },
+        "messages_retryability_check": {
+          "name": "messages_retryability_check",
+          "value": "(\"messages\".\"direction\" = 'inbound' AND ((\"messages\".\"forward_state\" = 'pending' AND \"messages\".\"retryability\" = 'retryable') OR (\"messages\".\"forward_state\" = 'unknown' AND \"messages\".\"retryability\" = 'manual_confirmation_required') OR (\"messages\".\"forward_state\" IN ('not_applicable', 'forwarded', 'failed') AND \"messages\".\"retryability\" = 'not_retryable'))) OR (\"messages\".\"direction\" = 'outbound' AND ((\"messages\".\"send_state\" = 'queued' AND \"messages\".\"retryability\" = 'retryable') OR (\"messages\".\"send_state\" IN ('sending', 'unknown') AND \"messages\".\"retryability\" = 'manual_confirmation_required') OR (\"messages\".\"send_state\" IN ('sent', 'failed') AND \"messages\".\"retryability\" = 'not_retryable')))"
+        },
+        "messages_received_state_check": {
+          "name": "messages_received_state_check",
+          "value": "\"messages\".\"direction\" = 'outbound' OR \"messages\".\"received_at\" IS NOT NULL"
+        },
+        "messages_timestamps_check": {
+          "name": "messages_timestamps_check",
+          "value": "\"messages\".\"created_at\" >= 0 AND \"messages\".\"sent_at\" >= 0 AND \"messages\".\"updated_at\" >= \"messages\".\"created_at\" AND (\"messages\".\"received_at\" IS NULL OR \"messages\".\"received_at\" >= 0) AND (\"messages\".\"read_at\" IS NULL OR \"messages\".\"read_at\" >= 0) AND (\"messages\".\"send_attempted_at\" IS NULL OR \"messages\".\"send_attempted_at\" >= 0) AND (\"messages\".\"forward_attempted_at\" IS NULL OR \"messages\".\"forward_attempted_at\" >= 0)"
+        }
+      }
+    },
+    "outbound_sends": {
+      "name": "outbound_sends",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "actor_user_id": {
+          "name": "actor_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mailbox_id": {
+          "name": "mailbox_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "thread_id": {
+          "name": "thread_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "request_digest": {
+          "name": "request_digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "message_id": {
+          "name": "message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "provider_message_id": {
+          "name": "provider_message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "provider_error_code": {
+          "name": "provider_error_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "retryability": {
+          "name": "retryability",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "attempt_count": {
+          "name": "attempt_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "last_attempted_at": {
+          "name": "last_attempted_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "outbound_sends_idempotency_key_uidx": {
+          "name": "outbound_sends_idempotency_key_uidx",
+          "columns": ["idempotency_key"],
+          "isUnique": true
+        },
+        "outbound_sends_mailbox_state_idx": {
+          "name": "outbound_sends_mailbox_state_idx",
+          "columns": ["mailbox_id", "state", "updated_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "outbound_sends_actor_user_id_users_id_fk": {
+          "name": "outbound_sends_actor_user_id_users_id_fk",
+          "tableFrom": "outbound_sends",
+          "tableTo": "users",
+          "columnsFrom": ["actor_user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "cascade"
+        },
+        "outbound_sends_mailbox_id_mailboxes_id_fk": {
+          "name": "outbound_sends_mailbox_id_mailboxes_id_fk",
+          "tableFrom": "outbound_sends",
+          "tableTo": "mailboxes",
+          "columnsFrom": ["mailbox_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        },
+        "outbound_sends_message_mailbox_fk": {
+          "name": "outbound_sends_message_mailbox_fk",
+          "tableFrom": "outbound_sends",
+          "tableTo": "messages",
+          "columnsFrom": ["message_id", "mailbox_id"],
+          "columnsTo": ["id", "mailbox_id"],
+          "onDelete": "restrict",
+          "onUpdate": "cascade"
+        },
+        "outbound_sends_thread_mailbox_fk": {
+          "name": "outbound_sends_thread_mailbox_fk",
+          "tableFrom": "outbound_sends",
+          "tableTo": "threads",
+          "columnsFrom": ["thread_id", "mailbox_id"],
+          "columnsTo": ["id", "mailbox_id"],
+          "onDelete": "restrict",
+          "onUpdate": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "outbound_sends_idempotency_key_check": {
+          "name": "outbound_sends_idempotency_key_check",
+          "value": "length(\"outbound_sends\".\"idempotency_key\") BETWEEN 16 AND 256"
+        },
+        "outbound_sends_request_digest_check": {
+          "name": "outbound_sends_request_digest_check",
+          "value": "length(\"outbound_sends\".\"request_digest\") = 64 AND \"outbound_sends\".\"request_digest\" NOT GLOB '*[^0-9a-f]*'"
+        },
+        "outbound_sends_failure_state_check": {
+          "name": "outbound_sends_failure_state_check",
+          "value": "(\"outbound_sends\".\"provider_error_code\" IS NOT NULL AND \"outbound_sends\".\"state\" IN ('failed', 'unknown')) OR (\"outbound_sends\".\"provider_error_code\" IS NULL AND \"outbound_sends\".\"state\" NOT IN ('failed', 'unknown'))"
+        },
+        "outbound_sends_retryability_check": {
+          "name": "outbound_sends_retryability_check",
+          "value": "(\"outbound_sends\".\"state\" = 'queued' AND \"outbound_sends\".\"retryability\" = 'retryable') OR (\"outbound_sends\".\"state\" IN ('sending', 'unknown') AND \"outbound_sends\".\"retryability\" = 'manual_confirmation_required') OR (\"outbound_sends\".\"state\" IN ('sent', 'failed') AND \"outbound_sends\".\"retryability\" = 'not_retryable')"
+        },
+        "outbound_sends_state_check": {
+          "name": "outbound_sends_state_check",
+          "value": "\"outbound_sends\".\"state\" IN ('queued', 'sending', 'sent', 'failed', 'unknown')"
+        },
+        "outbound_sends_timestamps_check": {
+          "name": "outbound_sends_timestamps_check",
+          "value": "\"outbound_sends\".\"attempt_count\" >= 0 AND \"outbound_sends\".\"created_at\" >= 0 AND \"outbound_sends\".\"updated_at\" >= \"outbound_sends\".\"created_at\" AND (\"outbound_sends\".\"last_attempted_at\" IS NULL OR \"outbound_sends\".\"last_attempted_at\" >= \"outbound_sends\".\"created_at\")"
+        }
+      }
+    },
+    "reply_aliases": {
+      "name": "reply_aliases",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "local_part": {
+          "name": "local_part",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mailbox_id": {
+          "name": "mailbox_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "thread_id": {
+          "name": "thread_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "target_message_id": {
+          "name": "target_message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "relay_destination": {
+          "name": "relay_destination",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "reply_aliases_local_part_uidx": {
+          "name": "reply_aliases_local_part_uidx",
+          "columns": ["local_part"],
+          "isUnique": true
+        },
+        "reply_aliases_message_destination_uidx": {
+          "name": "reply_aliases_message_destination_uidx",
+          "columns": ["mailbox_id", "target_message_id", "relay_destination"],
+          "isUnique": true,
+          "where": "\"reply_aliases\".\"target_message_id\" IS NOT NULL"
+        },
+        "reply_aliases_thread_idx": {
+          "name": "reply_aliases_thread_idx",
+          "columns": ["mailbox_id", "thread_id", "revoked_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "reply_aliases_mailbox_id_mailboxes_id_fk": {
+          "name": "reply_aliases_mailbox_id_mailboxes_id_fk",
+          "tableFrom": "reply_aliases",
+          "tableTo": "mailboxes",
+          "columnsFrom": ["mailbox_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        },
+        "reply_aliases_target_message_id_messages_id_fk": {
+          "name": "reply_aliases_target_message_id_messages_id_fk",
+          "tableFrom": "reply_aliases",
+          "tableTo": "messages",
+          "columnsFrom": ["target_message_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "cascade"
+        },
+        "reply_aliases_thread_mailbox_fk": {
+          "name": "reply_aliases_thread_mailbox_fk",
+          "tableFrom": "reply_aliases",
+          "tableTo": "threads",
+          "columnsFrom": ["thread_id", "mailbox_id"],
+          "columnsTo": ["id", "mailbox_id"],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "reply_aliases_local_part_check": {
+          "name": "reply_aliases_local_part_check",
+          "value": "\"reply_aliases\".\"local_part\" = lower(trim(\"reply_aliases\".\"local_part\")) AND length(\"reply_aliases\".\"local_part\") BETWEEN 16 AND 128 AND \"reply_aliases\".\"local_part\" NOT GLOB '*[^a-z0-9_-]*'"
+        },
+        "reply_aliases_relay_destination_normalized_check": {
+          "name": "reply_aliases_relay_destination_normalized_check",
+          "value": "\"reply_aliases\".\"relay_destination\" = lower(trim(\"reply_aliases\".\"relay_destination\")) AND length(\"reply_aliases\".\"relay_destination\") BETWEEN 3 AND 320"
+        },
+        "reply_aliases_timestamps_check": {
+          "name": "reply_aliases_timestamps_check",
+          "value": "\"reply_aliases\".\"created_at\" >= 0 AND (\"reply_aliases\".\"revoked_at\" IS NULL OR \"reply_aliases\".\"revoked_at\" >= \"reply_aliases\".\"created_at\")"
+        }
+      }
+    },
+    "retention_tombstones": {
+      "name": "retention_tombstones",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "message_id": {
+          "name": "message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mailbox_id": {
+          "name": "mailbox_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "thread_id": {
+          "name": "thread_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "raw_r2_key": {
+          "name": "raw_r2_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "message_created_at": {
+          "name": "message_created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "raw_delete_after": {
+          "name": "raw_delete_after",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "application_delete_after": {
+          "name": "application_delete_after",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "attempt_count": {
+          "name": "attempt_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "claim_token": {
+          "name": "claim_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "claimed_at": {
+          "name": "claimed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "claim_expires_at": {
+          "name": "claim_expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "raw_deleted_at": {
+          "name": "raw_deleted_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "application_deleted_at": {
+          "name": "application_deleted_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_error_code": {
+          "name": "last_error_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_failed_at": {
+          "name": "last_failed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "retention_tombstones_message_uidx": {
+          "name": "retention_tombstones_message_uidx",
+          "columns": ["message_id"],
+          "isUnique": true
+        },
+        "retention_tombstones_state_claim_idx": {
+          "name": "retention_tombstones_state_claim_idx",
+          "columns": [
+            "state",
+            "raw_delete_after",
+            "application_delete_after",
+            "claim_expires_at",
+            "id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "retention_tombstones_claim_check": {
+          "name": "retention_tombstones_claim_check",
+          "value": "(\"retention_tombstones\".\"claim_token\" IS NULL AND \"retention_tombstones\".\"claimed_at\" IS NULL AND \"retention_tombstones\".\"claim_expires_at\" IS NULL) OR (\"retention_tombstones\".\"claim_token\" IS NOT NULL AND length(\"retention_tombstones\".\"claim_token\") BETWEEN 16 AND 128 AND instr(\"retention_tombstones\".\"claim_token\", char(10)) = 0 AND instr(\"retention_tombstones\".\"claim_token\", char(13)) = 0 AND \"retention_tombstones\".\"claimed_at\" IS NOT NULL AND \"retention_tombstones\".\"claim_expires_at\" > \"retention_tombstones\".\"claimed_at\")"
+        },
+        "retention_tombstones_error_check": {
+          "name": "retention_tombstones_error_check",
+          "value": "(\"retention_tombstones\".\"last_error_code\" IS NULL AND \"retention_tombstones\".\"last_failed_at\" IS NULL) OR (\"retention_tombstones\".\"last_error_code\" IS NOT NULL AND length(\"retention_tombstones\".\"last_error_code\") BETWEEN 1 AND 128 AND instr(\"retention_tombstones\".\"last_error_code\", char(10)) = 0 AND instr(\"retention_tombstones\".\"last_error_code\", char(13)) = 0 AND \"retention_tombstones\".\"last_failed_at\" IS NOT NULL)"
+        },
+        "retention_tombstones_raw_key_check": {
+          "name": "retention_tombstones_raw_key_check",
+          "value": "length(\"retention_tombstones\".\"raw_r2_key\") BETWEEN 1 AND 1024"
+        },
+        "retention_tombstones_state_check": {
+          "name": "retention_tombstones_state_check",
+          "value": "(\"retention_tombstones\".\"state\" = 'raw_pending' AND \"retention_tombstones\".\"raw_deleted_at\" IS NULL AND \"retention_tombstones\".\"application_deleted_at\" IS NULL AND \"retention_tombstones\".\"completed_at\" IS NULL) OR (\"retention_tombstones\".\"state\" = 'application_pending' AND \"retention_tombstones\".\"raw_deleted_at\" IS NOT NULL AND \"retention_tombstones\".\"application_deleted_at\" IS NULL AND \"retention_tombstones\".\"completed_at\" IS NULL) OR (\"retention_tombstones\".\"state\" = 'completed' AND \"retention_tombstones\".\"raw_deleted_at\" IS NOT NULL AND \"retention_tombstones\".\"application_deleted_at\" IS NOT NULL AND \"retention_tombstones\".\"completed_at\" = \"retention_tombstones\".\"application_deleted_at\" AND \"retention_tombstones\".\"claim_token\" IS NULL)"
+        },
+        "retention_tombstones_timestamps_check": {
+          "name": "retention_tombstones_timestamps_check",
+          "value": "\"retention_tombstones\".\"message_created_at\" >= 0 AND \"retention_tombstones\".\"raw_delete_after\" >= \"retention_tombstones\".\"message_created_at\" AND \"retention_tombstones\".\"application_delete_after\" >= \"retention_tombstones\".\"raw_delete_after\" AND \"retention_tombstones\".\"attempt_count\" >= 0 AND \"retention_tombstones\".\"created_at\" >= 0 AND \"retention_tombstones\".\"updated_at\" >= \"retention_tombstones\".\"created_at\" AND (\"retention_tombstones\".\"raw_deleted_at\" IS NULL OR \"retention_tombstones\".\"raw_deleted_at\" >= \"retention_tombstones\".\"created_at\") AND (\"retention_tombstones\".\"application_deleted_at\" IS NULL OR (\"retention_tombstones\".\"raw_deleted_at\" IS NOT NULL AND \"retention_tombstones\".\"application_deleted_at\" >= \"retention_tombstones\".\"raw_deleted_at\")) AND (\"retention_tombstones\".\"last_failed_at\" IS NULL OR \"retention_tombstones\".\"last_failed_at\" >= \"retention_tombstones\".\"created_at\") AND (\"retention_tombstones\".\"completed_at\" IS NULL OR \"retention_tombstones\".\"completed_at\" >= \"retention_tombstones\".\"created_at\")"
+        }
+      }
+    },
+    "sessions": {
+      "name": "sessions",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "token_digest": {
+          "name": "token_digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_magic_link_id": {
+          "name": "source_magic_link_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_seen_at": {
+          "name": "last_seen_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "sessions_token_digest_uidx": {
+          "name": "sessions_token_digest_uidx",
+          "columns": ["token_digest"],
+          "isUnique": true
+        },
+        "sessions_source_magic_link_uidx": {
+          "name": "sessions_source_magic_link_uidx",
+          "columns": ["source_magic_link_id"],
+          "isUnique": true
+        },
+        "sessions_token_expiry_idx": {
+          "name": "sessions_token_expiry_idx",
+          "columns": ["token_digest", "expires_at", "revoked_at"],
+          "isUnique": false
+        },
+        "sessions_user_active_idx": {
+          "name": "sessions_user_active_idx",
+          "columns": ["user_id", "revoked_at", "expires_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "sessions_user_id_users_id_fk": {
+          "name": "sessions_user_id_users_id_fk",
+          "tableFrom": "sessions",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        },
+        "sessions_source_magic_link_id_magic_links_id_fk": {
+          "name": "sessions_source_magic_link_id_magic_links_id_fk",
+          "tableFrom": "sessions",
+          "tableTo": "magic_links",
+          "columnsFrom": ["source_magic_link_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "sessions_digest_check": {
+          "name": "sessions_digest_check",
+          "value": "length(\"sessions\".\"token_digest\") = 64 AND \"sessions\".\"token_digest\" NOT GLOB '*[^0-9a-f]*'"
+        },
+        "sessions_timestamps_check": {
+          "name": "sessions_timestamps_check",
+          "value": "\"sessions\".\"created_at\" >= 0 AND \"sessions\".\"last_seen_at\" >= \"sessions\".\"created_at\" AND \"sessions\".\"expires_at\" > \"sessions\".\"created_at\" AND (\"sessions\".\"revoked_at\" IS NULL OR \"sessions\".\"revoked_at\" >= \"sessions\".\"created_at\")"
+        }
+      }
+    },
+    "tags": {
+      "name": "tags",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mailbox_id": {
+          "name": "mailbox_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "normalized_name": {
+          "name": "normalized_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "tags_id_mailbox_uidx": {
+          "name": "tags_id_mailbox_uidx",
+          "columns": ["id", "mailbox_id"],
+          "isUnique": true
+        },
+        "tags_mailbox_name_uidx": {
+          "name": "tags_mailbox_name_uidx",
+          "columns": ["mailbox_id", "normalized_name"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "tags_mailbox_id_mailboxes_id_fk": {
+          "name": "tags_mailbox_id_mailboxes_id_fk",
+          "tableFrom": "tags",
+          "tableTo": "mailboxes",
+          "columnsFrom": ["mailbox_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "tags_normalized_name_check": {
+          "name": "tags_normalized_name_check",
+          "value": "\"tags\".\"normalized_name\" = lower(trim(\"tags\".\"normalized_name\")) AND length(\"tags\".\"normalized_name\") BETWEEN 1 AND 100 AND length(trim(\"tags\".\"name\")) BETWEEN 1 AND 100"
+        },
+        "tags_created_at_check": {
+          "name": "tags_created_at_check",
+          "value": "\"tags\".\"created_at\" >= 0"
+        }
+      }
+    },
+    "thread_tags": {
+      "name": "thread_tags",
+      "columns": {
+        "thread_id": {
+          "name": "thread_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tag_id": {
+          "name": "tag_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mailbox_id": {
+          "name": "mailbox_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "thread_tags_tag_idx": {
+          "name": "thread_tags_tag_idx",
+          "columns": ["tag_id", "thread_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "thread_tags_tag_mailbox_fk": {
+          "name": "thread_tags_tag_mailbox_fk",
+          "tableFrom": "thread_tags",
+          "tableTo": "tags",
+          "columnsFrom": ["tag_id", "mailbox_id"],
+          "columnsTo": ["id", "mailbox_id"],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        },
+        "thread_tags_thread_mailbox_fk": {
+          "name": "thread_tags_thread_mailbox_fk",
+          "tableFrom": "thread_tags",
+          "tableTo": "threads",
+          "columnsFrom": ["thread_id", "mailbox_id"],
+          "columnsTo": ["id", "mailbox_id"],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {
+        "thread_tags_pk": {
+          "columns": ["thread_id", "tag_id"],
+          "name": "thread_tags_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "thread_tags_created_at_check": {
+          "name": "thread_tags_created_at_check",
+          "value": "\"thread_tags\".\"created_at\" >= 0"
+        }
+      }
+    },
+    "threads": {
+      "name": "threads",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mailbox_id": {
+          "name": "mailbox_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "subject": {
+          "name": "subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "normalized_subject": {
+          "name": "normalized_subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "workflow_state": {
+          "name": "workflow_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "latest_message_id": {
+          "name": "latest_message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_message_at": {
+          "name": "last_message_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "last_message_preview": {
+          "name": "last_message_preview",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "last_message_direction": {
+          "name": "last_message_direction",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_sender_address": {
+          "name": "last_sender_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "message_count": {
+          "name": "message_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "unread_count": {
+          "name": "unread_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "threads_mailbox_archive_order_idx": {
+          "name": "threads_mailbox_archive_order_idx",
+          "columns": ["mailbox_id", "archived_at", "\"last_message_at\" desc", "\"id\" desc"],
+          "isUnique": false
+        },
+        "threads_id_mailbox_uidx": {
+          "name": "threads_id_mailbox_uidx",
+          "columns": ["id", "mailbox_id"],
+          "isUnique": true
+        },
+        "threads_mailbox_unread_order_idx": {
+          "name": "threads_mailbox_unread_order_idx",
+          "columns": [
+            "mailbox_id",
+            "unread_count",
+            "archived_at",
+            "\"last_message_at\" desc",
+            "\"id\" desc"
+          ],
+          "isUnique": false
+        },
+        "threads_mailbox_workflow_archive_order_idx": {
+          "name": "threads_mailbox_workflow_archive_order_idx",
+          "columns": [
+            "mailbox_id",
+            "workflow_state",
+            "archived_at",
+            "\"last_message_at\" desc",
+            "\"id\" desc"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "threads_mailbox_id_mailboxes_id_fk": {
+          "name": "threads_mailbox_id_mailboxes_id_fk",
+          "tableFrom": "threads",
+          "tableTo": "mailboxes",
+          "columnsFrom": ["mailbox_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        },
+        "threads_latest_message_id_messages_id_fk": {
+          "name": "threads_latest_message_id_messages_id_fk",
+          "tableFrom": "threads",
+          "tableTo": "messages",
+          "columnsFrom": ["latest_message_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "threads_aggregate_counts_check": {
+          "name": "threads_aggregate_counts_check",
+          "value": "\"threads\".\"message_count\" >= 0 AND \"threads\".\"unread_count\" >= 0 AND \"threads\".\"unread_count\" <= \"threads\".\"message_count\""
+        },
+        "threads_archive_timestamp_check": {
+          "name": "threads_archive_timestamp_check",
+          "value": "\"threads\".\"archived_at\" IS NULL OR \"threads\".\"archived_at\" >= \"threads\".\"created_at\""
+        },
+        "threads_last_direction_check": {
+          "name": "threads_last_direction_check",
+          "value": "\"threads\".\"last_message_direction\" IS NULL OR \"threads\".\"last_message_direction\" IN ('inbound', 'outbound')"
+        },
+        "threads_last_sender_normalized_check": {
+          "name": "threads_last_sender_normalized_check",
+          "value": "\"threads\".\"last_sender_address\" IS NULL OR \"threads\".\"last_sender_address\" = lower(trim(\"threads\".\"last_sender_address\"))"
+        },
+        "threads_timestamps_check": {
+          "name": "threads_timestamps_check",
+          "value": "\"threads\".\"created_at\" >= 0 AND \"threads\".\"last_message_at\" >= 0 AND \"threads\".\"updated_at\" >= \"threads\".\"created_at\""
+        },
+        "threads_workflow_state_check": {
+          "name": "threads_workflow_state_check",
+          "value": "\"threads\".\"workflow_state\" IN ('needs_reply', 'waiting', 'resolved')"
+        }
+      }
+    },
+    "users": {
+      "name": "users",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "disabled_at": {
+          "name": "disabled_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "users_email_uidx": {
+          "name": "users_email_uidx",
+          "columns": ["email"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "users_email_normalized_check": {
+          "name": "users_email_normalized_check",
+          "value": "\"users\".\"email\" = lower(trim(\"users\".\"email\")) AND length(\"users\".\"email\") BETWEEN 3 AND 320"
+        },
+        "users_timestamps_check": {
+          "name": "users_timestamps_check",
+          "value": "\"users\".\"created_at\" >= 0 AND (\"users\".\"disabled_at\" IS NULL OR \"users\".\"disabled_at\" >= \"users\".\"created_at\")"
+        }
+      }
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {
+      "magic_links_user_requested_idx": {
+        "columns": {
+          "\"requested_at\" desc": {
+            "isExpression": true
+          }
+        }
+      },
+      "threads_mailbox_archive_order_idx": {
+        "columns": {
+          "\"last_message_at\" desc": {
+            "isExpression": true
+          },
+          "\"id\" desc": {
+            "isExpression": true
+          }
+        }
+      },
+      "threads_mailbox_unread_order_idx": {
+        "columns": {
+          "\"last_message_at\" desc": {
+            "isExpression": true
+          },
+          "\"id\" desc": {
+            "isExpression": true
+          }
+        }
+      },
+      "threads_mailbox_workflow_archive_order_idx": {
+        "columns": {
+          "\"last_message_at\" desc": {
+            "isExpression": true
+          },
+          "\"id\" desc": {
+            "isExpression": true
+          }
+        }
+      }
+    }
+  }
+}

@@ -548,6 +548,52 @@ describe('API module', () => {
     })
   })
 
+  it('serves isolated HTML only after display opt-in, independently of forwarding, and never reads unauthorized raw mail', async () => {
+    const fixture = createFixture({
+      attachmentRaw: new TextEncoder().encode(
+        [
+          'From: sender@example.test',
+          'To: owner@example.test',
+          'Subject: HTML',
+          'Content-Type: text/html; charset=utf-8',
+          '',
+          '<h1 style="color:red">Rich email</h1><script>parent.compromised=true</script>',
+        ].join('\r\n'),
+      ),
+    })
+    const headers = { authorization: `Bearer ${API_TOKEN}`, 'content-type': 'application/json' }
+    const path = `/v1/messages/${MESSAGE_ID}/html`
+    const denied = await fixture.app.request(path, { headers }, fixture.env)
+    expect(denied.status).toBe(404)
+    expect(fixture.r2Get).not.toHaveBeenCalled()
+    const forwardOnly = await fixture.app.request(
+      `/v1/mailboxes/${MAILBOX_ID}`,
+      { headers, method: 'PATCH', body: JSON.stringify({ forwardHtml: true }) },
+      fixture.env,
+    )
+    expect(await forwardOnly.json()).toMatchObject({ forwardHtml: true, renderHtml: false })
+    expect((await fixture.app.request(path, { headers }, fixture.env)).status).toBe(404)
+    const enabled = await fixture.app.request(
+      `/v1/mailboxes/${MAILBOX_ID}`,
+      { headers, method: 'PATCH', body: JSON.stringify({ renderHtml: true }) },
+      fixture.env,
+    )
+    expect(await enabled.json()).toMatchObject({ forwardHtml: true, renderHtml: true })
+    const preview = await fixture.app.request(path, { headers }, fixture.env)
+    expect(preview.status).toBe(200)
+    expect(preview.headers.get('content-type')).toContain('text/html')
+    expect(preview.headers.get('cache-control')).toBe('private, no-store')
+    expect(preview.headers.get('content-security-policy')).toContain('sandbox allow-scripts')
+    const html = await preview.text()
+    expect(html).toContain('<h1 style="color:red">Rich email</h1>')
+    expect(html).not.toContain('parent.compromised')
+    vi.mocked(fixture.inbox.getRawMessage).mockResolvedValueOnce(undefined)
+    const before = fixture.r2Get.mock.calls.length
+    expect((await fixture.app.request(path, { headers }, fixture.env)).status).toBe(404)
+    expect(fixture.r2Get.mock.calls.length).toBe(before)
+    expect((await fixture.app.request(path, undefined, fixture.env)).status).toBe(401)
+  })
+
   it('streams authorized raw messages and extracts verified attachments privately', async () => {
     const rawEmail = new TextEncoder().encode(
       [
@@ -758,6 +804,8 @@ function createFixture(
     },
   }
 
+  let forwardHtml = false
+  let renderHtml = false
   let forwardTo: string | null = 'owner@example.test'
   let senderAlias: string | null = null
   const mailbox = {
@@ -766,6 +814,8 @@ function createFixture(
     archiveCount: 0,
     createdAt: NOW,
     forwardTo,
+    forwardHtml,
+    renderHtml,
     id: MAILBOX_ID,
     needsReplyCount: 1,
     role: 'owner',
@@ -860,6 +910,8 @@ function createFixture(
         ? {
             address: mailbox.address,
             forwardTo,
+            forwardHtml,
+            renderHtml,
             id: mailbox.id,
             senderAlias,
             updatedAt: NOW,
@@ -873,7 +925,9 @@ function createFixture(
         ? undefined
         : ((options.threadDetail ?? threadDetail) as never),
     ),
-    listMailboxes: vi.fn(async () => [{ ...mailbox, forwardTo, senderAlias }]),
+    listMailboxes: vi.fn(async () => [
+      { ...mailbox, forwardTo, senderAlias, forwardHtml, renderHtml },
+    ]),
     listThreads: vi.fn(async () => ({ items: [threadSummary], nextCursor: null })),
     markThreadRead: vi.fn(async () => true),
     searchThreads: vi.fn(async () => ({ items: [], nextCursor: null })),
@@ -881,8 +935,15 @@ function createFixture(
     updateMailboxSettings: vi.fn(
       async (
         _mailboxId: string,
-        values: { forwardTo?: string | null; senderAlias?: string | null },
+        values: {
+          forwardTo?: string | null
+          senderAlias?: string | null
+          forwardHtml?: boolean
+          renderHtml?: boolean
+        },
       ) => {
+        if (values.forwardHtml !== undefined) forwardHtml = values.forwardHtml
+        if (values.renderHtml !== undefined) renderHtml = values.renderHtml
         if (values.forwardTo !== undefined) forwardTo = values.forwardTo
         if (values.senderAlias !== undefined) senderAlias = values.senderAlias
         return true

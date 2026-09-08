@@ -131,6 +131,7 @@ export function InboxShell({
             )}
             busy={busy}
             detail={data.selectedThread}
+            renderHtml={mailbox?.renderHtml ?? false}
             loading={detailLoading}
             error={detailError}
             onRetry={onRetryThread}

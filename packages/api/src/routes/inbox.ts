@@ -50,6 +50,8 @@ export function registerInboxRoutes(app: OpenAPIHono<ApiEnv>, dependencies: ApiD
       throw new ApiFault('validation_failed')
     }
     const values = {
+      ...(patch.forwardHtml === undefined ? {} : { forwardHtml: patch.forwardHtml }),
+      ...(patch.renderHtml === undefined ? {} : { renderHtml: patch.renderHtml }),
       ...(normalizedForwardTo === undefined ? {} : { forwardTo: normalizedForwardTo }),
       ...(patch.senderAlias === undefined ? {} : { senderAlias: patch.senderAlias }),
     }

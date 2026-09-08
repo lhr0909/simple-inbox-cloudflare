@@ -84,6 +84,8 @@ export interface MailboxSummary {
   address: string
   archiveCount: number
   createdAt: number
+  forwardHtml: boolean
+  renderHtml: boolean
   forwardTo: string | null
   id: string
   needsReplyCount: number
@@ -96,6 +98,8 @@ export interface MailboxSummary {
 
 export interface MailboxSettings {
   address: string
+  forwardHtml: boolean
+  renderHtml: boolean
   forwardTo: string | null
   id: string
   senderAlias: string | null
@@ -216,6 +220,8 @@ export class MailboxScopedRepository {
         archiveCount,
         createdAt: mailboxes.createdAt,
         forwardTo: mailboxes.forwardTo,
+        forwardHtml: mailboxes.forwardHtml,
+        renderHtml: mailboxes.renderHtml,
         id: mailboxes.id,
         needsReplyCount,
         role: mailboxMembers.role,
@@ -238,6 +244,8 @@ export class MailboxScopedRepository {
         mailboxes.address,
         mailboxes.senderAlias,
         mailboxes.forwardTo,
+        mailboxes.forwardHtml,
+        mailboxes.renderHtml,
         mailboxes.createdAt,
         mailboxes.updatedAt,
         mailboxMembers.role,
@@ -343,6 +351,8 @@ export class MailboxScopedRepository {
       .select({
         address: mailboxes.address,
         forwardTo: mailboxes.forwardTo,
+        forwardHtml: mailboxes.forwardHtml,
+        renderHtml: mailboxes.renderHtml,
         id: mailboxes.id,
         senderAlias: mailboxes.senderAlias,
         updatedAt: mailboxes.updatedAt,
@@ -717,11 +727,16 @@ export class MailboxScopedRepository {
 
   async updateMailboxSettings(
     mailboxId: string,
-    values: { forwardTo?: string | null; senderAlias?: string | null },
+    values: {
+      forwardTo?: string | null
+      senderAlias?: string | null
+      forwardHtml?: boolean
+      renderHtml?: boolean
+    },
     now: number,
   ): Promise<boolean> {
     assertUnixMilliseconds(now)
-    if (values.forwardTo === undefined && values.senderAlias === undefined) {
+    if (Object.values(values).every((value) => value === undefined)) {
       throw new TypeError('At least one mailbox setting must be supplied.')
     }
     const result = await this.#binding
@@ -730,6 +745,8 @@ export class MailboxScopedRepository {
         SET
           forward_to = CASE WHEN ? = 1 THEN ? ELSE forward_to END,
           sender_alias = CASE WHEN ? = 1 THEN ? ELSE sender_alias END,
+          forward_html = CASE WHEN ? = 1 THEN ? ELSE forward_html END,
+          render_html = CASE WHEN ? = 1 THEN ? ELSE render_html END,
           updated_at = max(updated_at, ?)
         WHERE id = ?
           AND EXISTS (
@@ -744,6 +761,10 @@ export class MailboxScopedRepository {
         values.forwardTo ?? null,
         values.senderAlias === undefined ? 0 : 1,
         values.senderAlias ?? null,
+        values.forwardHtml === undefined ? 0 : 1,
+        values.forwardHtml ? 1 : 0,
+        values.renderHtml === undefined ? 0 : 1,
+        values.renderHtml ? 1 : 0,
         now,
         mailboxId,
         this.#actorUserId,

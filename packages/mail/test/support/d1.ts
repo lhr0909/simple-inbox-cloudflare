@@ -1,15 +1,19 @@
 /// <reference types="node" />
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { DatabaseSync, type SQLInputValue, type StatementSync } from 'node:sqlite'
 
-const migrationUrl = new URL('../../../db/migrations/0000_initial.sql', import.meta.url)
+const migrationsUrl = new URL('../../../db/migrations/', import.meta.url)
 
 export class TestD1Database {
   readonly sqlite = new DatabaseSync(':memory:')
 
   constructor() {
-    this.sqlite.exec(readFileSync(migrationUrl, 'utf8'))
+    for (const file of readdirSync(migrationsUrl)
+      .filter((name) => name.endsWith('.sql'))
+      .sort()) {
+      this.sqlite.exec(readFileSync(new URL(file, migrationsUrl), 'utf8'))
+    }
   }
 
   asD1(): D1Database {

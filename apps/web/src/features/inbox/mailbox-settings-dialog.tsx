@@ -35,6 +35,8 @@ export function MailboxSettingsDialog({
   const id = useId()
   const [alias, setAlias] = useState(mailbox?.senderAlias ?? '')
   const [forwardTo, setForwardTo] = useState(mailbox?.forwardTo ?? '')
+  const [forwardHtml, setForwardHtml] = useState(mailbox?.forwardHtml ?? false)
+  const [renderHtml, setRenderHtml] = useState(mailbox?.renderHtml ?? false)
   const [forwardToEdited, setForwardToEdited] = useState(false)
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const { setTheme, theme } = useTheme()
@@ -59,19 +61,30 @@ export function MailboxSettingsDialog({
     preserveOpenDraft.current = false
     setAlias(mailbox?.senderAlias ?? '')
     setForwardTo(mailbox?.forwardTo ?? '')
+    setForwardHtml(mailbox?.forwardHtml ?? false)
+    setRenderHtml(mailbox?.renderHtml ?? false)
     setForwardToEdited(false)
     setStatus('idle')
-  }, [mailbox?.forwardTo, mailbox?.id, mailbox?.senderAlias, open])
+  }, [
+    mailbox?.forwardTo,
+    mailbox?.id,
+    mailbox?.senderAlias,
+    mailbox?.forwardHtml,
+    mailbox?.renderHtml,
+    open,
+  ])
 
   async function save(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
     if (mailbox === null || onUpdateMailbox === undefined) return
     const senderAlias = alias.trim() || null
     const patch: PatchMailboxRequest = {
+      ...(forwardHtml === mailbox.forwardHtml ? {} : { forwardHtml }),
+      ...(renderHtml === mailbox.renderHtml ? {} : { renderHtml }),
       ...(senderAlias === mailbox.senderAlias ? {} : { senderAlias }),
       ...(forwardToEdited ? { forwardTo: forwardTo.trim() || null } : {}),
     }
-    if (patch.senderAlias === undefined && patch.forwardTo === undefined) {
+    if (Object.keys(patch).length === 0) {
       preserveOpenDraft.current = true
       setStatus('saved')
       return
@@ -85,6 +98,8 @@ export function MailboxSettingsDialog({
       const saved = await onUpdateMailbox(mailbox.id, patch)
       setAlias(saved.senderAlias ?? '')
       setForwardTo(saved.forwardTo ?? '')
+      setForwardHtml(saved.forwardHtml)
+      setRenderHtml(saved.renderHtml)
       setForwardToEdited(false)
       setStatus('saved')
     } catch {
@@ -96,7 +111,7 @@ export function MailboxSettingsDialog({
     <dialog
       aria-describedby={`${id}-description`}
       aria-labelledby={`${id}-title`}
-      className="m-auto w-[min(92vw,30rem)] rounded-2xl border bg-background p-0 text-foreground shadow-2xl backdrop:bg-black/40"
+      className="m-auto max-h-[90dvh] overflow-y-auto w-[min(92vw,30rem)] rounded-2xl border bg-background p-0 text-foreground shadow-2xl backdrop:bg-black/40"
       onCancel={(event) => {
         event.preventDefault()
         onOpenChange(false)
@@ -111,7 +126,7 @@ export function MailboxSettingsDialog({
               Mailbox settings
             </h2>
             <p className="mt-1 text-sm text-muted-foreground" id={`${id}-description`}>
-              Update the outbound sender name and inbound forwarding destination for this mailbox.
+              Choose sender, forwarding, and message display preferences for this mailbox.
             </p>
           </div>
           <Button
@@ -200,6 +215,63 @@ export function MailboxSettingsDialog({
           </div>
         </Field>
 
+        <fieldset
+          className="mt-5 space-y-4 border-t pt-4"
+          disabled={busy || mailbox === null || status === 'saving'}
+        >
+          <legend className="text-sm font-medium">HTML email</legend>
+          <label className="flex items-start gap-3">
+            <input
+              aria-describedby={`${id}-forward-html-help`}
+              aria-labelledby={`${id}-forward-html-label`}
+              checked={forwardHtml}
+              className="mt-1 size-4 shrink-0 accent-primary"
+              onChange={(event) => {
+                setForwardHtml(event.currentTarget.checked)
+                setStatus('idle')
+              }}
+              type="checkbox"
+            />
+            <span>
+              <span className="text-sm font-medium" id={`${id}-forward-html-label`}>
+                Forward full HTML
+              </span>
+              <span
+                className="mt-1 block text-xs text-muted-foreground"
+                id={`${id}-forward-html-help`}
+              >
+                Preserve original formatting and inline images in future forwarded emails. Your
+                email client may load remote images and tracking pixels.
+              </span>
+            </span>
+          </label>
+          <label className="flex items-start gap-3">
+            <input
+              aria-describedby={`${id}-render-html-help`}
+              aria-labelledby={`${id}-render-html-label`}
+              checked={renderHtml}
+              className="mt-1 size-4 shrink-0 accent-primary"
+              onChange={(event) => {
+                setRenderHtml(event.currentTarget.checked)
+                setStatus('idle')
+              }}
+              type="checkbox"
+            />
+            <span>
+              <span className="text-sm font-medium" id={`${id}-render-html-label`}>
+                Display full HTML in inbox
+              </span>
+              <span
+                className="mt-1 block text-xs text-muted-foreground"
+                id={`${id}-render-html-help`}
+              >
+                Show formatting and images for retained emails. Remote images may reveal when you
+                open a message. Scripts and forms stay blocked.
+              </span>
+            </span>
+          </label>
+        </fieldset>
+
         <Field className="mt-4">
           <FieldLabel htmlFor={`${id}-theme`}>Color theme</FieldLabel>
           <select
@@ -234,8 +306,8 @@ export function MailboxSettingsDialog({
             <LogOutIcon aria-hidden="true" className="size-4" />
             Sign out
           </Button>
-          <span aria-live="polite" className="w-full text-xs text-muted-foreground">
-            {status === 'saved' ? 'Sender alias saved.' : null}
+          <span aria-live="polite" role="status" className="w-full text-xs text-muted-foreground">
+            {status === 'saved' ? 'Settings saved.' : null}
             {status === 'error' ? 'Settings could not be saved.' : null}
           </span>
         </div>
