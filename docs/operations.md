@@ -251,12 +251,17 @@ Open **Settings** for the selected mailbox:
   available on each message. If original mail has expired or HTML exceeds the preview limit, text
   remains available while its application record is retained.
 
-Both settings default off and are independent of the forwarding destination. The mailbox PATCH API
+Full HTML forwarding defaults on; inbox HTML display defaults off. Both are independent of the
+forwarding destination. The mailbox PATCH API
 accepts boolean `forwardHtml` and `renderHtml` values. Mailbox owner authorization is required.
 
-The `0002_html_preferences.sql` migration only adds the two default-false columns. Apply it before
-uploading the new Worker using the normal upgrade command. Older Worker code can ignore the columns
-on rollback; neither the migration nor toggling a preference rewrites stored messages or sends mail.
+Migration `0002_html_preferences.sql` introduced the preferences. Migration
+`0003_default_html_forwarding.sql` enables full HTML forwarding for every existing mailbox, including
+previously disabled ones, and changes the database default for new inboxes. It replaces only the
+forwarding flag column without rebuilding the mailbox table or modifying related mail, forwarding
+destinations, or HTML display preferences. Owners can disable forwarding HTML again after upgrading.
+Apply pending migrations before uploading the Worker using the normal upgrade command. Code rollback
+does not restore the previous forwarding preferences; neither migration sends or rewrites messages.
 
 ## Cloudflare Dashboard owner steps
 

@@ -48,8 +48,10 @@ content loads after hydration, using the same path as subsequent selection and b
 
 ## HTML preferences
 
-Each mailbox has independent `forwardHtml` and `renderHtml` preferences, both disabled by default.
-The additive migration preserves existing mailbox data and initializes both flags to false.
+Each mailbox has independent `forwardHtml` and `renderHtml` preferences. Forwarding defaults on; inbox HTML
+display defaults off. Migration `0003_default_html_forwarding.sql` enables forwarding for all existing
+mailboxes, including ones previously disabled, while preserving display preferences and related mail.
+Owners can opt out again after upgrading.
 Only a mailbox owner with settings permission can change them through the existing settings API.
 
 Inbound parsing keeps the original HTML transiently for opted-in forwarding. D1 continues to store

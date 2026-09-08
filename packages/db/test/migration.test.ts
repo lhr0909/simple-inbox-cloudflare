@@ -55,6 +55,64 @@ describe('reviewed D1 baseline migration', () => {
     })
   })
 
+  it('enables forwarding for existing and new inboxes while preserving related mail and opt-out', () => {
+    const db = new DatabaseSync(':memory:')
+    openDatabases.push(db)
+    db.exec('PRAGMA foreign_keys = ON')
+    for (const name of [
+      '0000_initial.sql',
+      '0001_quick_annihilus.sql',
+      '0002_html_preferences.sql',
+    ]) {
+      db.exec(readFileSync(new URL(name, migrationsUrl), 'utf8'))
+    }
+    insertUser(db, 'owner', 'owner@example.test')
+    for (const [id, forward, render] of [
+      ['disabled', 0, 1],
+      ['enabled', 1, 0],
+    ] as const) {
+      insertMailbox(db, id, `${id}@example.test`)
+      insertMember(db, id, 'owner')
+      insertThread(db, `thread_${id}`, id)
+      insertInboundMessage(db, `message_${id}`, id, `thread_${id}`)
+      db.prepare(
+        'UPDATE mailboxes SET forward_html = ?, render_html = ?, forward_to = ?, sender_alias = ? WHERE id = ?',
+      ).run(forward, render, 'owner@example.test', 'Synthetic sender', id)
+    }
+    const preservedMailboxData = () =>
+      db
+        .prepare(
+          'SELECT id, address, sender_alias, forward_to, render_html, created_at, updated_at FROM mailboxes ORDER BY id',
+        )
+        .all()
+    const before = preservedMailboxData()
+    const related = ['mailbox_members', 'threads', 'messages'].map((table) =>
+      db.prepare(`SELECT * FROM ${table} ORDER BY 1`).all(),
+    )
+
+    db.exec(readFileSync(new URL('0003_default_html_forwarding.sql', migrationsUrl), 'utf8'))
+
+    expect(preservedMailboxData()).toEqual(before)
+    expect(db.prepare('SELECT forward_html FROM mailboxes').all()).toEqual([
+      { forward_html: 1 },
+      { forward_html: 1 },
+    ])
+    expect(
+      ['mailbox_members', 'threads', 'messages'].map((table) =>
+        db.prepare(`SELECT * FROM ${table} ORDER BY 1`).all(),
+      ),
+    ).toEqual(related)
+    expect(db.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    insertMailbox(db, 'new_inbox', 'new@example.test')
+    expect(
+      db.prepare("SELECT forward_html, render_html FROM mailboxes WHERE id = 'new_inbox'").get(),
+    ).toEqual({ forward_html: 1, render_html: 0 })
+    db.prepare("UPDATE mailboxes SET forward_html = 0 WHERE id = 'disabled'").run()
+    expect(db.prepare("SELECT forward_html FROM mailboxes WHERE id = 'disabled'").get()).toEqual({
+      forward_html: 0,
+    })
+  })
+
   it('migrates an empty SQLite database with foreign keys and FTS5', () => {
     const db = migratedDatabase()
     const tables = db

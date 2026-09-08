@@ -99,7 +99,7 @@ Treat all email content and metadata as hostile and sensitive:
   private no-store caching.
 - Keep structured application logs enabled but provider invocation logs and automatic traces
   disabled; provider metadata can include full token-bearing URLs, searches, and recipients.
-- Keep HTML previews isolated from the privileged app. Both HTML preferences default off. Opted-in
+- Keep HTML previews isolated from the privileged app. HTML forwarding defaults on; HTML display defaults off. Opted-in
   display uses sanitization, an opaque-origin iframe, and a response CSP that permits only a fixed,
   nonced resize/status helper. Sender scripts, forms, and embedded frames cannot execute.
 - HTML display may load HTTPS remote images, which can disclose opens. The mailbox setting explains

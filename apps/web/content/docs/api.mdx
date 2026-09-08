@@ -193,7 +193,7 @@ successful download responses.
 
 ## HTML preferences and previews
 
-Mailbox settings include boolean `forwardHtml` and `renderHtml` flags, both false by default. Update
+Mailbox settings include boolean `forwardHtml` and `renderHtml` flags. `forwardHtml` defaults to true; `renderHtml` defaults to false. Update
 either with `PATCH /api/v1/mailboxes/{mailboxId}`; omitted preferences are preserved. Only the mailbox
 owner with settings permission can make changes. Forwarding changes apply to future deliveries.
 

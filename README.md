@@ -137,7 +137,7 @@ Cloudflare's deploy button requires a public GitHub or GitLab repository. See Cl
 ## HTML email preferences
 
 Each mailbox's **Settings** has independent **Forward full HTML** and **Display full HTML in inbox**
-switches. Both default off. Forwarding preserves original formatting and inline images for future
+switches. Full HTML forwarding defaults on; inbox HTML display defaults off. Forwarding preserves original formatting and inline images for future
 mail; inbox previews also work for older messages while their raw email is retained. Remote images
 may reveal opens. Email scripts and forms remain blocked in the inbox, and **Show plain text** is
 available on each preview.
