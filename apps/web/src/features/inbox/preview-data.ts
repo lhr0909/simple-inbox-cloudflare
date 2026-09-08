@@ -109,7 +109,7 @@ export function createPreviewInboxData(): InboxData {
         id: mailboxId,
         address: 'support@example.test',
         forwardTo: 'owner@example.test',
-        forwardHtml: false,
+        forwardHtml: true,
         renderHtml: false,
         senderAlias: 'Example Support',
         counts: { all: 18, unread: 3, needsReply: 4, sent: 9, archive: 7 },

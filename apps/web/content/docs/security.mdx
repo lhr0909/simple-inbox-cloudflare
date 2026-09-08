@@ -68,7 +68,7 @@ owner. Missing and unauthorized objects share not-found responses where appropri
 - Sanitize filenames/media types and serve downloads with `nosniff` and private no-store caching.
 - HTML display defaults off. Opted-in previews are sanitized and isolated from the app in a sandbox;
   email scripts, forms, and embedded frames remain blocked. Remote images can reveal opens.
-- HTML forwarding is a separate mailbox setting. It preserves original HTML for future forwarded
+- HTML forwarding defaults on and can be disabled separately for each mailbox. It preserves original HTML for future forwarded
   copies, whose display and remote-image behavior are controlled by the receiving email client.
 - Keep provider invocation logs and automatic traces disabled because their metadata can contain
   token-bearing URLs, searches, and Email recipients.

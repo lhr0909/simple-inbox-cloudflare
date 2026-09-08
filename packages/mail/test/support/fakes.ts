@@ -53,7 +53,7 @@ export class FakeMailStore implements MailStore {
   failProjection = false
   failReservation = false
   failWorkflow = false
-  forwardHtml = false
+  forwardHtml = true
   forwardTo: string | null = 'owner@example.test'
 
   constructor(events: string[] = []) {
@@ -444,7 +444,7 @@ export function createForwardableMessage(
 export function mailboxRecord(): MailboxRecord {
   return {
     address: 'support@example.test',
-    forwardHtml: false,
+    forwardHtml: true,
     forwardTo: 'owner@example.test',
     id: MAILBOX_ID,
     ownerUserId: OWNER_USER_ID,

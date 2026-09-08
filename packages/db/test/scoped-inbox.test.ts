@@ -22,18 +22,18 @@ afterEach(() => {
 })
 
 describe('MailboxScopedRepository', () => {
-  it('defaults HTML preferences off, updates them independently, and enforces mailbox ownership', async () => {
+  it('defaults HTML forwarding on, supports opting out independently, and enforces ownership', async () => {
     const database = setupTwoUsers()
     const owner = new MailboxScopedRepository(database.asD1(), { userId: 'user_owner' })
     expect(await owner.getMailboxSettings('mailbox_owner')).toMatchObject({
-      forwardHtml: false,
+      forwardHtml: true,
       renderHtml: false,
     })
-    expect(await owner.updateMailboxSettings('mailbox_owner', { forwardHtml: true }, NOW + 1)).toBe(
-      true,
-    )
+    expect(
+      await owner.updateMailboxSettings('mailbox_owner', { forwardHtml: false }, NOW + 1),
+    ).toBe(true)
     expect(await owner.getMailboxSettings('mailbox_owner')).toMatchObject({
-      forwardHtml: true,
+      forwardHtml: false,
       renderHtml: false,
     })
     expect(await owner.updateMailboxSettings('mailbox_owner', { renderHtml: true }, NOW + 2)).toBe(
@@ -48,7 +48,7 @@ describe('MailboxScopedRepository', () => {
     ).toBe(false)
     const other = new MailboxScopedRepository(database.asD1(), { userId: 'user_intruder' })
     expect(await other.getMailboxSettings('mailbox_intruder')).toMatchObject({
-      forwardHtml: false,
+      forwardHtml: true,
       renderHtml: false,
     })
   })

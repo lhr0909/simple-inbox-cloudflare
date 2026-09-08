@@ -62,7 +62,13 @@ describe('mail module D1 adapter', () => {
     expect(outcome.kind).toBe('captured')
     const db = createInboxDatabase(binding)
     const [mailbox] = await db
-      .select({ address: mailboxes.address, forwardTo: mailboxes.forwardTo, id: mailboxes.id })
+      .select({
+        address: mailboxes.address,
+        forwardTo: mailboxes.forwardTo,
+        id: mailboxes.id,
+        forwardHtml: mailboxes.forwardHtml,
+        renderHtml: mailboxes.renderHtml,
+      })
       .from(mailboxes)
     const [thread] = await db
       .select({
@@ -91,6 +97,8 @@ describe('mail module D1 adapter', () => {
     expect(mailbox).toMatchObject({
       address: 'support@example.test',
       forwardTo: 'owner@example.test',
+      forwardHtml: true,
+      renderHtml: false,
     })
     expect(thread).toEqual({
       lastDirection: 'inbound',
