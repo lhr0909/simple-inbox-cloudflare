@@ -35,6 +35,32 @@ describe('isolated HTML email documents', () => {
     expect(html).not.toContain('data:image/svg')
   })
 
+  it('preserves complete newsletter styles, body attributes and button presentation', () => {
+    const html = renderEmailDocument(
+      `<!doctype html><html lang="en" class="newsletter"><head>
+      <style>body.newsletter-body .cta{background:#ff9900}@media(max-width:480px){.cta{padding:10px!important}}</style>
+      </head><body class="newsletter-body" style="margin:0;padding:0;background:#eee" onload="evil()">
+      <table role="presentation"><tr><td><a class="cta" id="action" href="https://example.test/settings" target="_top" onclick="evil()" style="display:inline-block;font-weight:800;color:#151515;text-decoration:none;padding:15px 30px;border-radius:7px">Manage settings</a></td></tr></table>
+      <a href="javascript:evil()" class="disabled" style="color:red">Disabled</a></body></html>`,
+      [],
+    )
+    expect(html).toContain('<html lang="en" class="newsletter">')
+    expect(html).toContain(
+      '<body class="newsletter-body" style="margin:0;padding:0;background:#eee">',
+    )
+    expect(html).toContain('body.newsletter-body .cta{background:#ff9900}')
+    expect(html).toContain('@media(max-width:480px)')
+    expect(html).toContain('class="cta" id="action"')
+    expect(html).toContain(
+      'style="display:inline-block;font-weight:800;color:#151515;text-decoration:none;padding:15px 30px;border-radius:7px"',
+    )
+    expect(html).toContain('target="_blank" rel="noopener noreferrer"')
+    expect(html).toContain('<a class="disabled" style="color:red">Disabled</a>')
+    expect(html).not.toMatch(/onload|onclick|javascript:|_top/u)
+    expect(html.match(/<body\b/gu)).toHaveLength(1)
+    expect(html.indexOf(':where(body)')).toBeLessThan(html.indexOf('body.newsletter-body'))
+  })
+
   it('removes active elements, relative resources, event handlers and navigation overrides', () => {
     const html = renderEmailDocument(
       `

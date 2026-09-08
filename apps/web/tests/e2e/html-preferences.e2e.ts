@@ -42,13 +42,13 @@ test('persists independent HTML preferences and safely renders retained mail on 
       '--html-preview',
       'Content-Type: text/html; charset=utf-8',
       '',
-      '<style>.offer{color:rgb(180, 30, 50)}</style>',
+      '<html><head><style>.offer{color:rgb(180, 30, 50)}body.newsletter .cta{background-color:rgb(255, 153, 0)}@media(max-width:480px){.cta{padding:10px 20px!important}}</style></head><body class="newsletter" style="margin:0;padding:0;background-color:rgb(240, 240, 240)">',
       '<table><tr><td><h1 class="offer">Formatted greeting</h1><p><strong>Important update</strong></p>',
       '<img src="cid:logo" alt="Inline logo"><img src="https://images.example.test/pixel.png" alt="Remote logo">',
       '<script>parent.__emailCompromised=true</script><img src="invalid:" onerror="parent.__emailCompromised=true">',
       '<form action="https://blocked.example.test/form"><input autofocus onfocus="parent.__emailCompromised=true"></form>',
       '<iframe src="https://blocked.example.test/frame"></iframe><meta http-equiv="refresh" content="0;url=https://blocked.example.test/refresh">',
-      '<a href="https://example.test/details" target="_top">Read details</a></td></tr></table>',
+      '<a class="cta" href="https://example.test/details" target="_top" style="display:inline-block;font-size:16px;font-weight:800;color:#151515;text-decoration:none;padding:15px 30px;border-radius:7px">Read details</a></td></tr></table></body></html>',
       '--html-preview',
       'Content-Type: image/png',
       'Content-ID: <logo>',
@@ -115,6 +115,15 @@ test('persists independent HTML preferences and safely renders retained mail on 
     'color',
     'rgb(180, 30, 50)',
   )
+  const cta = frame.getByRole('link', { name: 'Read details' })
+  await expect(cta).toHaveCSS('color', 'rgb(21, 21, 21)')
+  await expect(cta).toHaveCSS('background-color', 'rgb(255, 153, 0)')
+  await expect(cta).toHaveCSS('font-weight', '800')
+  await expect(cta).toHaveCSS('text-decoration-line', 'none')
+  await expect(cta).toHaveCSS('padding-top', mobile ? '10px' : '15px')
+  await expect(cta).toHaveCSS('border-radius', '7px')
+  await expect(frame.locator('body')).toHaveCSS('margin-top', '0px')
+  await expect(frame.locator('body')).toHaveCSS('background-color', 'rgb(240, 240, 240)')
   await expect.poll(() => remoteImages).toBeGreaterThan(0)
   await expect(frame.getByAltText('Inline logo')).toHaveJSProperty('naturalWidth', 1)
   await expect(frame.getByAltText('Remote logo')).toHaveJSProperty('naturalWidth', 1)
