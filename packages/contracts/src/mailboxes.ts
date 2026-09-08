@@ -12,6 +12,8 @@ export const MailboxSummarySchema = z
     address: NormalizedEmailAddressSchema,
     senderAlias: SenderAliasSchema.nullable(),
     forwardTo: NormalizedEmailAddressSchema.nullable(),
+    forwardHtml: z.boolean(),
+    renderHtml: z.boolean(),
     counts: ThreadFolderCountsSchema,
     createdAt: IsoDateTimeSchema,
     updatedAt: IsoDateTimeSchema,
@@ -32,6 +34,8 @@ export const MailboxSettingsSchema = z
     address: NormalizedEmailAddressSchema,
     senderAlias: SenderAliasSchema.nullable(),
     forwardTo: NormalizedEmailAddressSchema.nullable(),
+    forwardHtml: z.boolean(),
+    renderHtml: z.boolean(),
     updatedAt: IsoDateTimeSchema,
   })
   .strict()
@@ -42,10 +46,12 @@ export const PatchMailboxRequestSchema = z
   .object({
     senderAlias: SenderAliasSchema.nullable().optional(),
     forwardTo: EmailAddressSchema.nullable().optional(),
+    forwardHtml: z.boolean().optional(),
+    renderHtml: z.boolean().optional(),
   })
   .strict()
   .refine(
-    (request) => request.senderAlias !== undefined || request.forwardTo !== undefined,
+    (request) => Object.values(request).some((value) => value !== undefined),
     'At least one mailbox setting must be provided',
   )
   .openapi('PatchMailboxRequest')

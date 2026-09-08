@@ -197,7 +197,7 @@ test('exercises the authenticated inbox parity flow responsively', async ({ page
   )
   await expect(settingsDialog.getByLabel('Color theme')).toHaveValue(/^(system|light|dark)$/u)
   await settingsDialog.getByRole('button', { name: 'Save settings' }).click()
-  await expect(settingsDialog).toContainText('Sender alias saved.')
+  await expect(settingsDialog).toContainText('Settings saved.')
   await page.keyboard.press('Escape')
   await expect(settingsDialog).toBeHidden()
 

@@ -190,3 +190,14 @@ limit, and `503` unavailable dependency.
 
 Raw-message responses use `message/rfc822`; attachment responses are binary. Do not call `.json()` on
 successful download responses.
+
+## HTML preferences and previews
+
+Mailbox settings include boolean `forwardHtml` and `renderHtml` flags, both false by default. Update
+either with `PATCH /api/v1/mailboxes/{mailboxId}`; omitted preferences are preserved. Only the mailbox
+owner with settings permission can make changes. Forwarding changes apply to future deliveries.
+
+`GET /api/v1/messages/{messageId}/html` returns an authenticated `text/html` preview when the mailbox
+allows HTML display and the original MIME is retained. The response is private and uncached and must
+be embedded in an opaque-origin sandbox. Missing, unauthorized, disabled, or expired resources do not
+expose raw mail. The inbox falls back to plain text if a preview is unavailable or exceeds 4 MB.

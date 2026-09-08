@@ -44,7 +44,10 @@ location, rotate it immediately. Removing a later line from Git does not revoke 
 
 Pull requests run secret scanning, dependency review, and a moderate-or-higher production dependency
 audit. Organization-owned repositories must configure the `GITLEAKS_LICENSE` Actions secret used by
-the pinned scanner; personal repositories do not require it.
+the pinned scanner; personal repositories do not require it. Reviewed historical test/documentation
+false positives are recorded in `.gitleaksignore` by exact commit, path, rule, and line; do not
+exclude whole files or rules to silence findings. GitHub secret scanning and push protection are
+also enabled for this public repository.
 
 ## Single-Worker trust boundaries
 
@@ -96,8 +99,11 @@ Treat all email content and metadata as hostile and sensitive:
   private no-store caching.
 - Keep structured application logs enabled but provider invocation logs and automatic traces
   disabled; provider metadata can include full token-bearing URLs, searches, and recipients.
-- Render only safe projections; never load active remote email HTML in the privileged application
-  origin.
+- Keep HTML previews isolated from the privileged app. Both HTML preferences default off. Opted-in
+  display uses sanitization, an opaque-origin iframe, and a response CSP that permits only a fixed,
+  nonced resize/status helper. Sender scripts, forms, and embedded frames cannot execute.
+- HTML display may load HTTPS remote images, which can disclose opens. The mailbox setting explains
+  this. Full-HTML forwarding is independent and delegates display protection to the recipient's client.
 - Use opaque reply aliases that reveal neither a destination address nor database identifier.
 
 The application performs no AI inference and sends no mailbox content, MIME, metadata, or

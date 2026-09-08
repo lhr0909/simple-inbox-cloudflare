@@ -33,6 +33,8 @@ export function projectMailboxSummary(mailbox: DatabaseMailboxSummary): MailboxS
     },
     createdAt: isoDate(mailbox.createdAt),
     forwardTo: mailbox.forwardTo,
+    forwardHtml: mailbox.forwardHtml,
+    renderHtml: mailbox.renderHtml,
     id: mailbox.id,
     senderAlias: mailbox.senderAlias,
     updatedAt: isoDate(mailbox.updatedAt),
@@ -43,6 +45,8 @@ export function projectMailboxSettings(mailbox: DatabaseMailboxSettings): Mailbo
   return MailboxSettingsSchema.parse({
     address: mailbox.address,
     forwardTo: mailbox.forwardTo,
+    forwardHtml: mailbox.forwardHtml,
+    renderHtml: mailbox.renderHtml,
     id: mailbox.id,
     senderAlias: mailbox.senderAlias,
     updatedAt: isoDate(mailbox.updatedAt),

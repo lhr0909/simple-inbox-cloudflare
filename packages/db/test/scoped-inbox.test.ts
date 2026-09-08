@@ -22,6 +22,37 @@ afterEach(() => {
 })
 
 describe('MailboxScopedRepository', () => {
+  it('defaults HTML preferences off, updates them independently, and enforces mailbox ownership', async () => {
+    const database = setupTwoUsers()
+    const owner = new MailboxScopedRepository(database.asD1(), { userId: 'user_owner' })
+    expect(await owner.getMailboxSettings('mailbox_owner')).toMatchObject({
+      forwardHtml: false,
+      renderHtml: false,
+    })
+    expect(await owner.updateMailboxSettings('mailbox_owner', { forwardHtml: true }, NOW + 1)).toBe(
+      true,
+    )
+    expect(await owner.getMailboxSettings('mailbox_owner')).toMatchObject({
+      forwardHtml: true,
+      renderHtml: false,
+    })
+    expect(await owner.updateMailboxSettings('mailbox_owner', { renderHtml: true }, NOW + 2)).toBe(
+      true,
+    )
+    expect(
+      await owner.updateMailboxSettings('mailbox_owner', { forwardHtml: false }, NOW + 3),
+    ).toBe(true)
+    expect((await owner.listMailboxes())[0]).toMatchObject({ forwardHtml: false, renderHtml: true })
+    expect(
+      await owner.updateMailboxSettings('mailbox_intruder', { renderHtml: true }, NOW + 4),
+    ).toBe(false)
+    const other = new MailboxScopedRepository(database.asD1(), { userId: 'user_intruder' })
+    expect(await other.getMailboxSettings('mailbox_intruder')).toMatchObject({
+      forwardHtml: false,
+      renderHtml: false,
+    })
+  })
+
   it('filters unauthorized mailboxes in the query and preserves stable cursor ordering', async () => {
     const testDb = setupTwoUsers()
     insertThread(testDb.sqlite, 'thread_older', 'mailbox_owner', NOW + 100)

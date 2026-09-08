@@ -502,7 +502,9 @@ async function forwardToOwner(input: {
 }): Promise<void> {
   const replyTo = `${input.alias.localPart}@${parseMailbox(input.mailbox.address).domain}`
   let text = input.parsed.text
-  let html = input.parsed.html
+  let html = input.mailbox.forwardHtml
+    ? input.parsed.originalHtml || input.parsed.html
+    : input.parsed.html
   let providerAttachments = input.attachments.map(({ attachment }) =>
     providerAttachment(attachment),
   )
@@ -981,7 +983,7 @@ function providerAttachment(attachment: NormalizedAttachment): EmailAttachment {
   return attachment.disposition === 'inline' && attachment.contentId !== null
     ? {
         content: attachment.bytes,
-        contentId: attachment.contentId,
+        contentId: attachment.contentId.replace(/^<|>$/gu, '').trim(),
         disposition: 'inline',
         filename: attachment.filename,
         type: attachment.mediaType,

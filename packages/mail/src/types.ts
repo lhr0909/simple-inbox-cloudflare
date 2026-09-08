@@ -56,6 +56,8 @@ export type NormalizedInboundMessage = {
   cc: NormalizedRecipient[]
   from: NormalizedRecipient
   html: string
+  /** Original MIME HTML, used only for opt-in forwarding; never stored as a safe projection. */
+  originalHtml?: string
   inReplyTo: string | null
   internetMessageId: string | null
   references: string[]
@@ -67,6 +69,7 @@ export type NormalizedInboundMessage = {
 }
 
 export type MailboxRecord = {
+  forwardHtml: boolean
   address: string
   forwardTo: string | null
   id: string

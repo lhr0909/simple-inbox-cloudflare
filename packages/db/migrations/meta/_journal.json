@@ -15,6 +15,13 @@
       "when": 1785594319152,
       "tag": "0001_quick_annihilus",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788838082389,
+      "tag": "0002_html_preferences",
+      "breakpoints": true
     }
   ]
 }

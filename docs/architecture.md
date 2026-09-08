@@ -46,6 +46,30 @@ list. Read-state updates remain optimistic and happen after the selected detail 
 The initial server render supplies the mailbox and conversation list. Deep-linked conversation
 content loads after hydration, using the same path as subsequent selection and browser history.
 
+## HTML preferences
+
+Each mailbox has independent `forwardHtml` and `renderHtml` preferences, both disabled by default.
+The additive migration preserves existing mailbox data and initializes both flags to false.
+Only a mailbox owner with settings permission can change them through the existing settings API.
+
+Inbound parsing keeps the original HTML transiently for opted-in forwarding. D1 continues to store
+bounded, inert text-based projections, and R2 retains the immutable original MIME. Forwarding uses
+original HTML only when `forwardHtml` is enabled; sender identity, reply aliases, attachment handling,
+and provider-size fallbacks continue to apply. Changes affect future forwarding, not copies already sent.
+
+When `renderHtml` is enabled, visible messages load `/api/v1/messages/{messageId}/html` in lazy iframes.
+The endpoint rechecks authentication, mailbox membership, the setting, and raw retention before
+reading R2. Existing retained messages work without backfilling D1. Previews are capped at 4 MB;
+missing, oversized, or unavailable HTML falls back to the existing plain-text projection.
+
+The API sanitizes active markup while preserving email tables, styles, HTTPS images, and raster CID
+images. A response CSP and an iframe sandbox both enforce an opaque origin. Only a fixed, nonced
+resize/status helper can run; email scripts, forms, embedded frames, external stylesheets, and fonts
+are blocked. Links open separately with no opener or referrer. The parent accepts sizing/status
+messages only from that exact iframe window and its opaque origin. The web bridge preserves this
+restricted policy for the HTML endpoint; the privileged app keeps its original CSP and frame denial.
+Remote images may disclose opens, and the setting explains this before opt-in.
+
 ## Test ownership
 
 `apps/web/tests/e2e` owns responsive Playwright flows; `apps/web/tests/integration` owns isolated

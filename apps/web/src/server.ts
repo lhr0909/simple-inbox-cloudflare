@@ -147,13 +147,17 @@ function forwardedApiHeaders(request: Request, incoming: URL): Headers {
 
 function secureResponse(request: Request, response: Response, fallbackRequestId: string): Response {
   const headers = new Headers(response.headers)
-  headers.set('content-security-policy', CONTENT_SECURITY_POLICY)
+  const isHtmlPreview =
+    /^\/api\/v1\/messages\/[0-9a-f-]+\/html$/u.test(new URL(request.url).pathname) &&
+    headers.get('content-type')?.startsWith('text/html') &&
+    headers.get('content-security-policy')?.startsWith('sandbox ')
+  if (!isHtmlPreview) headers.set('content-security-policy', CONTENT_SECURITY_POLICY)
   headers.set('cross-origin-opener-policy', 'same-origin')
   headers.set('cross-origin-resource-policy', 'same-origin')
   headers.set('permissions-policy', 'camera=(), geolocation=(), microphone=()')
   headers.set('referrer-policy', 'no-referrer')
   headers.set('x-content-type-options', 'nosniff')
-  headers.set('x-frame-options', 'DENY')
+  headers.set('x-frame-options', isHtmlPreview ? 'SAMEORIGIN' : 'DENY')
   headers.set('x-request-id', response.headers.get('x-request-id') ?? fallbackRequestId)
 
   const url = new URL(request.url)

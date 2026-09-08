@@ -368,6 +368,8 @@ function Inbox() {
                 ? {
                     ...mailbox,
                     forwardTo: result.forwardTo,
+                    forwardHtml: result.forwardHtml,
+                    renderHtml: result.renderHtml,
                     senderAlias: result.senderAlias,
                     updatedAt: result.updatedAt,
                   }

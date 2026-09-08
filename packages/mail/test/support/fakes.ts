@@ -53,6 +53,7 @@ export class FakeMailStore implements MailStore {
   failProjection = false
   failReservation = false
   failWorkflow = false
+  forwardHtml = false
   forwardTo: string | null = 'owner@example.test'
 
   constructor(events: string[] = []) {
@@ -144,6 +145,7 @@ export class FakeMailStore implements MailStore {
       ...mailboxRecord(),
       address: input.mailboxAddress,
       forwardTo: this.forwardTo,
+      forwardHtml: this.forwardHtml,
     }
   }
 
@@ -219,7 +221,7 @@ export class FakeMailStore implements MailStore {
     return {
       attachments: projection.attachments.map(({ id, mimeOrdinal }) => ({ id, mimeOrdinal })),
       forwardState: projection.message.forwardState,
-      mailbox: { ...mailboxRecord(), forwardTo: this.forwardTo },
+      mailbox: { ...mailboxRecord(), forwardTo: this.forwardTo, forwardHtml: this.forwardHtml },
       messageId,
       receivedAt: projection.message.receivedAt,
       threadId: projection.message.threadId,
@@ -442,6 +444,7 @@ export function createForwardableMessage(
 export function mailboxRecord(): MailboxRecord {
   return {
     address: 'support@example.test',
+    forwardHtml: false,
     forwardTo: 'owner@example.test',
     id: MAILBOX_ID,
     ownerUserId: OWNER_USER_ID,

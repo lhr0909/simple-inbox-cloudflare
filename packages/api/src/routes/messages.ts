@@ -6,6 +6,7 @@ import {
   SendResponseSchema,
   downloadAttachmentRoute,
   downloadRawMessageRoute,
+  getMessageHtmlRoute,
   replyToThreadRoute,
   sendNewMessageRoute,
   type RecipientInput,
@@ -24,7 +25,8 @@ import type { Context } from 'hono'
 
 import { requireActor, requireCookieMutationOrigin } from '../auth'
 import { ApiFault, logEvent } from '../http'
-import { attachmentResponse, rawMessageResponse } from '../services/raw-email'
+import { attachmentResponse, rawMessageResponse, messageHtmlPreview } from '../services/raw-email'
+import { htmlPreviewResponse } from '../services/html-email'
 import { submitSend } from '../services/mail-client'
 import type { ApiDependencies, ApiEnv, AuthenticatedActor } from '../types'
 
@@ -98,6 +100,22 @@ export function registerMessageRoutes(
       mailboxId: detail.thread.mailboxId,
     })
     return result.status === 201 ? context.json(result.body, 201) : context.json(result.body, 202)
+  })
+
+  app.openapi(getMessageHtmlRoute, async (context) => {
+    try {
+      const actor = await requireActor(context.req.raw, context.env, dependencies, 'read')
+      const { messageId } = context.req.valid('param')
+      const repository = dependencies.inboxRepository(context.env, actor.userId)
+      const metadata = await repository.getRawMessage(messageId)
+      if (metadata === undefined) throw new ApiFault('message_not_found')
+      const mailbox = await repository.getMailboxSettings(metadata.mailboxId)
+      if (!mailbox?.renderHtml) throw new ApiFault('message_not_found')
+      const preview = await messageHtmlPreview(context.env.RAW_EMAILS, metadata)
+      return htmlPreviewResponse(preview.html)
+    } catch (error) {
+      return htmlPreviewResponse(null, error instanceof ApiFault ? error.status : 500)
+    }
   })
 
   app.openapi(downloadRawMessageRoute, async (context) => {

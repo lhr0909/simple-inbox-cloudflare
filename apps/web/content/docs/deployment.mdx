@@ -144,15 +144,14 @@ synthetic content:
 There is no automated live-smoke command. Real mail and route changes require the owner's explicit
 approval.
 
-## Future Deploy to Cloudflare button
+## Deploy to Cloudflare button
 
-Once the source repository is public:
+Deploy the public source repository:
 
 [Deploy Simple Inbox to Cloudflare](https://deploy.workers.cloudflare.com/?url=https://github.com/lhr0909/simple-inbox-cloudflare)
 
 Cloudflare can clone the repository, prompt for described secrets, run the custom deploy command,
-and provision supported resources. Private repositories do not work for other deploy-button users,
-so this link is future guidance until the repository is public. See Cloudflare's
+and provision supported resources. The source repository must remain public for this flow. See Cloudflare's
 [deploy-button documentation](https://developers.cloudflare.com/workers/platform/deploy-buttons/).
 
 ## Upgrades and rollback

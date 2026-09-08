@@ -125,16 +125,22 @@ Email Sending domain verification, the private R2 lifecycle backstop, and activa
 Routing rule remain explicit Cloudflare Dashboard owner actions. Deploying code never switches an
 existing route or touches a legacy Worker or data store.
 
-### Future Deploy to Cloudflare button
+### Deploy to Cloudflare
 
-Once this repository is public, it can use Cloudflare's one-click flow:
+Deploy this public repository using Cloudflare's one-click flow:
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/lhr0909/simple-inbox-cloudflare)
 
-Cloudflare's deploy button only works for public GitHub or GitLab repositories. This repository is
-currently private, so the link is guidance for the future public release and will not work for other
-users until then. See Cloudflare's
+Cloudflare's deploy button requires a public GitHub or GitLab repository. See Cloudflare's
 [Deploy to Cloudflare button documentation](https://developers.cloudflare.com/workers/platform/deploy-buttons/).
+
+## HTML email preferences
+
+Each mailbox's **Settings** has independent **Forward full HTML** and **Display full HTML in inbox**
+switches. Both default off. Forwarding preserves original formatting and inline images for future
+mail; inbox previews also work for older messages while their raw email is retained. Remote images
+may reveal opens. Email scripts and forms remain blocked in the inbox, and **Show plain text** is
+available on each preview.
 
 ## Security and retention
 

@@ -1,0 +1,26 @@
+# Reviewed false positives from the public-repository history audit.
+# Exact commit/path/rule/line fingerprints only: future occurrences remain scanned.
+# Do not add real credentials here; revoke them and remove the exposure instead.
+
+# Documentation placeholders: example UUIDs and YOUR_OPAQUE_API_TOKEN.
+97380ca005b2ed9c2b73f5e57c5922ade2fa0613:apps/web/content/docs/api.mdx:generic-api-key:116
+97380ca005b2ed9c2b73f5e57c5922ade2fa0613:apps/web/content/docs/api.mdx:generic-api-key:137
+97380ca005b2ed9c2b73f5e57c5922ade2fa0613:apps/web/content/docs/api.mdx:curl-auth-header:75
+97380ca005b2ed9c2b73f5e57c5922ade2fa0613:apps/web/content/docs/api.mdx:curl-auth-header:98
+97380ca005b2ed9c2b73f5e57c5922ade2fa0613:apps/web/content/docs/api.mdx:curl-auth-header:114
+
+# Synthetic sign-in token used only by a unit test.
+97380ca005b2ed9c2b73f5e57c5922ade2fa0613:apps/web/src/routes/-auth.verify.test.ts:generic-api-key:5
+
+# Synthetic UUIDs used to validate contract schemas.
+f8746f2459837b7b2248f16db5bcbaa6f6f17362:packages/contracts/test/schemas.test.ts:generic-api-key:216
+f8746f2459837b7b2248f16db5bcbaa6f6f17362:packages/contracts/test/schemas.test.ts:generic-api-key:286
+
+# Synthetic raw-object key used by the historical retention test.
+f8746f2459837b7b2248f16db5bcbaa6f6f17362:workers/mail/test/retention.test.ts:generic-api-key:13
+
+# Historical setup-secret placeholder; never an operational credential.
+e828fd7fe0666a9ebefed9bfa4643009b9da5c08:.dev.vars.example:generic-api-key:9
+
+# Synthetic API token identifier used by the historical API test.
+f8746f2459837b7b2248f16db5bcbaa6f6f17362:workers/api/test/api.test.ts:generic-api-key:703

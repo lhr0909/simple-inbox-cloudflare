@@ -352,6 +352,12 @@
             "format": "email",
             "example": "owner@example.test"
           },
+          "forwardHtml": {
+            "type": "boolean"
+          },
+          "renderHtml": {
+            "type": "boolean"
+          },
           "counts": {
             "$ref": "#/components/schemas/ThreadFolderCounts"
           },
@@ -371,6 +377,8 @@
           "address",
           "senderAlias",
           "forwardTo",
+          "forwardHtml",
+          "renderHtml",
           "counts",
           "createdAt",
           "updatedAt"
@@ -431,13 +439,27 @@
             "format": "email",
             "example": "owner@example.test"
           },
+          "forwardHtml": {
+            "type": "boolean"
+          },
+          "renderHtml": {
+            "type": "boolean"
+          },
           "updatedAt": {
             "type": "string",
             "format": "date-time",
             "example": "2026-08-01T05:00:00.000Z"
           }
         },
-        "required": ["id", "address", "senderAlias", "forwardTo", "updatedAt"],
+        "required": [
+          "id",
+          "address",
+          "senderAlias",
+          "forwardTo",
+          "forwardHtml",
+          "renderHtml",
+          "updatedAt"
+        ],
         "additionalProperties": false
       },
       "PatchMailboxRequest": {
@@ -454,6 +476,12 @@
             "maxLength": 320,
             "format": "email",
             "example": "owner@example.test"
+          },
+          "forwardHtml": {
+            "type": "boolean"
+          },
+          "renderHtml": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -2370,6 +2398,146 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The upstream mail provider failed or returned an unknown result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required service is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/messages/{messageId}/html": {
+      "get": {
+        "operationId": "getMessageHtml",
+        "tags": ["Messages"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "example": "01996f7a-7bcd-7abc-8def-3123456789ab"
+            },
+            "required": true,
+            "name": "messageId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "An isolated HTML preview. Requires the mailbox HTML display setting; never embed without a sandbox.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request was not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required; preview unavailable.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Read access required; preview unavailable.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Preview absent, disabled, expired, or unauthorized.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with existing state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Preview exceeds the bounded size limit.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request content type is not supported.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The request was rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Preview unavailable.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }

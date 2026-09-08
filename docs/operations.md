@@ -101,16 +101,15 @@ real R2 lifecycle policy.
 
 ## Deployment options
 
-### Future Deploy to Cloudflare button
+### Deploy to Cloudflare button
 
-When the repository is public, operators can use:
+Operators can deploy this public repository with:
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/lhr0909/simple-inbox-cloudflare)
 
 Cloudflare reads the root Wrangler configuration, provisions supported resources, reads the custom
 root deploy task, and prompts for the secrets described by `package.json`. Deploy buttons require a
-public GitHub or GitLab repository. The source repository is currently private, so other users
-cannot use this flow until it is made public. Review Cloudflare's current
+public GitHub or GitLab repository. Review Cloudflare's current
 [Deploy to Cloudflare button documentation](https://developers.cloudflare.com/workers/platform/deploy-buttons/)
 before publishing the button.
 
@@ -240,6 +239,24 @@ D1 from a known-good backup rather than manually adding records.
 
 After success, `/setup` redirects an unauthenticated visitor to `/sign-in`; normal UI and API flows
 become available. Ordinary application operation no longer reads the plaintext setup token.
+
+## Mailbox HTML settings
+
+Open **Settings** for the selected mailbox:
+
+- **Forward full HTML** preserves original formatting and inline images in future forwarded mail.
+  Existing forwarded copies are unaffected. The receiving email client controls remote-image loading.
+- **Display full HTML in inbox** shows formatted previews for retained messages, including older mail.
+  Remote images may reveal opens. Email scripts and forms remain blocked; **Show plain text** is
+  available on each message. If original mail has expired or HTML exceeds the preview limit, text
+  remains available while its application record is retained.
+
+Both settings default off and are independent of the forwarding destination. The mailbox PATCH API
+accepts boolean `forwardHtml` and `renderHtml` values. Mailbox owner authorization is required.
+
+The `0002_html_preferences.sql` migration only adds the two default-false columns. Apply it before
+uploading the new Worker using the normal upgrade command. Older Worker code can ignore the columns
+on rollback; neither the migration nor toggling a preference rewrites stored messages or sends mail.
 
 ## Cloudflare Dashboard owner steps
 
