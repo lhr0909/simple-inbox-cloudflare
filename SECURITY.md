@@ -44,7 +44,10 @@ location, rotate it immediately. Removing a later line from Git does not revoke 
 
 Pull requests run secret scanning, dependency review, and a moderate-or-higher production dependency
 audit. Organization-owned repositories must configure the `GITLEAKS_LICENSE` Actions secret used by
-the pinned scanner; personal repositories do not require it.
+the pinned scanner; personal repositories do not require it. Reviewed historical test/documentation
+false positives are recorded in `.gitleaksignore` by exact commit, path, rule, and line; do not
+exclude whole files or rules to silence findings. GitHub secret scanning and push protection are
+also enabled for this public repository.
 
 ## Single-Worker trust boundaries
 
