@@ -1,5 +1,5 @@
 import { HtmlMessageBody } from './html-message-body'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import ArchiveIcon from 'lucide-react/dist/esm/icons/archive.mjs'
 import ArrowLeftIcon from 'lucide-react/dist/esm/icons/arrow-left.mjs'
 import FileTextIcon from 'lucide-react/dist/esm/icons/file-text.mjs'
@@ -236,35 +236,52 @@ function MessageCard({ message, renderHtml }: Readonly<{ message: Message; rende
         </p>
       ) : null}
       {renderHtml && message.rawAvailable ? (
-        <HtmlMessageBody messageId={message.id} text={message.textBody || message.preview} />
+        <HtmlMessageBody
+          messageId={message.id}
+          renderFooter={(toggle) => <MessageFooter message={message} displayToggle={toggle} />}
+          text={message.textBody || message.preview}
+        />
       ) : (
-        <div className="whitespace-pre-wrap p-4 text-sm leading-6">
-          {message.textBody || message.preview}
-        </div>
+        <>
+          <div className="whitespace-pre-wrap p-4 text-sm leading-6">
+            {message.textBody || message.preview}
+          </div>
+          <MessageFooter message={message} />
+        </>
       )}
-      {message.attachments.length > 0 || message.rawAvailable ? (
-        <footer className="flex flex-wrap items-center gap-2 border-t px-4 py-3">
-          {message.attachments.map((attachment) => (
-            <a
-              className={buttonVariants({ size: 'sm', variant: 'outline' })}
-              href={`/api/v1/messages/${encodeURIComponent(message.id)}/attachments/${encodeURIComponent(attachment.id)}`}
-              key={attachment.id}
-            >
-              <PaperclipIcon aria-hidden="true" className="size-4" />
-              {attachment.filename ?? 'Attachment'}
-            </a>
-          ))}
-          {message.rawAvailable ? (
-            <a
-              className={cn(buttonVariants({ size: 'sm', variant: 'ghost' }), 'ml-auto')}
-              href={`/api/v1/messages/${encodeURIComponent(message.id)}/raw`}
-            >
-              <FileTextIcon aria-hidden="true" className="size-4" />
-              Raw email
-            </a>
-          ) : null}
-        </footer>
-      ) : null}
     </article>
+  )
+}
+
+function MessageFooter({
+  message,
+  displayToggle,
+}: Readonly<{ message: Message; displayToggle?: ReactNode }>) {
+  if (message.attachments.length === 0 && !message.rawAvailable) return null
+  return (
+    <footer className="flex flex-wrap items-center gap-2 border-t px-4 py-3">
+      {message.attachments.map((attachment) => (
+        <a
+          className={buttonVariants({ size: 'sm', variant: 'outline' })}
+          href={`/api/v1/messages/${encodeURIComponent(message.id)}/attachments/${encodeURIComponent(attachment.id)}`}
+          key={attachment.id}
+        >
+          <PaperclipIcon aria-hidden="true" className="size-4" />
+          {attachment.filename ?? 'Attachment'}
+        </a>
+      ))}
+      {message.rawAvailable ? (
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          {displayToggle}
+          <a
+            className={buttonVariants({ size: 'sm', variant: 'ghost' })}
+            href={`/api/v1/messages/${encodeURIComponent(message.id)}/raw`}
+          >
+            <FileTextIcon aria-hidden="true" className="size-4" />
+            Raw email
+          </a>
+        </div>
+      ) : null}
+    </footer>
   )
 }
