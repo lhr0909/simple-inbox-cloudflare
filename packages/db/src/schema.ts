@@ -42,6 +42,7 @@ export const mailboxes = sqliteTable(
     id: text('id').primaryKey().notNull(),
     address: text('address').notNull(),
     senderAlias: text('sender_alias'),
+    whitelisted: integer('whitelisted', { mode: 'boolean' }).notNull().default(false),
     forwardTo: text('forward_to'),
     forwardHtml: integer('forward_html', { mode: 'boolean' }).notNull().default(true),
     renderHtml: integer('render_html', { mode: 'boolean' }).notNull().default(false),
@@ -351,6 +352,11 @@ export const messages = sqliteTable(
     rawSize: integer('raw_size', { mode: 'number' }).notNull(),
     rawSha256: text('raw_sha256').notNull(),
     rawDeletedAt: integer('raw_deleted_at', { mode: 'number' }),
+    inbox: integer('inbox', { mode: 'boolean' }).notNull().default(true),
+    starredAt: integer('starred_at', { mode: 'number' }),
+    trashedAt: integer('trashed_at', { mode: 'number' }),
+    spamAt: integer('spam_at', { mode: 'number' }),
+    spamReason: text('spam_reason'),
     readAt: integer('read_at', { mode: 'number' }),
     sendState: text('send_state').notNull(),
     forwardState: text('forward_state').notNull(),
@@ -803,3 +809,28 @@ export type SessionRow = typeof sessions.$inferSelect
 export type TagRow = typeof tags.$inferSelect
 export type ThreadRow = typeof threads.$inferSelect
 export type UserRow = typeof users.$inferSelect
+
+export const spamRules = sqliteTable(
+  'spam_rules',
+  {
+    id: text('id').primaryKey().notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: text('kind', { enum: ['recipient', 'sender', 'domain'] }).notNull(),
+    value: text('value').notNull(),
+    createdAt: integer('created_at', { mode: 'number' }).notNull(),
+  },
+  (table) => ({
+    uniqueRule: uniqueIndex('spam_rules_owner_kind_value_idx').on(
+      table.userId,
+      table.kind,
+      table.value,
+    ),
+    kind: check('spam_rules_kind_check', sql`${table.kind} IN ('recipient', 'sender', 'domain')`),
+    normalized: check(
+      'spam_rules_normalized_check',
+      sql`${table.value} = lower(trim(${table.value})) AND length(${table.value}) BETWEEN 1 AND 320`,
+    ),
+  }),
+)

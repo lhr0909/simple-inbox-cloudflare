@@ -14,8 +14,13 @@ type DetailState = Readonly<{
 }>
 
 /** The list stays interactive while only the selected conversation loads. */
-export function useThreadDetail(mailboxId: string, threadId: string | null) {
-  const key = `${mailboxId}\u0000${threadId ?? ''}`
+export function useThreadDetail(
+  mailboxId: string,
+  threadId: string | null,
+  version = '',
+  scope = '',
+) {
+  const key = `${mailboxId}\u0000${threadId ?? ''}\u0000${scope}`
   const activeKey = useRef(key)
   activeKey.current = key
   const requests = useRef(new LatestRequestCoordinator())
@@ -35,7 +40,8 @@ export function useThreadDetail(mailboxId: string, threadId: string | null) {
       void getThreadDetail(threadId, request.signal)
         .then((detail) => {
           if (!request.isLatest() || activeKey.current !== key) return
-          if (detail.thread.mailboxId !== mailboxId) throw new ApiRequestError(404, 'Not found')
+          if (mailboxId !== 'other' && detail.thread.mailboxId !== mailboxId)
+            throw new ApiRequestError(404, 'Not found')
           setState({ key, detail, error: null })
         })
         .catch((cause: unknown) => {
@@ -55,7 +61,7 @@ export function useThreadDetail(mailboxId: string, threadId: string | null) {
         })
     }
     return () => coordinator.invalidate()
-  }, [key, mailboxId, revision, threadId])
+  }, [key, mailboxId, revision, threadId, version])
 
   const commit = useCallback((id: string, patch: OptimisticThreadState) => {
     setState((current) => {
@@ -80,5 +86,13 @@ export function useThreadDetail(mailboxId: string, threadId: string | null) {
     loading: threadId !== null && Boolean(mailboxId) && current === null,
     reload,
     commit,
+    replace: (detail: ThreadDetailResponse) =>
+      setState((current) =>
+        current?.key === activeKey.current &&
+        current.detail?.thread.id === detail.thread.id &&
+        detail.thread.messageCount >= current.detail.thread.messageCount
+          ? { ...current, detail }
+          : current,
+      ),
   }
 }

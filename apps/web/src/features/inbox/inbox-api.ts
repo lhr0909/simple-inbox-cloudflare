@@ -159,3 +159,22 @@ export function getThreadDetail(threadId: string, signal: AbortSignal) {
     { signal },
   )
 }
+
+export function createMailbox(address: string, forward = true) {
+  return requestJson('/api/v1/mailboxes', MailboxSettingsSchema, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ address, forward }),
+  })
+}
+
+export function patchThreadState(
+  threadId: string,
+  patch: import('@cloudflare-inbox/contracts/threads').PatchMessageState,
+) {
+  return requestEmpty(`/api/v1/threads/${encodeURIComponent(threadId)}/state`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(patch),
+  })
+}

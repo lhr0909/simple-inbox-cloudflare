@@ -1,7 +1,6 @@
 import { z } from '@hono/zod-openapi'
 
-import { WorkflowStateSchema } from './folders'
-import { CursorSchema, MailboxIdSchema, ThreadIdSchema } from './ids'
+import { CursorSchema, MailboxIdSchema, MessageIdSchema, ThreadIdSchema } from './ids'
 import { MessageSchema } from './messages'
 import {
   IsoDateTimeSchema,
@@ -33,7 +32,12 @@ export const ThreadSummarySchema = z
     subject: SubjectSchema,
     preview: PreviewSchema,
     participants: z.array(ThreadParticipantSchema).max(100),
-    workflowState: WorkflowStateSchema,
+    hasInbox: z.boolean(),
+    hasSent: z.boolean(),
+    hasStarred: z.boolean(),
+    hasSpam: z.boolean(),
+    hasTrash: z.boolean(),
+    hasNormal: z.boolean(),
     archivedAt: IsoDateTimeSchema.nullable(),
     lastMessageAt: IsoDateTimeSchema,
     lastMessageDirection: z.enum(['inbound', 'outbound']),
@@ -129,3 +133,18 @@ export const ThreadMutationResponseSchema = z
   .object({ thread: ThreadSummarySchema })
   .strict()
   .openapi('ThreadMutationResponse')
+
+export const PatchMessageStateSchema = z
+  .object({
+    read: z.boolean().optional(),
+    starred: z.boolean().optional(),
+    location: z.enum(['inbox', 'archive', 'spam', 'trash', 'restore', 'not_spam']).optional(),
+    messageIds: z.array(MessageIdSchema).min(1).max(80).optional(),
+  })
+  .strict()
+  .refine(
+    (p) => p.read !== undefined || p.starred !== undefined || p.location !== undefined,
+    'Supply a state change',
+  )
+  .openapi('PatchMessageState')
+export type PatchMessageState = z.infer<typeof PatchMessageStateSchema>

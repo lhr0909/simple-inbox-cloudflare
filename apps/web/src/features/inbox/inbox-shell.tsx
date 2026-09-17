@@ -8,6 +8,8 @@ import { MailboxSidebar, CompactHeader, MobileFolders } from './mailbox-navigati
 import { ThreadListPane } from './thread-list-pane'
 import { ConversationPane } from './conversation-pane'
 import { NewMessageDialog } from './new-message-dialog'
+import { AliasDialog } from './alias-dialog'
+import { Button } from '#/components/ui/button'
 import { MailboxSettingsDialog } from './mailbox-settings-dialog'
 import type { InboxShellProps } from './inbox-shell-types'
 
@@ -27,10 +29,12 @@ export function InboxShell({
   onRefresh,
   onLoadMore,
   onArchiveThread,
+  onMessageState,
   onReply,
   onCompose,
   onSignOut,
   onUpdateMailbox,
+  onCreateMailbox,
 }: InboxShellProps) {
   const [localTimesReady, setLocalTimesReady] = useState(false)
   const [navigationCollapsed, setNavigationCollapsed] = useState(false)
@@ -38,8 +42,36 @@ export function InboxShell({
   const [threadListWidth, setThreadListWidth] = useState(390)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [composeOpen, setComposeOpen] = useState(false)
-  const mailbox =
-    data.mailboxes.find((item) => item.id === query.mailboxId) ?? data.mailboxes[0] ?? null
+  const [aliasOpen, setAliasOpen] = useState(false)
+  const mailbox = data.mailboxes.find((item) => item.id === query.mailboxId) ?? null
+  const [aliasError, setAliasError] = useState<string | null>(null)
+  const baseMailbox = data.mailboxes[0]
+  const navigationMailbox =
+    mailbox ??
+    (baseMailbox
+      ? {
+          ...baseMailbox,
+          counts: data.mailboxes
+            .filter((item) => !item.whitelisted)
+            .reduce(
+              (counts, item) => {
+                for (const key of Object.keys(counts) as (keyof typeof counts)[])
+                  counts[key] += item.counts[key]
+                return counts
+              },
+              { all: 0, inbox: 0, archive: 0, starred: 0, sent: 0, spam: 0, trash: 0, unread: 0 },
+            ),
+        }
+      : null)
+  const detailMailbox =
+    data.mailboxes.find((item) => item.id === data.selectedThread?.thread.mailboxId) ?? mailbox
+  const navigateMailbox: InboxShellProps['onQueryChange'] = (update, options) => {
+    if (update.mailboxId === 'create') {
+      setAliasOpen(true)
+      return
+    }
+    return onQueryChange?.(update, options)
+  }
   const mobileDetailVisible = query.threadId !== null
   const paneStyle = {
     '--navigation-width': `${navigationCollapsed ? 68 : navigationWidth}px`,
@@ -57,12 +89,12 @@ export function InboxShell({
         >
           <MailboxSidebar
             collapsed={navigationCollapsed}
-            mailbox={mailbox}
+            mailbox={navigationMailbox}
             mailboxes={data.mailboxes}
             query={query}
             onCollapse={() => setNavigationCollapsed((current) => !current)}
             onOpenSettings={() => setSettingsOpen(true)}
-            onQueryChange={onQueryChange}
+            onQueryChange={navigateMailbox}
             onSignOut={onSignOut}
           />
           <PaneResizeHandle
@@ -80,20 +112,20 @@ export function InboxShell({
               'col-start-1 row-start-1 md:col-span-2 xl:hidden',
               mobileDetailVisible && 'hidden md:flex',
             )}
-            mailbox={mailbox}
+            mailbox={navigationMailbox}
             mailboxes={data.mailboxes}
             query={query}
             onOpenSettings={() => setSettingsOpen(true)}
-            onQueryChange={onQueryChange}
+            onQueryChange={navigateMailbox}
           />
           <MobileFolders
             className={cn(
               'col-start-1 row-start-2 md:col-span-2 xl:hidden',
               mobileDetailVisible && 'hidden md:flex',
             )}
-            mailbox={mailbox}
+            mailbox={navigationMailbox}
             query={query}
-            onQueryChange={onQueryChange}
+            onQueryChange={navigateMailbox}
           />
 
           <ThreadListPane
@@ -102,14 +134,17 @@ export function InboxShell({
               mobileDetailVisible ? 'hidden md:flex' : 'flex',
             )}
             busy={busy}
-            mailboxAddress={mailbox?.address ?? 'Inbox'}
+            aliasAddresses={Object.fromEntries(
+              data.mailboxes.map((item) => [item.id, item.address]),
+            )}
+            mailboxAddress={mailbox?.address ?? 'Other inbound'}
             nextCursor={data.nextCursor}
             query={query}
             refreshing={refreshing}
             loadingMore={loadingMore}
             selectedThreadId={query.threadId}
             threads={data.threads}
-            onQueryChange={onQueryChange}
+            onQueryChange={navigateMailbox}
             onCompose={() => setComposeOpen(true)}
             onLoadMore={onLoadMore}
             onRefresh={onRefresh}
@@ -125,31 +160,61 @@ export function InboxShell({
           />
 
           <ConversationPane
+            key={`${query.mailboxId}:${query.folder}:${query.threadId ?? ''}`}
             className={cn(
               'col-start-1 row-start-3 md:col-start-2 md:row-start-3 xl:col-start-5 xl:row-start-1',
               mobileDetailVisible ? 'flex' : 'hidden md:flex',
             )}
             busy={busy}
             detail={data.selectedThread}
-            renderHtml={mailbox?.renderHtml ?? false}
+            renderHtml={detailMailbox?.renderHtml ?? false}
             loading={detailLoading}
             error={detailError}
             onRetry={onRetryThread}
             onArchiveThread={onArchiveThread}
+            onMessageState={onMessageState}
             onBack={onBack}
             onReply={onReply}
+            aliasNotice={
+              detailMailbox && !detailMailbox.whitelisted ? (
+                <div className="flex flex-wrap items-center gap-2 border-b bg-background px-4 py-2 text-xs">
+                  <span className="min-w-0 flex-1 break-all">
+                    Received at {detailMailbox.address} · forwarding off
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        setAliasError(null)
+                        await onCreateMailbox?.(detailMailbox.address, true)
+                      } catch {
+                        setAliasError('Could not create inbox. Try again.')
+                      }
+                    }}
+                  >
+                    Create inbox for this alias
+                  </Button>
+                </div>
+              ) : null
+            }
           />
         </div>
 
-        {error ? (
+        {error || aliasError ? (
           <div
             className="absolute right-4 bottom-4 z-30 max-w-sm rounded-xl border border-destructive/30 bg-background px-4 py-3 text-sm text-foreground shadow-lg"
             role="alert"
           >
-            {error}
+            {error ?? aliasError}
           </div>
         ) : null}
 
+        <AliasDialog
+          open={aliasOpen}
+          onOpenChange={setAliasOpen}
+          onCreateMailbox={onCreateMailbox}
+        />
         <MailboxSettingsDialog
           busy={busy}
           mailbox={mailbox}
@@ -168,5 +233,3 @@ export function InboxShell({
     </HydratedTimeContext.Provider>
   )
 }
-
-export { InboxStatusLegend } from './inbox-primitives'

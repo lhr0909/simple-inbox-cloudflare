@@ -23,6 +23,7 @@ import {
   InternalSendStatusResponseSchema,
 } from './internal'
 import {
+  CreateMailboxRequestSchema,
   MailboxListResponseSchema,
   MailboxSettingsSchema,
   PatchMailboxRequestSchema,
@@ -34,7 +35,12 @@ import {
   SendResponseSchema,
 } from './send'
 import { CompleteSetupRequestSchema, SetupStatusResponseSchema } from './setup'
-import { ThreadDetailResponseSchema, ThreadListResponseSchema } from './threads'
+import {
+  PatchMessageStateSchema,
+  ThreadDetailResponseSchema,
+  ThreadListResponseSchema,
+} from './threads'
+import { CreateSpamRuleSchema, SpamRulesResponseSchema } from './spam'
 import { ThreadListQuerySchema } from './queries'
 
 const json = (schema: z.ZodType) => ({
@@ -211,6 +217,20 @@ export const listMailboxesRoute = createRoute({
   },
 })
 
+export const createMailboxRoute = createRoute({
+  method: 'post',
+  path: '/v1/mailboxes',
+  operationId: 'createMailbox',
+  tags: ['Mailboxes'],
+  request: {
+    body: {
+      required: true,
+      content: { 'application/json': { schema: CreateMailboxRequestSchema } },
+    },
+  },
+  responses: { 200: json(MailboxSettingsSchema), ...standardErrors },
+})
+
 export const patchMailboxRoute = createRoute({
   method: 'patch',
   path: '/v1/mailboxes/{mailboxId}',
@@ -258,6 +278,23 @@ export const getThreadRoute = createRoute({
   },
 })
 
+export const patchThreadStateRoute = createRoute({
+  method: 'patch',
+  path: '/v1/threads/{threadId}/state',
+  operationId: 'patchThreadState',
+  tags: ['Threads'],
+  request: {
+    params: ThreadPathSchema,
+    body: { required: true, content: { 'application/json': { schema: PatchMessageStateSchema } } },
+  },
+  responses: {
+    204: {
+      description: 'Message state updated; messageIds restricts changes to the selected messages.',
+    },
+    ...standardErrors,
+  },
+})
+
 export const markThreadReadRoute = createRoute({
   method: 'post',
   path: '/v1/threads/{threadId}/read',
@@ -280,7 +317,7 @@ export const archiveThreadRoute = createRoute({
   request: { params: ThreadPathSchema },
   responses: {
     204: {
-      description: 'The thread is archived without changing workflow state.',
+      description: 'The conversation is removed from Inbox without changing read or starred state.',
     },
     401: standardErrors[401],
     403: standardErrors[403],
@@ -296,7 +333,7 @@ export const unarchiveThreadRoute = createRoute({
   request: { params: ThreadPathSchema },
   responses: {
     204: {
-      description: 'The thread is unarchived with its workflow state retained.',
+      description: 'The conversation is moved to Inbox.',
     },
     401: standardErrors[401],
     403: standardErrors[403],
@@ -510,7 +547,42 @@ export const internalHealthRoute = createRoute({
   responses: { 200: json(InternalHealthResponseSchema) },
 })
 
+export const listSpamRulesRoute = createRoute({
+  method: 'get',
+  path: '/v1/spam-rules',
+  operationId: 'listSpamRules',
+  tags: ['Spam'],
+  responses: { 200: json(SpamRulesResponseSchema), ...standardErrors },
+})
+export const createSpamRuleRoute = createRoute({
+  method: 'post',
+  path: '/v1/spam-rules',
+  operationId: 'createSpamRule',
+  tags: ['Spam'],
+  request: {
+    body: { required: true, content: { 'application/json': { schema: CreateSpamRuleSchema } } },
+  },
+  responses: {
+    204: { description: 'Blacklist rule saved. Applies to future inbound mail.' },
+    ...standardErrors,
+  },
+})
+export const deleteSpamRuleRoute = createRoute({
+  method: 'delete',
+  path: '/v1/spam-rules/{ruleId}',
+  operationId: 'deleteSpamRule',
+  tags: ['Spam'],
+  request: { params: z.object({ ruleId: z.string().uuid() }) },
+  responses: {
+    204: { description: 'Blacklist rule removed. Existing spam is unchanged.' },
+    ...standardErrors,
+  },
+})
+
 export const PUBLIC_API_ROUTES = [
+  listSpamRulesRoute,
+  createSpamRuleRoute,
+  deleteSpamRuleRoute,
   getSetupStatusRoute,
   completeSetupRoute,
   requestMagicLinkRoute,
@@ -518,10 +590,12 @@ export const PUBLIC_API_ROUTES = [
   getSessionRoute,
   logoutRoute,
   listMailboxesRoute,
+  createMailboxRoute,
   patchMailboxRoute,
   listThreadsRoute,
   getThreadRoute,
   markThreadReadRoute,
+  patchThreadStateRoute,
   archiveThreadRoute,
   unarchiveThreadRoute,
   sendNewMessageRoute,

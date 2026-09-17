@@ -231,7 +231,8 @@ One atomic D1 batch creates:
 
 The setup mail domain anchors the primary mailbox and malformed-message fallback identity. It is
 not an application-level allowlist. After setup, any valid envelope recipient that Cloudflare Email
-Routing delivers to the Worker is auto-provisioned as another owner mailbox in D1.
+Routing delivers to the Worker is captured as a quiet owner mailbox in D1, with forwarding disabled
+and mail accessible through **Other inbound** until the owner promotes it.
 
 An exact replay is idempotent. Different values, an existing different owner, or partial pre-existing
 user/mailbox state fails closed. If installation state is reported as inconsistent, stop and restore
@@ -303,8 +304,9 @@ objects.
 2. Add an owner-approved catch-all whose destination is the `simple-inbox-cf` Worker's `email()`
    handler. The catch-all is also the route for opaque `<token>@domain` reply aliases; Cloudflare
    subaddressing is not required.
-3. Treat Email Routing as the mailbox allowlist: every valid recipient delivered to the Worker is
-   recorded as a D1 mailbox and forwarded according to that mailbox's settings.
+3. Select the daily-use aliases inside the app. Newly discovered catch-all recipients appear under
+   **Other inbound** without forwarding; only whitelisted inboxes with a destination can forward
+   messages that do not match a spam blacklist.
 4. Do not leave legacy and replacement catch-alls active for the same domain. Record the prior
    target so the owner can restore it manually if rollback is required.
 5. Send a uniquely titled synthetic inbound message and verify the D1 mailbox/thread/message
@@ -394,3 +396,23 @@ R2. Do not delete the D1 database or R2 bucket during rollback.
 If an owner-approved Email Routing or custom-domain change must be rolled back, manually restore the
 recorded prior target/route and verify it separately. Messages received while `simple-inbox-cf` was
 the active mail target remain in its D1/R2 and are not merged into a legacy store automatically.
+
+## Alias and spam management
+
+The mailbox dropdown offers **Other inbound** and **+ New inbox…**. Create an alias with a full email
+address and choose whether future mail should forward to the owner. In Other inbound, opening a
+conversation offers **Create inbox for this alias**, enabling the inbox and future owner forwarding.
+Mailbox settings can turn **Show as an inbox** off to hide an existing alias and stop its forwarding.
+No action creates Cloudflare routing rules; the existing catch-all must already route that domain.
+
+Settings also contains the installation owner's **Spam blacklist**. Add an inbound alias, sender
+address, or sender domain. Domain rules include subdomains. Matching future mail is stored in Spam,
+never forwarded. Rules match addresses, not display names, and do not authenticate a sender.
+Removing a rule affects future mail; use **Not spam** to restore existing messages separately.
+
+Migrations 0004–0006 preserve existing inbox visibility/forwarding, backfill message inbox membership
+from direction and archive state, and create the blacklist table. Newly discovered aliases start
+quiet. Existing read state and mail remain intact. Review existing aliases in Settings to hide those
+that should become Other inbound. Spam and Trash use existing installation retention; a Worker
+rollback cannot recover expired mail. The migrations are additive and keep legacy workflow columns
+for compatibility, but the UI and public API no longer expose workflow statuses.

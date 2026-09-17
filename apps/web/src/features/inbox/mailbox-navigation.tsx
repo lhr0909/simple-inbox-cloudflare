@@ -5,7 +5,9 @@ import InboxIcon from 'lucide-react/dist/esm/icons/inbox.mjs'
 import LogOutIcon from 'lucide-react/dist/esm/icons/log-out.mjs'
 import PanelLeftCloseIcon from 'lucide-react/dist/esm/icons/panel-left-close.mjs'
 import PanelLeftOpenIcon from 'lucide-react/dist/esm/icons/panel-left-open.mjs'
-import ReplyIcon from 'lucide-react/dist/esm/icons/reply.mjs'
+import StarIcon from 'lucide-react/dist/esm/icons/star.mjs'
+import TrashIcon from 'lucide-react/dist/esm/icons/trash-2.mjs'
+import ShieldIcon from 'lucide-react/dist/esm/icons/shield-alert.mjs'
 import SendIcon from 'lucide-react/dist/esm/icons/send.mjs'
 import SettingsIcon from 'lucide-react/dist/esm/icons/settings.mjs'
 
@@ -25,12 +27,14 @@ const FOLDERS: readonly {
   id: ThreadFolder
   label: string
   icon: Icon
-  countKey: 'all' | 'needsReply' | 'sent' | 'archive'
+  countKey: 'inbox' | 'all' | 'starred' | 'sent' | 'spam' | 'trash'
 }[] = [
-  { id: 'all', label: 'All', icon: InboxIcon, countKey: 'all' },
-  { id: 'needs-reply', label: 'Needs reply', icon: ReplyIcon, countKey: 'needsReply' },
+  { id: 'inbox', label: 'Inbox', icon: InboxIcon, countKey: 'inbox' },
+  { id: 'starred', label: 'Starred', icon: StarIcon, countKey: 'starred' },
   { id: 'sent', label: 'Sent', icon: SendIcon, countKey: 'sent' },
-  { id: 'archive', label: 'Archive', icon: ArchiveIcon, countKey: 'archive' },
+  { id: 'all', label: 'All Mail', icon: ArchiveIcon, countKey: 'all' },
+  { id: 'spam', label: 'Spam', icon: ShieldIcon, countKey: 'spam' },
+  { id: 'trash', label: 'Trash', icon: TrashIcon, countKey: 'trash' },
 ]
 
 function MailboxSelect({
@@ -56,11 +60,15 @@ function MailboxSelect({
       value={query.mailboxId}
     >
       {mailboxes.length === 0 ? <option value="">No mailbox assigned</option> : null}
-      {mailboxes.map((mailbox) => (
-        <option key={mailbox.id} value={mailbox.id}>
-          {mailbox.address}
-        </option>
-      ))}
+      <option value="other">Other inbound</option>
+      <option value="create">+ New inbox…</option>
+      {mailboxes
+        .filter((mailbox) => mailbox.whitelisted)
+        .map((mailbox) => (
+          <option key={mailbox.id} value={mailbox.id}>
+            {mailbox.address}
+          </option>
+        ))}
     </select>
   )
 }
@@ -125,7 +133,9 @@ export function MailboxSidebar({
               onQueryChange={onQueryChange}
             />
             <p className="mt-2 truncate text-xs text-muted-foreground">
-              Sending as {mailbox?.senderAlias ?? mailbox?.address ?? 'the configured mailbox'}
+              {query.mailboxId === 'other'
+                ? 'Unlisted aliases · forwarding off'
+                : `Sending as ${mailbox?.senderAlias ?? mailbox?.address ?? 'the configured mailbox'}`}
             </p>
           </div>
         </div>

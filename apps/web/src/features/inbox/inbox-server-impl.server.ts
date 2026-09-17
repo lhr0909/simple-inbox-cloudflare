@@ -96,7 +96,7 @@ export async function consumeMagicLink(
   }
 
   const incoming = getRequest()
-  const returnTo = readReturnPathCookie(incoming.headers.get('cookie')) ?? '/inbox?folder=all'
+  const returnTo = readReturnPathCookie(incoming.headers.get('cookie')) ?? '/inbox?folder=inbox'
   setResponseHeader('set-cookie', [
     ...response.headers.getSetCookie(),
     returnPathCookie('', 0, new URL(incoming.url).protocol === 'https:'),
@@ -129,7 +129,11 @@ export async function loadProtectedInbox(search: InboxSearch): Promise<InboxServ
 
   const mailboxes = mailboxResult.value.mailboxes
   const effectiveMailboxId =
-    mailboxes.find((mailbox) => mailbox.id === search.mailbox)?.id ?? mailboxes[0]?.id ?? ''
+    search.mailbox === 'other'
+      ? 'other'
+      : (mailboxes.find((mailbox) => mailbox.id === search.mailbox && mailbox.whitelisted)?.id ??
+        mailboxes.find((mailbox) => mailbox.whitelisted)?.id ??
+        'other')
 
   if (!effectiveMailboxId) {
     return {

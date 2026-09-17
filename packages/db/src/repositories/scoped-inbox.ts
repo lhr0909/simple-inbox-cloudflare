@@ -1,18 +1,4 @@
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  gt,
-  inArray,
-  isNotNull,
-  isNull,
-  lt,
-  ne,
-  or,
-  sql,
-  type SQL,
-} from 'drizzle-orm'
+import { and, asc, desc, eq, gt, inArray, isNull, lt, ne, or, sql, type SQL } from 'drizzle-orm'
 
 import { clampThreadPageSize, decodeThreadCursor, encodeThreadCursor } from '../cursor'
 import { createInboxDatabase, type InboxDatabase } from '../database'
@@ -29,11 +15,18 @@ import {
   threads,
 } from '../schema'
 
+export interface MessageStatePatch {
+  read?: boolean | undefined
+  starred?: boolean | undefined
+  location?: 'inbox' | 'archive' | 'spam' | 'trash' | 'restore' | 'not_spam' | undefined
+  messageIds?: string[] | undefined
+}
+
 export interface AuthenticatedActor {
   userId: string
 }
 
-export type ThreadFolder = 'all' | 'archive' | 'needs_reply' | 'sent'
+export type ThreadFolder = 'inbox' | 'starred' | 'all' | 'archive' | 'spam' | 'trash' | 'sent'
 
 export interface ListThreadsInput {
   cursor?: string
@@ -44,6 +37,12 @@ export interface ListThreadsInput {
 }
 
 export interface ThreadSummary {
+  hasInbox: boolean
+  hasSent: boolean
+  hasStarred: boolean
+  hasSpam: boolean
+  hasTrash: boolean
+  hasNormal: boolean
   archivedAt: number | null
   attachmentCount: number
   id: string
@@ -86,9 +85,13 @@ export interface MailboxSummary {
   createdAt: number
   forwardHtml: boolean
   renderHtml: boolean
+  whitelisted: boolean
   forwardTo: string | null
   id: string
-  needsReplyCount: number
+  inboxCount: number
+  starredCount: number
+  spamCount: number
+  trashCount: number
   role: string
   senderAlias: string | null
   sentCount: number
@@ -100,6 +103,7 @@ export interface MailboxSettings {
   address: string
   forwardHtml: boolean
   renderHtml: boolean
+  whitelisted: boolean
   forwardTo: string | null
   id: string
   senderAlias: string | null
@@ -150,6 +154,11 @@ export interface ThreadDetailProjection {
     preview: string
     rawAvailable: boolean
     rawSize: number | null
+    inbox: boolean
+    starredAt: number | null
+    trashedAt: number | null
+    spamAt: number | null
+    spamReason: string | null
     readAt: number | null
     receivedAt: number | null
     recipients: Omit<VisibleMessageRecipient, 'messageId'>[]
@@ -207,11 +216,16 @@ export class MailboxScopedRepository {
   }
 
   async listMailboxes(): Promise<MailboxSummary[]> {
-    const activeCount = sql<number>`coalesce(sum(case when ${threads.archivedAt} is null then 1 else 0 end), 0)`
-    const archiveCount = sql<number>`coalesce(sum(case when ${threads.archivedAt} is not null then 1 else 0 end), 0)`
-    const needsReplyCount = sql<number>`coalesce(sum(case when ${threads.archivedAt} is null and ${threads.workflowState} = 'needs_reply' then 1 else 0 end), 0)`
-    const sentCount = sql<number>`coalesce(sum(case when ${threads.archivedAt} is null and ${threads.lastMessageDirection} = 'outbound' then 1 else 0 end), 0)`
-    const unreadCount = sql<number>`coalesce(sum(case when ${threads.archivedAt} is null then ${threads.unreadCount} else 0 end), 0)`
+    const countFolder = (folder: ThreadFolder) =>
+      sql<number>`coalesce(sum(case when ${sql.raw(folderSql(folder, 'threads'))} then 1 else 0 end), 0)`
+    const activeCount = countFolder('all')
+    const inboxCount = countFolder('inbox')
+    const archiveCount = countFolder('archive')
+    const starredCount = countFolder('starred')
+    const spamCount = countFolder('spam')
+    const trashCount = countFolder('trash')
+    const sentCount = countFolder('sent')
+    const unreadCount = sql<number>`coalesce(sum((SELECT count(*) FROM messages m WHERE m.thread_id = ${threads.id} AND m.direction = 'inbound' AND m.read_at IS NULL AND m.inbox = 1 AND m.spam_at IS NULL AND m.trashed_at IS NULL)), 0)`
 
     const rows = await this.#db
       .select({
@@ -222,8 +236,12 @@ export class MailboxScopedRepository {
         forwardTo: mailboxes.forwardTo,
         forwardHtml: mailboxes.forwardHtml,
         renderHtml: mailboxes.renderHtml,
+        whitelisted: mailboxes.whitelisted,
         id: mailboxes.id,
-        needsReplyCount,
+        inboxCount,
+        starredCount,
+        spamCount,
+        trashCount,
         role: mailboxMembers.role,
         senderAlias: mailboxes.senderAlias,
         sentCount,
@@ -246,6 +264,7 @@ export class MailboxScopedRepository {
         mailboxes.forwardTo,
         mailboxes.forwardHtml,
         mailboxes.renderHtml,
+        mailboxes.whitelisted,
         mailboxes.createdAt,
         mailboxes.updatedAt,
         mailboxMembers.role,
@@ -256,7 +275,10 @@ export class MailboxScopedRepository {
       ...row,
       activeCount: Number(row.activeCount),
       archiveCount: Number(row.archiveCount),
-      needsReplyCount: Number(row.needsReplyCount),
+      inboxCount: Number(row.inboxCount),
+      starredCount: Number(row.starredCount),
+      spamCount: Number(row.spamCount),
+      trashCount: Number(row.trashCount),
       sentCount: Number(row.sentCount),
       unreadCount: Number(row.unreadCount),
     }))
@@ -292,7 +314,11 @@ export class MailboxScopedRepository {
       'EXISTS (SELECT 1 FROM message_search WHERE message_search.thread_id = t.id AND message_search.mailbox_id = t.mailbox_id AND message_search MATCH ?)',
     ]
 
-    if (input.mailboxId !== undefined) {
+    if (input.mailboxId === 'other') {
+      clauses.push(
+        'EXISTS (SELECT 1 FROM mailboxes mb WHERE mb.id = t.mailbox_id AND mb.whitelisted = 0)',
+      )
+    } else if (input.mailboxId !== undefined) {
       clauses.push('t.mailbox_id = ?')
       values.push(input.mailboxId)
     }
@@ -353,6 +379,7 @@ export class MailboxScopedRepository {
         forwardTo: mailboxes.forwardTo,
         forwardHtml: mailboxes.forwardHtml,
         renderHtml: mailboxes.renderHtml,
+        whitelisted: mailboxes.whitelisted,
         id: mailboxes.id,
         senderAlias: mailboxes.senderAlias,
         updatedAt: mailboxes.updatedAt,
@@ -400,6 +427,11 @@ export class MailboxScopedRepository {
         internetMessageId: messages.internetMessageId,
         mailboxId: messages.mailboxId,
         preview: messages.preview,
+        inbox: messages.inbox,
+        starredAt: messages.starredAt,
+        trashedAt: messages.trashedAt,
+        spamAt: messages.spamAt,
+        spamReason: messages.spamReason,
         readAt: messages.readAt,
         rawAvailable: sql<boolean>`${messages.rawDeletedAt} IS NULL`.mapWith((value) =>
           Boolean(value),
@@ -649,6 +681,67 @@ export class MailboxScopedRepository {
     return row
   }
 
+  async patchMessageState(
+    threadId: string,
+    patch: MessageStatePatch,
+    now: number,
+  ): Promise<boolean> {
+    assertUnixMilliseconds(now)
+    const sets = ['updated_at = max(updated_at, ?)']
+    const values: (string | number | null)[] = [now]
+    if (patch.read !== undefined) {
+      sets.push("read_at = CASE WHEN direction = 'inbound' THEN ? ELSE NULL END")
+      values.push(patch.read ? now : null)
+    }
+    if (patch.starred !== undefined) {
+      sets.push('starred_at = ?')
+      values.push(patch.starred ? now : null)
+    }
+    switch (patch.location) {
+      case 'archive':
+        sets.push('inbox = 0')
+        break
+      case 'inbox':
+        sets.push('inbox = 1', 'trashed_at = NULL', 'spam_at = NULL', 'spam_reason = NULL')
+        break
+      case 'spam':
+        sets.push('spam_at = ?', "spam_reason = 'manual'", 'trashed_at = NULL')
+        values.push(now)
+        break
+      case 'trash':
+        sets.push('trashed_at = ?')
+        values.push(now)
+        break
+      case 'restore':
+        sets.push('trashed_at = NULL')
+        break
+      case 'not_spam':
+        sets.push('spam_at = NULL', 'spam_reason = NULL', 'inbox = 1')
+        break
+    }
+    if (sets.length === 1) throw new TypeError('Supply a message state change.')
+    if (patch.messageIds && (patch.messageIds.length === 0 || patch.messageIds.length > 80))
+      throw new TypeError('Invalid message selection.')
+    const ids = patch.messageIds ? `AND id IN (${patch.messageIds.map(() => '?').join(',')})` : ''
+    const result = await this.#binding.batch([
+      this.#binding
+        .prepare(`UPDATE messages SET ${sets.join(', ')}
+        WHERE thread_id = ? AND EXISTS (SELECT 1 FROM mailbox_members mm WHERE mm.mailbox_id = messages.mailbox_id AND mm.user_id = ?)
+        ${ids}`)
+        .bind(...values, threadId, this.#actorUserId, ...(patch.messageIds ?? [])),
+      this.#binding
+        .prepare(`UPDATE threads SET
+        message_count = (SELECT count(*) FROM messages m WHERE m.thread_id = threads.id),
+        unread_count = (SELECT count(*) FROM messages m WHERE m.thread_id = threads.id AND m.direction = 'inbound' AND m.read_at IS NULL),
+        archived_at = CASE WHEN EXISTS (SELECT 1 FROM messages m WHERE m.thread_id = threads.id AND m.inbox = 1 AND m.spam_at IS NULL AND m.trashed_at IS NULL) THEN NULL ELSE coalesce(archived_at, ?) END,
+        updated_at = max(updated_at, ?)
+        WHERE id = ? AND EXISTS (SELECT 1 FROM mailbox_members mm WHERE mm.mailbox_id = threads.mailbox_id AND mm.user_id = ?)
+      `)
+        .bind(now, now, threadId, this.#actorUserId),
+    ])
+    return changed(result[0])
+  }
+
   async markThreadRead(threadId: string, readAt: number): Promise<boolean> {
     assertUnixMilliseconds(readAt)
     const actor = this.#actorUserId
@@ -685,23 +778,11 @@ export class MailboxScopedRepository {
     archivedAt: number | null,
     now: number,
   ): Promise<boolean> {
-    if (archivedAt !== null) {
-      assertUnixMilliseconds(archivedAt)
-    }
-    assertUnixMilliseconds(now)
-    const result = await this.#binding
-      .prepare(`
-        UPDATE threads
-        SET archived_at = ?, updated_at = max(updated_at, ?)
-        WHERE id = ?
-          AND EXISTS (
-            SELECT 1 FROM mailbox_members AS mm
-            WHERE mm.mailbox_id = threads.mailbox_id AND mm.user_id = ?
-          )
-      `)
-      .bind(archivedAt, now, threadId, this.#actorUserId)
-      .run()
-    return changed(result)
+    return this.patchMessageState(
+      threadId,
+      { location: archivedAt === null ? 'inbox' : 'archive' },
+      now,
+    )
   }
 
   async setThreadWorkflowState(
@@ -732,6 +813,7 @@ export class MailboxScopedRepository {
       senderAlias?: string | null
       forwardHtml?: boolean
       renderHtml?: boolean
+      whitelisted?: boolean
     },
     now: number,
   ): Promise<boolean> {
@@ -743,6 +825,7 @@ export class MailboxScopedRepository {
       .prepare(`
         UPDATE mailboxes
         SET
+          whitelisted = CASE WHEN ? = 1 THEN ? ELSE whitelisted END,
           forward_to = CASE WHEN ? = 1 THEN ? ELSE forward_to END,
           sender_alias = CASE WHEN ? = 1 THEN ? ELSE sender_alias END,
           forward_html = CASE WHEN ? = 1 THEN ? ELSE forward_html END,
@@ -757,6 +840,8 @@ export class MailboxScopedRepository {
           )
       `)
       .bind(
+        values.whitelisted === undefined ? 0 : 1,
+        values.whitelisted ? 1 : 0,
         values.forwardTo === undefined ? 0 : 1,
         values.forwardTo ?? null,
         values.senderAlias === undefined ? 0 : 1,
@@ -775,25 +860,15 @@ export class MailboxScopedRepository {
 
   #threadPredicates(input: ListThreadsInput): SQL[] {
     const predicates: SQL[] = []
-    if (input.mailboxId !== undefined) {
+    if (input.mailboxId === 'other') {
+      predicates.push(
+        sql`EXISTS (SELECT 1 FROM mailboxes mb WHERE mb.id = ${threads.mailboxId} AND mb.whitelisted = 0)`,
+      )
+    } else if (input.mailboxId !== undefined) {
       predicates.push(eq(threads.mailboxId, input.mailboxId))
     }
 
-    const folder = input.folder ?? 'all'
-    switch (folder) {
-      case 'all':
-        predicates.push(isNull(threads.archivedAt))
-        break
-      case 'archive':
-        predicates.push(isNotNull(threads.archivedAt))
-        break
-      case 'needs_reply':
-        predicates.push(isNull(threads.archivedAt), eq(threads.workflowState, 'needs_reply'))
-        break
-      case 'sent':
-        predicates.push(isNull(threads.archivedAt), eq(threads.lastMessageDirection, 'outbound'))
-        break
-    }
+    predicates.push(sql.raw(folderSql(input.folder ?? 'inbox', 'threads')))
 
     if (input.unreadOnly === true) {
       predicates.push(gt(threads.unreadCount, 0))
@@ -863,6 +938,12 @@ const tagsJsonProjection = sql<string>`coalesce((
 ), '[]')`
 
 const threadSummarySelection = {
+  hasInbox: sql<boolean>`${sql.raw(folderSql('inbox', 'threads'))}`.mapWith(Boolean),
+  hasSent: sql<boolean>`${sql.raw(folderSql('sent', 'threads'))}`.mapWith(Boolean),
+  hasStarred: sql<boolean>`${sql.raw(folderSql('starred', 'threads'))}`.mapWith(Boolean),
+  hasSpam: sql<boolean>`${sql.raw(folderSql('spam', 'threads'))}`.mapWith(Boolean),
+  hasTrash: sql<boolean>`${sql.raw(folderSql('trash', 'threads'))}`.mapWith(Boolean),
+  hasNormal: sql<boolean>`${sql.raw(folderSql('all', 'threads'))}`.mapWith(Boolean),
   archivedAt: threads.archivedAt,
   attachmentCount: attachmentCountProjection,
   id: threads.id,
@@ -945,21 +1026,23 @@ function parseThreadTags(value: string): ThreadTagSummary[] {
   })
 }
 
+function folderSql(folder: ThreadFolder, table: 't' | 'threads'): string {
+  const normal = 'm.spam_at IS NULL AND m.trashed_at IS NULL'
+  const condition = {
+    inbox: `${normal} AND m.inbox = 1`,
+    all: normal,
+    archive: `${normal} AND m.inbox = 0`,
+    sent: `${normal} AND m.direction = 'outbound' AND m.send_state = 'sent'`,
+    starred: `${normal} AND m.starred_at IS NOT NULL`,
+    spam: 'm.spam_at IS NOT NULL AND m.trashed_at IS NULL',
+    trash: 'm.trashed_at IS NOT NULL',
+  }[folder]
+  const matches = `EXISTS (SELECT 1 FROM messages m WHERE m.thread_id = ${table}.id AND m.mailbox_id = ${table}.mailbox_id AND ${condition})`
+  return folder === 'archive' ? `${matches} AND NOT (${folderSql('inbox', table)})` : matches
+}
+
 function appendFolderSql(clauses: string[], folder: ThreadFolder): void {
-  switch (folder) {
-    case 'all':
-      clauses.push('t.archived_at IS NULL')
-      break
-    case 'archive':
-      clauses.push('t.archived_at IS NOT NULL')
-      break
-    case 'needs_reply':
-      clauses.push('t.archived_at IS NULL', "t.workflow_state = 'needs_reply'")
-      break
-    case 'sent':
-      clauses.push('t.archived_at IS NULL', "t.last_message_direction = 'outbound'")
-      break
-  }
+  clauses.push(folderSql(folder, 't'))
 }
 
 /** Turns user text into bounded literal-prefix FTS terms, never FTS operators. */

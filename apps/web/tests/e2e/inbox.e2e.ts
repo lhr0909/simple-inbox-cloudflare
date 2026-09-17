@@ -60,8 +60,8 @@ test('exercises the authenticated inbox parity flow responsively', async ({ page
   await unread.click()
   await expect.poll(() => new URL(page.url()).searchParams.has('unread')).toBe(false)
 
-  await folders.getByRole('button', { name: /^Archive\b/u }).click()
-  await expect.poll(() => new URL(page.url()).searchParams.get('folder')).toBe('archive')
+  await folders.getByRole('button', { name: /^Starred\b/u }).click()
+  await expect.poll(() => new URL(page.url()).searchParams.get('folder')).toBe('starred')
   await expect(threadList.getByText('No conversations', { exact: true })).toBeVisible()
   await folders.getByRole('button', { name: /^All\b/u }).click()
   await expect.poll(() => new URL(page.url()).searchParams.get('folder')).toBe('all')

@@ -311,6 +311,93 @@
         "required": ["authenticated"],
         "additionalProperties": false
       },
+      "SpamRulesResponse": {
+        "type": "object",
+        "properties": {
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": ["recipient", "sender", "domain"]
+                },
+                "value": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "example": "2026-08-01T05:00:00.000Z"
+                }
+              },
+              "required": ["id", "kind", "value", "createdAt"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["rules"],
+        "additionalProperties": false
+      },
+      "CreateSpamRule": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["recipient"]
+              },
+              "value": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 254,
+                "format": "email",
+                "example": "owner@example.test"
+              }
+            },
+            "required": ["kind", "value"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["sender"]
+              },
+              "value": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 254,
+                "format": "email",
+                "example": "owner@example.test"
+              }
+            },
+            "required": ["kind", "value"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["domain"]
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": ["kind", "value"],
+            "additionalProperties": false
+          }
+        ]
+      },
       "MailboxListResponse": {
         "type": "object",
         "properties": {
@@ -358,6 +445,9 @@
           "renderHtml": {
             "type": "boolean"
           },
+          "whitelisted": {
+            "type": "boolean"
+          },
           "counts": {
             "$ref": "#/components/schemas/ThreadFolderCounts"
           },
@@ -379,6 +469,7 @@
           "forwardTo",
           "forwardHtml",
           "renderHtml",
+          "whitelisted",
           "counts",
           "createdAt",
           "updatedAt"
@@ -396,7 +487,19 @@
             "type": "integer",
             "minimum": 0
           },
-          "needsReply": {
+          "inbox": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "starred": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "spam": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "trash": {
             "type": "integer",
             "minimum": 0
           },
@@ -409,7 +512,7 @@
             "minimum": 0
           }
         },
-        "required": ["all", "unread", "needsReply", "sent", "archive"],
+        "required": ["all", "unread", "inbox", "starred", "spam", "trash", "sent", "archive"],
         "additionalProperties": false
       },
       "MailboxSettings": {
@@ -445,6 +548,9 @@
           "renderHtml": {
             "type": "boolean"
           },
+          "whitelisted": {
+            "type": "boolean"
+          },
           "updatedAt": {
             "type": "string",
             "format": "date-time",
@@ -458,8 +564,27 @@
           "forwardTo",
           "forwardHtml",
           "renderHtml",
+          "whitelisted",
           "updatedAt"
         ],
+        "additionalProperties": false
+      },
+      "CreateMailboxRequest": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 254,
+            "format": "email",
+            "example": "owner@example.test"
+          },
+          "forward": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": ["address"],
         "additionalProperties": false
       },
       "PatchMailboxRequest": {
@@ -481,6 +606,9 @@
             "type": "boolean"
           },
           "renderHtml": {
+            "type": "boolean"
+          },
+          "whitelisted": {
             "type": "boolean"
           }
         },
@@ -536,8 +664,23 @@
             },
             "maxItems": 100
           },
-          "workflowState": {
-            "$ref": "#/components/schemas/WorkflowState"
+          "hasInbox": {
+            "type": "boolean"
+          },
+          "hasSent": {
+            "type": "boolean"
+          },
+          "hasStarred": {
+            "type": "boolean"
+          },
+          "hasSpam": {
+            "type": "boolean"
+          },
+          "hasTrash": {
+            "type": "boolean"
+          },
+          "hasNormal": {
+            "type": "boolean"
           },
           "archivedAt": {
             "type": ["string", "null"],
@@ -579,7 +722,12 @@
           "subject",
           "preview",
           "participants",
-          "workflowState",
+          "hasInbox",
+          "hasSent",
+          "hasStarred",
+          "hasSpam",
+          "hasTrash",
+          "hasNormal",
           "archivedAt",
           "lastMessageAt",
           "lastMessageDirection",
@@ -609,10 +757,6 @@
         "required": ["address", "displayName"],
         "additionalProperties": false
       },
-      "WorkflowState": {
-        "type": "string",
-        "enum": ["needs_reply", "waiting", "resolved"]
-      },
       "Tag": {
         "type": "object",
         "properties": {
@@ -627,7 +771,7 @@
       },
       "ThreadFolder": {
         "type": "string",
-        "enum": ["all", "sent", "needs-reply", "archive"]
+        "enum": ["inbox", "starred", "sent", "all", "spam", "trash", "archive"]
       },
       "ThreadDetailResponse": {
         "type": "object",
@@ -725,6 +869,27 @@
             "format": "date-time",
             "example": "2026-08-01T05:00:00.000Z"
           },
+          "inbox": {
+            "type": "boolean"
+          },
+          "starredAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "example": "2026-08-01T05:00:00.000Z"
+          },
+          "trashedAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "example": "2026-08-01T05:00:00.000Z"
+          },
+          "spamAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "example": "2026-08-01T05:00:00.000Z"
+          },
+          "spamReason": {
+            "type": ["string", "null"]
+          },
           "readAt": {
             "type": ["string", "null"],
             "format": "date-time",
@@ -773,6 +938,11 @@
           "htmlPolicy",
           "sentAt",
           "receivedAt",
+          "inbox",
+          "starredAt",
+          "trashedAt",
+          "spamAt",
+          "spamReason",
           "readAt",
           "sendState",
           "forwardState",
@@ -882,6 +1052,32 @@
           }
         },
         "required": ["id", "ordinal", "filename", "mediaType", "size", "disposition", "contentId"],
+        "additionalProperties": false
+      },
+      "PatchMessageState": {
+        "type": "object",
+        "properties": {
+          "read": {
+            "type": "boolean"
+          },
+          "starred": {
+            "type": "boolean"
+          },
+          "location": {
+            "type": "string",
+            "enum": ["inbox", "archive", "spam", "trash", "restore", "not_spam"]
+          },
+          "messageIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "example": "01996f7a-7bcd-7abc-8def-3123456789ab"
+            },
+            "minItems": 1,
+            "maxItems": 80
+          }
+        },
         "additionalProperties": false
       },
       "SendResponse": {
@@ -1558,6 +1754,395 @@
         }
       }
     },
+    "/v1/spam-rules": {
+      "get": {
+        "operationId": "listSpamRules",
+        "tags": ["Spam"],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpamRulesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request was not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The operation is not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was absent or unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with existing state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is too large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request content type is not supported.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The request was rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The upstream mail provider failed or returned an unknown result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required service is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createSpamRule",
+        "tags": ["Spam"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSpamRule"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Blacklist rule saved. Applies to future inbound mail."
+          },
+          "400": {
+            "description": "The request was not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The operation is not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was absent or unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with existing state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is too large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request content type is not supported.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The request was rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The upstream mail provider failed or returned an unknown result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required service is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/spam-rules/{ruleId}": {
+      "delete": {
+        "operationId": "deleteSpamRule",
+        "tags": ["Spam"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "ruleId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Blacklist rule removed. Existing spam is unchanged."
+          },
+          "400": {
+            "description": "The request was not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The operation is not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was absent or unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with existing state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is too large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request content type is not supported.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The request was rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The upstream mail provider failed or returned an unknown result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required service is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/mailboxes": {
       "get": {
         "operationId": "listMailboxes",
@@ -1585,6 +2170,142 @@
           },
           "500": {
             "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required service is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createMailbox",
+        "tags": ["Mailboxes"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMailboxRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailboxSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request was not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The operation is not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was absent or unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with existing state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is too large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request content type is not supported.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The request was rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The upstream mail provider failed or returned an unknown result.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1763,9 +2484,17 @@
         "parameters": [
           {
             "schema": {
-              "type": "string",
-              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-              "example": "01996f7a-7bcd-7abc-8def-1123456789ab"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "example": "01996f7a-7bcd-7abc-8def-1123456789ab"
+                },
+                {
+                  "type": "string",
+                  "enum": ["other"]
+                }
+              ]
             },
             "required": true,
             "name": "mailboxId",
@@ -1934,6 +2663,149 @@
         }
       }
     },
+    "/v1/threads/{threadId}/state": {
+      "patch": {
+        "operationId": "patchThreadState",
+        "tags": ["Threads"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "example": "01996f7a-7bcd-7abc-8def-2123456789ab"
+            },
+            "required": true,
+            "name": "threadId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchMessageState"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Message state updated; messageIds restricts changes to the selected messages."
+          },
+          "400": {
+            "description": "The request was not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The operation is not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was absent or unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with existing state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is too large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request content type is not supported.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The request was rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The upstream mail provider failed or returned an unknown result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required service is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/threads/{threadId}/read": {
       "post": {
         "operationId": "markThreadRead",
@@ -2005,7 +2877,7 @@
         ],
         "responses": {
           "204": {
-            "description": "The thread is archived without changing workflow state."
+            "description": "The conversation is removed from Inbox without changing read or starred state."
           },
           "401": {
             "description": "Authentication is required or expired.",
@@ -2056,7 +2928,7 @@
         ],
         "responses": {
           "204": {
-            "description": "The thread is unarchived with its workflow state retained."
+            "description": "The conversation is moved to Inbox."
           },
           "401": {
             "description": "Authentication is required or expired.",

@@ -36,6 +36,7 @@ export interface ApiTokenPrincipal {
 }
 
 export interface BootstrapOwnerInput {
+  whitelisted?: boolean
   mailboxAddress: string
   mailboxId: string
   now: number
@@ -317,11 +318,18 @@ export class AuthRepository {
         .bind(input.userId, input.ownerEmail, input.now),
       this.#binding
         .prepare(`
-          INSERT INTO mailboxes (id, address, sender_alias, forward_to, created_at, updated_at)
-          VALUES (?, ?, NULL, ?, ?, ?)
+          INSERT INTO mailboxes (id, address, sender_alias, forward_to, created_at, updated_at, whitelisted)
+          VALUES (?, ?, NULL, ?, ?, ?, ?)
           ON CONFLICT(address) DO NOTHING
         `)
-        .bind(input.mailboxId, input.mailboxAddress, input.ownerEmail, input.now, input.now),
+        .bind(
+          input.mailboxId,
+          input.mailboxAddress,
+          input.whitelisted === false ? null : input.ownerEmail,
+          input.now,
+          input.now,
+          input.whitelisted === false ? 0 : 1,
+        ),
       this.#binding
         .prepare(`
           INSERT INTO mailbox_members (mailbox_id, user_id, role, created_at)

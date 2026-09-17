@@ -27,7 +27,10 @@ export function projectMailboxSummary(mailbox: DatabaseMailboxSummary): MailboxS
     counts: {
       all: mailbox.activeCount,
       archive: mailbox.archiveCount,
-      needsReply: mailbox.needsReplyCount,
+      inbox: mailbox.inboxCount,
+      starred: mailbox.starredCount,
+      spam: mailbox.spamCount,
+      trash: mailbox.trashCount,
       sent: mailbox.sentCount,
       unread: mailbox.unreadCount,
     },
@@ -35,6 +38,7 @@ export function projectMailboxSummary(mailbox: DatabaseMailboxSummary): MailboxS
     forwardTo: mailbox.forwardTo,
     forwardHtml: mailbox.forwardHtml,
     renderHtml: mailbox.renderHtml,
+    whitelisted: mailbox.whitelisted,
     id: mailbox.id,
     senderAlias: mailbox.senderAlias,
     updatedAt: isoDate(mailbox.updatedAt),
@@ -47,6 +51,7 @@ export function projectMailboxSettings(mailbox: DatabaseMailboxSettings): Mailbo
     forwardTo: mailbox.forwardTo,
     forwardHtml: mailbox.forwardHtml,
     renderHtml: mailbox.renderHtml,
+    whitelisted: mailbox.whitelisted,
     id: mailbox.id,
     senderAlias: mailbox.senderAlias,
     updatedAt: isoDate(mailbox.updatedAt),
@@ -67,7 +72,12 @@ export function projectThreadSummary(thread: DatabaseThreadSummary): ThreadSumma
     subject: thread.subject,
     tags: thread.tags,
     unreadCount: thread.unreadCount,
-    workflowState: thread.workflowState,
+    hasInbox: thread.hasInbox,
+    hasSent: thread.hasSent,
+    hasStarred: thread.hasStarred,
+    hasSpam: thread.hasSpam,
+    hasTrash: thread.hasTrash,
+    hasNormal: thread.hasNormal,
   })
 }
 
@@ -95,6 +105,11 @@ export function projectMessage(message: ThreadDetailProjection['messages'][numbe
     preview: message.preview,
     rawAvailable: message.rawAvailable,
     rawSize: message.rawSize,
+    inbox: message.inbox,
+    starredAt: message.starredAt === null ? null : isoDate(message.starredAt),
+    trashedAt: message.trashedAt === null ? null : isoDate(message.trashedAt),
+    spamAt: message.spamAt === null ? null : isoDate(message.spamAt),
+    spamReason: message.spamReason,
     readAt: message.readAt === null ? null : isoDate(message.readAt),
     receivedAt: message.receivedAt === null ? null : isoDate(message.receivedAt),
     recipients: message.recipients,
@@ -108,5 +123,5 @@ export function projectMessage(message: ThreadDetailProjection['messages'][numbe
 }
 
 export function databaseFolder(folder: ThreadFolder): DatabaseThreadFolder {
-  return folder === 'needs-reply' ? 'needs_reply' : folder
+  return folder
 }

@@ -153,8 +153,8 @@ export class InstallationRepository {
         .bind(input.userId, input.ownerEmail, input.completedAt),
       this.#binding
         .prepare(`
-          INSERT INTO mailboxes (id, address, sender_alias, forward_to, created_at, updated_at)
-          SELECT ?, ?, NULL, ?, ?, ?
+          INSERT INTO mailboxes (id, address, sender_alias, forward_to, created_at, updated_at, whitelisted)
+          SELECT ?, ?, NULL, ?, ?, ?, 1
           WHERE ${installationAbsent}
           ON CONFLICT(address) DO NOTHING
         `)

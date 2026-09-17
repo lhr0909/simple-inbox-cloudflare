@@ -14,6 +14,7 @@ export const MailboxSummarySchema = z
     forwardTo: NormalizedEmailAddressSchema.nullable(),
     forwardHtml: z.boolean(),
     renderHtml: z.boolean(),
+    whitelisted: z.boolean(),
     counts: ThreadFolderCountsSchema,
     createdAt: IsoDateTimeSchema,
     updatedAt: IsoDateTimeSchema,
@@ -36,6 +37,7 @@ export const MailboxSettingsSchema = z
     forwardTo: NormalizedEmailAddressSchema.nullable(),
     forwardHtml: z.boolean(),
     renderHtml: z.boolean(),
+    whitelisted: z.boolean(),
     updatedAt: IsoDateTimeSchema,
   })
   .strict()
@@ -48,6 +50,7 @@ export const PatchMailboxRequestSchema = z
     forwardTo: EmailAddressSchema.nullable().optional(),
     forwardHtml: z.boolean().optional(),
     renderHtml: z.boolean().optional(),
+    whitelisted: z.boolean().optional(),
   })
   .strict()
   .refine(
@@ -56,3 +59,8 @@ export const PatchMailboxRequestSchema = z
   )
   .openapi('PatchMailboxRequest')
 export type PatchMailboxRequest = z.infer<typeof PatchMailboxRequestSchema>
+
+export const CreateMailboxRequestSchema = z
+  .object({ address: EmailAddressSchema, forward: z.boolean().default(true) })
+  .strict()
+  .openapi('CreateMailboxRequest')

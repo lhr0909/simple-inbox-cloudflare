@@ -120,6 +120,8 @@ export type InboundForwardContext = {
 }
 
 export interface MailStore {
+  listSpamRules(ownerEmail: string): Promise<import('@cloudflare-inbox/mail-core').BlacklistRule[]>
+  suppressForward(messageId: string, reason: string, now: number): Promise<void>
   claimPendingForward(input: { messageId: string; now: number }): Promise<boolean>
   claimQueuedSend(input: ClaimQueuedSendInput): Promise<boolean>
   completeOutboundProjection(input: CompleteOutboundProjectionInput): Promise<void>

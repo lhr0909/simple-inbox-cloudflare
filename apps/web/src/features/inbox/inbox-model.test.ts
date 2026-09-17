@@ -25,9 +25,9 @@ describe('inbox presentation model', () => {
     expect(archived && threadMatchesFolder(archived, 'archive')).toBe(true)
   })
 
-  it('filters needs-reply without including archived threads', () => {
-    const results = filterThreads(data.threads, 'needs-reply', false, '')
-    expect(results).toHaveLength(2)
+  it('filters inbox without including archived threads', () => {
+    const results = filterThreads(data.threads, 'inbox', false, '')
+    expect(results).toHaveLength(5)
     expect(results.every((thread) => thread.archivedAt === null)).toBe(true)
   })
 
@@ -65,7 +65,12 @@ describe('inbox presentation model', () => {
         .filter((message) => message.direction === 'inbound')
         .every((message) => message.readAt !== null),
     ).toBe(true)
-    expect(projected.mailboxes[0]?.counts).toMatchObject({ all: 17, archive: 8, unread: 2 })
+    expect(projected.mailboxes[0]?.counts).toMatchObject({
+      all: 18,
+      inbox: 17,
+      archive: 8,
+      unread: 2,
+    })
     expect(selected.thread).toMatchObject({ archivedAt: null, unreadCount: 1 })
   })
 

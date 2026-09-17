@@ -41,7 +41,8 @@ but loads through the authenticated thread-detail API independently. Selecting a
 updates its highlight and the conversation pane's loading state; list buttons remain available.
 Each detail request has an abort signal and a generation guard, so even an uncancellable late
 response cannot replace a newer selection. Detail failures provide a retry without discarding the
-list. Read-state updates remain optimistic and happen after the selected detail arrives.
+list. Expanded unread messages persist their read state by message ID after detail arrives;
+unseen messages arriving concurrently remain unread.
 
 The initial server render supplies the mailbox and conversation list. Deep-linked conversation
 content loads after hydration, using the same path as subsequent selection and browser history.
@@ -138,9 +139,44 @@ safe structured application logs without message content.
 Inbound email enters the root `email()` export. After the installation gate, the mail service writes
 the canonical raw object to R2, parses and projects it into D1, associates it with a thread, and then
 optionally forwards it. Cloudflare Email Routing is the inbound trust boundary: every valid envelope
-recipient delivered to the Worker is accepted and auto-provisioned as an owner mailbox, regardless
-of whether its domain matches the primary domain chosen during setup. Forwarding failure never
-erases captured mail.
+recipient delivered to the Worker is captured, regardless of whether its domain matches the primary
+domain chosen during setup. Newly discovered recipients get an owner-scoped mailbox with
+`whitelisted = false` and no forwarding destination. They are grouped under **Other inbound** and
+excluded from the daily mailbox dropdown. Forwarding failure never erases captured mail.
+
+## Alias policy, message organization, and spam
+
+The primary mailbox starts whitelisted. `POST /v1/mailboxes` creates or promotes an alias on the
+configured domain or another already-received mailbox domain. Existing mailbox IDs and thread
+relationships survive promotion. Enabling forwarding applies to future mail; previously suppressed
+messages remain `not_applicable` and are never replayed as forwards. Hiding an inbox disables its
+effective forwarding while retaining its destination preference for later reactivation.
+
+Messages own inbox membership, `readAt`, `starredAt`, `spamAt`, `spamReason`, and `trashedAt`.
+Threads aggregate these into overlapping views. Sent means at least one successfully sent outbound
+message outside Spam/Trash, irrespective of the most recent direction or archive state. All Mail
+includes archived mail and excludes Spam/Trash. Folder counts use the same predicates as list/search.
+Opening any folder result retrieves the whole authorized conversation, including clearly marked
+Spam/Trash messages. Collapsed messages do not load HTML or become read until expanded; read
+mutations carry the exact displayed message IDs. Sending never marks incoming messages read.
+
+Thread state mutations update message rows and aggregates in one D1 batch. Trash restore preserves
+prior inbox/archive membership and any spam classification. New inbound replies retain existing
+threading rules and get their own state; they do not restore old trashed messages. Organization is
+shared mailbox state, as read state was before this change. Legacy workflow columns remain only for
+migration/older-code compatibility and are absent from public DTOs and the UI.
+
+`spam_rules` stores owner-scoped explicit recipient-address, sender-address, and sender-domain
+blacklists. Recipient matching uses the envelope recipient; sender matching uses the parsed From
+address. Domain matches include subdomains with a dot boundary. Rules apply to future messages,
+and the persisted decision is part of the inbound D1 transaction before forwarding. The forwarding
+path rechecks current rules before claiming delivery; the claim also requires a whitelisted mailbox,
+a destination, and a message outside Spam/Trash. Issued owner reply aliases resolve before ordinary
+recipient filtering. Manual Not spam restores a message without deleting its blacklist rule or
+forwarding historical mail. There are no keyword rules, AI calls, or new Cloudflare resources.
+
+Spam and Trash remain recoverable until the installation's configured retention deadlines; this
+iteration does not shorten existing retention or introduce a separate 30-day deletion timer.
 
 Each forwarded message uses the assigned mailbox as its sender and an opaque, same-domain reply
 alias as `Reply-To`. A reply from the configured owner resolves that alias in D1, is sent from the

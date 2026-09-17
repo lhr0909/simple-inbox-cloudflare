@@ -29,6 +29,27 @@
       "when": 1788841005951,
       "tag": "0003_default_html_forwarding",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1789615211519,
+      "tag": "0004_alias_whitelist",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1789615459318,
+      "tag": "0005_message_organization",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1789615885838,
+      "tag": "0006_spam_blacklist",
+      "breakpoints": true
     }
   ]
 }

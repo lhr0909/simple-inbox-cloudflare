@@ -53,7 +53,7 @@ it('loads the inbox after receiving mail for a slash-containing routed address',
       messages: [{ from: { address: sender }, recipients: [{ address }] }],
     })
 
-    const inbox = await harness.server.fetch('/inbox?folder=all', { headers })
+    const inbox = await harness.server.fetch('/inbox?folder=all&mailbox=other', { headers })
     expect(inbox.status).toBe(200)
     expect(await inbox.text()).toContain('Routed address regression')
   } finally {

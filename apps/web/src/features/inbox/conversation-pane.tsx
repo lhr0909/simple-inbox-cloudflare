@@ -5,6 +5,11 @@ import ArrowLeftIcon from 'lucide-react/dist/esm/icons/arrow-left.mjs'
 import FileTextIcon from 'lucide-react/dist/esm/icons/file-text.mjs'
 import MailOpenIcon from 'lucide-react/dist/esm/icons/mail-open.mjs'
 import PaperclipIcon from 'lucide-react/dist/esm/icons/paperclip.mjs'
+import StarIcon from 'lucide-react/dist/esm/icons/star.mjs'
+import TrashIcon from 'lucide-react/dist/esm/icons/trash-2.mjs'
+import MailIcon from 'lucide-react/dist/esm/icons/mail.mjs'
+import ShieldIcon from 'lucide-react/dist/esm/icons/shield-alert.mjs'
+import ChevronIcon from 'lucide-react/dist/esm/icons/chevron-down.mjs'
 import ReplyIcon from 'lucide-react/dist/esm/icons/reply.mjs'
 
 import type { Message } from '@cloudflare-inbox/contracts/messages'
@@ -38,7 +43,9 @@ export function ConversationPane({
   busy,
   onBack,
   onArchiveThread,
+  onMessageState,
   onReply,
+  aliasNotice,
 }: Readonly<{
   className?: string
   renderHtml?: boolean
@@ -49,16 +56,20 @@ export function ConversationPane({
   busy: boolean
   onBack?: InboxShellProps['onBack']
   onArchiveThread?: InboxShellProps['onArchiveThread']
+  onMessageState?: InboxShellProps['onMessageState']
   onReply?: InboxShellProps['onReply']
+  aliasNotice?: ReactNode
 }>) {
+  const [expandAll, setExpandAll] = useState<boolean | null>(null)
   const [composerOpen, setComposerOpen] = useState(false)
   const scrollPane = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setComposerOpen(false)
+    setExpandAll(null)
     const frame = window.requestAnimationFrame(() => {
       const element = scrollPane.current
-      if (element !== null) element.scrollTop = element.scrollHeight
+      if (element !== null) element.scrollTop = 0
     })
     return () => window.cancelAnimationFrame(frame)
   }, [detail?.thread.id])
@@ -107,7 +118,7 @@ export function ConversationPane({
     )
   }
 
-  const archived = detail.thread.archivedAt !== null
+  const archived = !detail.thread.hasInbox
   const canReply = inboundReplyTargets(detail.messages).length > 0
   return (
     <section
@@ -152,10 +163,66 @@ export function ConversationPane({
         </Button>
       </header>
 
+      <div className="flex shrink-0 flex-wrap items-center gap-1 border-b bg-background px-3 py-1">
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={busy}
+          onClick={() => void onMessageState?.(detail.thread.id, { read: false })}
+        >
+          <MailIcon className="size-4" />
+          Mark unread
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={busy}
+          onClick={() =>
+            void onMessageState?.(detail.thread.id, {
+              location: detail.thread.hasTrash ? 'restore' : 'trash',
+            })
+          }
+        >
+          <TrashIcon className="size-4" />
+          {detail.thread.hasTrash ? 'Restore from trash' : 'Trash'}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={busy}
+          onClick={() =>
+            void onMessageState?.(detail.thread.id, {
+              location: detail.thread.hasSpam ? 'not_spam' : 'spam',
+            })
+          }
+        >
+          <ShieldIcon className="size-4" />
+          {detail.thread.hasSpam ? 'Not spam' : 'Spam'}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="ml-auto"
+          onClick={() => setExpandAll((current) => (current === true ? false : true))}
+        >
+          {expandAll === true ? 'Collapse all' : 'Expand all'}
+        </Button>
+      </div>
+      {aliasNotice}
       <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5" ref={scrollPane}>
         <div className="mx-auto max-w-3xl space-y-3">
-          {detail.messages.map((message) => (
-            <MessageCard key={message.id} message={message} renderHtml={renderHtml} />
+          {detail.messages.map((message, index) => (
+            <MessageCard
+              key={message.id}
+              message={message}
+              renderHtml={renderHtml && message.spamAt === null}
+              initiallyOpen={
+                index === detail.messages.length - 1 ||
+                (message.direction === 'inbound' && message.readAt === null)
+              }
+              expandAll={expandAll}
+              onMessageState={onMessageState}
+            />
           ))}
           {composerOpen && canReply ? (
             <ReplyComposer
@@ -185,70 +252,159 @@ export function ConversationPane({
   )
 }
 
-function MessageCard({ message, renderHtml }: Readonly<{ message: Message; renderHtml: boolean }>) {
+function MessageCard({
+  message,
+  renderHtml,
+  initiallyOpen,
+  expandAll,
+  onMessageState,
+}: Readonly<{
+  message: Message
+  renderHtml: boolean
+  initiallyOpen: boolean
+  expandAll: boolean | null
+  onMessageState?: InboxShellProps['onMessageState']
+}>) {
+  const [expanded, setExpanded] = useState(initiallyOpen)
+  const readAttempted = useRef(false)
+  useEffect(() => {
+    if (expandAll !== null) setExpanded(expandAll)
+  }, [expandAll])
+  useEffect(() => {
+    if (
+      !expanded ||
+      message.direction !== 'inbound' ||
+      message.readAt !== null ||
+      readAttempted.current
+    )
+      return
+    readAttempted.current = true
+    void onMessageState?.(message.threadId, { read: true, messageIds: [message.id] })
+  }, [expanded, message.direction, message.id, message.readAt, message.threadId, onMessageState])
   const sender = message.from.displayName ?? message.from.address
   const delivery = messageDeliveryPresentation(message)
   return (
     <article className="content-auto rounded-xl border bg-background shadow-xs">
-      <header className="flex gap-3 p-4">
-        <Avatar size="lg">
-          <AvatarFallback>{initials(sender)}</AvatarFallback>
-        </Avatar>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <p className="text-sm font-semibold">{sender}</p>
-            {delivery ? <Badge variant={delivery.variant}>{delivery.label}</Badge> : null}
-            {message.readAt === null && message.direction === 'inbound' ? (
-              <Badge variant="secondary">New</Badge>
-            ) : null}
-            <HydratedTime
-              className="ml-auto text-xs text-muted-foreground"
-              presentation="full"
-              value={message.sentAt}
-            />
-          </div>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">
-            To: {visibleRecipients(message, 'to') || 'Undisclosed recipient'}
-          </p>
-          {visibleRecipients(message, 'cc') ? (
-            <p className="truncate text-xs text-muted-foreground">
-              Cc: {visibleRecipients(message, 'cc')}
-            </p>
-          ) : null}
-          {message.direction === 'outbound' && visibleRecipients(message, 'bcc') ? (
-            <p className="truncate text-xs text-muted-foreground">
-              Bcc: {visibleRecipients(message, 'bcc')}
-            </p>
-          ) : null}
-        </div>
-      </header>
-      <Separator />
-      {delivery?.notice ? (
-        <p
-          className={cn(
-            'border-b px-4 py-2 text-xs leading-5',
-            delivery.variant === 'destructive'
-              ? 'bg-destructive/5 text-destructive'
-              : 'bg-muted/50 text-muted-foreground',
-          )}
+      <div className="flex items-center gap-2 px-3 py-2">
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls={`message-${message.id}`}
+          onClick={() => setExpanded((value) => !value)}
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1 text-left focus-visible:outline-2 focus-visible:outline-ring"
         >
-          {delivery.notice}
-        </p>
+          <ChevronIcon
+            className={cn('size-4 shrink-0 transition-transform', !expanded && '-rotate-90')}
+          />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold">{sender}</span>
+            {!expanded ? (
+              <span className="block truncate text-xs text-muted-foreground">
+                {message.preview || '(no content)'}
+              </span>
+            ) : null}
+          </span>
+          <HydratedTime
+            className="shrink-0 text-xs text-muted-foreground"
+            presentation="thread"
+            value={message.sentAt}
+          />
+        </button>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label={message.starredAt ? 'Unstar message' : 'Star message'}
+          aria-pressed={message.starredAt !== null}
+          onClick={() =>
+            void onMessageState?.(message.threadId, {
+              starred: message.starredAt === null,
+              messageIds: [message.id],
+            })
+          }
+        >
+          <StarIcon
+            className={cn('size-4', message.starredAt !== null && 'fill-amber-400 text-amber-500')}
+          />
+        </Button>
+      </div>
+      {expanded ? (
+        <div id={`message-${message.id}`}>
+          <header className="flex gap-3 px-4 pb-3">
+            <Avatar size="lg">
+              <AvatarFallback>{initials(sender)}</AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <p className="text-sm font-semibold">{sender}</p>
+                {delivery ? <Badge variant={delivery.variant}>{delivery.label}</Badge> : null}
+                {message.readAt === null && message.direction === 'inbound' ? (
+                  <Badge variant="secondary">New</Badge>
+                ) : null}
+                <HydratedTime
+                  className="ml-auto text-xs text-muted-foreground"
+                  presentation="full"
+                  value={message.sentAt}
+                />
+              </div>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                To: {visibleRecipients(message, 'to') || 'Undisclosed recipient'}
+              </p>
+              {visibleRecipients(message, 'cc') ? (
+                <p className="truncate text-xs text-muted-foreground">
+                  Cc: {visibleRecipients(message, 'cc')}
+                </p>
+              ) : null}
+              {message.direction === 'outbound' && visibleRecipients(message, 'bcc') ? (
+                <p className="truncate text-xs text-muted-foreground">
+                  Bcc: {visibleRecipients(message, 'bcc')}
+                </p>
+              ) : null}
+            </div>
+          </header>
+          {message.spamAt !== null ? (
+            <p className="border-t bg-muted px-4 py-2 text-xs">
+              Spam ·{' '}
+              {message.spamReason === 'blacklist_recipient'
+                ? 'Blocked inbound alias'
+                : message.spamReason === 'blacklist_sender'
+                  ? 'Blocked sender address'
+                  : message.spamReason === 'blacklist_domain'
+                    ? 'Blocked sender domain'
+                    : 'Marked as spam'}
+            </p>
+          ) : null}
+          {message.trashedAt !== null ? (
+            <p className="border-t px-4 py-2 text-xs text-muted-foreground">In Trash</p>
+          ) : null}
+          <Separator />
+          {delivery?.notice ? (
+            <p
+              className={cn(
+                'border-b px-4 py-2 text-xs leading-5',
+                delivery.variant === 'destructive'
+                  ? 'bg-destructive/5 text-destructive'
+                  : 'bg-muted/50 text-muted-foreground',
+              )}
+            >
+              {delivery.notice}
+            </p>
+          ) : null}
+          {renderHtml && message.rawAvailable ? (
+            <HtmlMessageBody
+              messageId={message.id}
+              renderFooter={(toggle) => <MessageFooter message={message} displayToggle={toggle} />}
+              text={message.textBody || message.preview}
+            />
+          ) : (
+            <>
+              <div className="whitespace-pre-wrap p-4 text-sm leading-6">
+                {message.textBody || message.preview}
+              </div>
+              <MessageFooter message={message} />
+            </>
+          )}
+        </div>
       ) : null}
-      {renderHtml && message.rawAvailable ? (
-        <HtmlMessageBody
-          messageId={message.id}
-          renderFooter={(toggle) => <MessageFooter message={message} displayToggle={toggle} />}
-          text={message.textBody || message.preview}
-        />
-      ) : (
-        <>
-          <div className="whitespace-pre-wrap p-4 text-sm leading-6">
-            {message.textBody || message.preview}
-          </div>
-          <MessageFooter message={message} />
-        </>
-      )}
     </article>
   )
 }

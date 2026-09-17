@@ -7,8 +7,10 @@ import type { SendResponse } from '@cloudflare-inbox/contracts/send'
 
 import {
   ApiRequestError,
+  createMailbox,
   listThreadPage,
-  markThreadRead,
+  patchThreadState,
+  getThreadDetail,
   sendNewMessage,
   sendReply,
   setThreadArchived,
@@ -95,7 +97,13 @@ function Inbox() {
   activeSearchKey.current = currentKey
   const source = refreshed?.listKey === currentListKey ? refreshed : loaded
   const query = inboxQueryFromSearch(search, source.effectiveMailboxId)
-  const conversation = useThreadDetail(query.mailboxId, query.threadId)
+  const selectedSummary = source.data.threads.find((thread) => thread.id === query.threadId)
+  const conversation = useThreadDetail(
+    query.mailboxId,
+    query.threadId,
+    selectedSummary ? `${selectedSummary.lastMessageAt}:${selectedSummary.messageCount}` : '',
+    query.folder,
+  )
   const { reload: reloadThread, commit: commitSelectedThread } = conversation
   const data = useMemo(
     () =>
@@ -165,22 +173,25 @@ function Inbox() {
   )
 
   const navigateSearch = useCallback(
-    (nextSearch: InboxSearch, replace = false) => {
+    (update: Partial<InboxQuery>, replace = false) => {
       snapshotRequests.current.invalidate()
       pageRequests.current.invalidate()
       setRefreshing(false)
       setLoadingMore(false)
-      return navigate({ search: nextSearch, replace, resetScroll: false })
+      return navigate({
+        search: (previous) => updateInboxSearch(previous, update),
+        replace,
+        resetScroll: false,
+      })
     },
     [navigate],
   )
 
   const changeQuery = useCallback(
     (update: Partial<InboxQuery>, options?: Readonly<{ replace?: boolean }>) => {
-      const nextSearch = updateInboxSearch(search, update)
-      return navigateSearch(nextSearch, options?.replace ?? false)
+      return navigateSearch(update, options?.replace ?? false)
     },
-    [navigateSearch, search],
+    [navigateSearch],
   )
 
   function setThreadOptimistic(threadId: string, state: OptimisticThreadState | null): void {
@@ -225,34 +236,10 @@ function Inbox() {
     return false
   }
 
-  const attemptedRead = useRef<string | null>(null)
-  const selectedThread = data.selectedThread?.thread ?? null
-
-  useEffect(() => {
-    if (selectedThread === null) {
-      attemptedRead.current = null
-      return
-    }
-    if (selectedThread.unreadCount === 0 || attemptedRead.current === selectedThread.id) return
-
-    const threadId = selectedThread.id
-    const readAt = new Date().toISOString()
-    attemptedRead.current = threadId
-    setThreadOptimistic(threadId, { readAt, unreadCount: 0 })
-    void markThreadRead(threadId)
-      .then(() => commitThreadState(threadId, { readAt, unreadCount: 0 }))
-      .catch((cause: unknown) => {
-        setThreadOptimistic(threadId, null)
-        if (!redirectIfAnonymous(cause)) {
-          setError('The conversation opened, but its read state could not be saved.')
-        }
-      })
-  }, [commitThreadState, selectedThread])
-
   async function selectThread(threadId: string): Promise<void> {
     setError(null)
     try {
-      await navigateSearch(updateInboxSearch(search, { threadId }))
+      await navigateSearch({ threadId })
     } catch {
       setError('The conversation could not be opened. The current list is still available.')
     }
@@ -367,6 +354,7 @@ function Inbox() {
               mailbox.id === mailboxId
                 ? {
                     ...mailbox,
+                    whitelisted: result.whitelisted,
                     forwardTo: result.forwardTo,
                     forwardHtml: result.forwardHtml,
                     renderHtml: result.renderHtml,
@@ -412,6 +400,36 @@ function Inbox() {
       onRetryThread={reloadThread}
       error={error}
       loadingMore={loadingMore}
+      onMessageState={async (threadId, patch) => {
+        if (patch.read === true && patch.messageIds) {
+          try {
+            await patchThreadState(threadId, patch)
+            const detail = await getThreadDetail(threadId, new AbortController().signal)
+            commitThreadState(threadId, { unreadCount: detail.thread.unreadCount })
+            conversation.replace(detail)
+          } catch (cause) {
+            if (!redirectIfAnonymous(cause))
+              setError(
+                'Read state could not be saved. Close and reopen the conversation to try again.',
+              )
+          }
+          return
+        }
+        beginOperation()
+        try {
+          await patchThreadState(threadId, patch)
+          if (patch.read === false) await changeQuery({ threadId: null })
+          await fetchSnapshot(
+            patch.read === false ? updateInboxSearch(search, { threadId: null }) : search,
+            false,
+          )
+        } catch (cause) {
+          if (!redirectIfAnonymous(cause))
+            setError('The message update could not be saved. Try again.')
+        } finally {
+          finishOperation()
+        }
+      }}
       onArchiveThread={archiveThread}
       onBack={() => changeQuery({ threadId: null }, { replace: true })}
       onCompose={compose}
@@ -421,6 +439,12 @@ function Inbox() {
       onReply={reply}
       onSelectThread={selectThread}
       onSignOut={logout}
+      onCreateMailbox={async (address, forward) => {
+        const mailbox = await createMailbox(address, forward)
+        await fetchSnapshot({ ...search, mailbox: mailbox.id }, false)
+        await changeQuery({ mailboxId: mailbox.id, threadId: null })
+        return mailbox
+      }}
       onUpdateMailbox={saveMailboxSettings}
       query={query}
       refreshing={refreshing}

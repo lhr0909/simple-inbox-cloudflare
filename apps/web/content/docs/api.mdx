@@ -43,8 +43,8 @@ origin check, but still need the appropriate scope and mailbox membership.
 | `GET`    | `/threads`                                         | `read`                    | List, filter, search, and paginate threads    |
 | `GET`    | `/threads/{threadId}`                              | `read`                    | Fetch a thread and its chronological messages |
 | `POST`   | `/threads/{threadId}/read`                         | `settings`                | Mark inbound messages in a thread read        |
-| `POST`   | `/threads/{threadId}/archive`                      | `settings`                | Archive without changing workflow state       |
-| `DELETE` | `/threads/{threadId}/archive`                      | `settings`                | Restore with workflow state retained          |
+| `POST`   | `/threads/{threadId}/archive`                      | `settings`                | Remove messages from Inbox                    |
+| `DELETE` | `/threads/{threadId}/archive`                      | `settings`                | Move messages to Inbox                        |
 | `POST`   | `/messages`                                        | `send`                    | Send a new multipart message                  |
 | `POST`   | `/threads/{threadId}/messages`                     | `send`                    | Send a multipart reply                        |
 | `GET`    | `/messages/{messageId}/raw`                        | `read`                    | Download the immutable RFC 822 source         |
@@ -72,20 +72,20 @@ The email link points to the browser verification flow. Direct API clients can e
 ## List and search threads
 
 ```bash
-curl 'https://inbox.example.test/api/v1/threads?mailboxId=01996f7a-7bcd-7abc-8def-1123456789ab&folder=needs-reply&unread=1&limit=25' \
+curl 'https://inbox.example.test/api/v1/threads?mailboxId=01996f7a-7bcd-7abc-8def-1123456789ab&folder=inbox&unread=1&limit=25' \
   --header 'authorization: Bearer YOUR_OPAQUE_API_TOKEN'
 ```
 
 Supported query fields:
 
-| Field       | Values                                                        |
-| ----------- | ------------------------------------------------------------- |
-| `mailboxId` | Required lower-case UUIDv7 mailbox ID                         |
-| `folder`    | `all`, `sent`, `needs-reply`, or `archive`; defaults to `all` |
-| `unread`    | `1` to return unread threads only, or `0`                     |
-| `q`         | Trimmed full-text search query, 1–200 characters              |
-| `limit`     | 1–50; defaults to 25                                          |
-| `cursor`    | Opaque `nextCursor` from the previous response                |
+| Field       | Values                                                                                                   |
+| ----------- | -------------------------------------------------------------------------------------------------------- |
+| `mailboxId` | Required lower-case UUIDv7 mailbox ID                                                                    |
+| `folder`    | `inbox`, `starred`, `sent`, `all`, `spam`, `trash` (legacy `archive` also accepted); defaults to `inbox` |
+| `unread`    | `1` to return unread threads only, or `0`                                                                |
+| `q`         | Trimmed full-text search query, 1–200 characters                                                         |
+| `limit`     | 1–50; defaults to 25                                                                                     |
+| `cursor`    | Opaque `nextCursor` from the previous response                                                           |
 
 Cursors are stable continuation tokens, not offsets. Do not decode, edit, or persist them as record
 identifiers.
@@ -201,3 +201,25 @@ owner with settings permission can make changes. Forwarding changes apply to fut
 allows HTML display and the original MIME is retained. The response is private and uncached and must
 be embedded in an opaque-origin sandbox. Missing, unauthorized, disabled, or expired resources do not
 expose raw mail. The inbox falls back to plain text if a preview is unavailable or exceeds 4 MB.
+
+## Alias and message state actions
+
+`GET /mailboxes` includes `whitelisted` for each owner-scoped alias. Daily navigation shows only
+whitelisted records; `GET /threads?mailboxId=other&folder=inbox` groups quiet aliases. The same
+`other` scope works with search, pagination, and every folder.
+
+`POST /mailboxes` accepts `{ "address": "team@example.test", "forward": true }` to create or promote
+an inbox. The domain must be the configured domain or one already receiving mail. PATCH mailbox
+settings accepts `whitelisted`; hiding a mailbox suppresses forwarding independently of its stored
+destination preference.
+
+`PATCH /threads/{threadId}/state` accepts optional `read`, `starred`, and `location` fields. At least
+one action is required. Locations are `inbox`, `archive`, `spam`, `trash`, `restore`, and `not_spam`.
+Optional `messageIds` (1–80 IDs) restrict the action to messages in that thread. Use explicit IDs to
+mark displayed messages read without consuming new arrivals. Without IDs, an action affects the
+whole conversation. These mutations require `settings` scope and same-origin protection for cookies.
+
+`GET /spam-rules` lists the actor's blacklist. The installation owner can `POST /spam-rules` with
+`{ "kind": "recipient", "value": "unused@example.test" }`, or kind `sender` / `domain`.
+`DELETE /spam-rules/{ruleId}` removes an owned rule idempotently. Domain values include subdomains.
+Rule creation and deletion affect future mail only. These endpoints require `settings` scope.

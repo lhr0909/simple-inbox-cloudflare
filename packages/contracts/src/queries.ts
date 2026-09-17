@@ -3,6 +3,8 @@ import { z } from '@hono/zod-openapi'
 import { type ThreadFolder, ThreadFolderSchema } from './folders'
 import { type Cursor, CursorSchema, type MailboxId, MailboxIdSchema, ThreadIdSchema } from './ids'
 
+export const MailboxScopeSchema = z.union([MailboxIdSchema, z.literal('other')])
+
 export const MAX_THREAD_PAGE_SIZE = 50
 export const DEFAULT_THREAD_PAGE_SIZE = 25
 
@@ -14,7 +16,7 @@ const PageSizeQuerySchema = z
 
 export const ThreadListQuerySchema = z
   .object({
-    mailboxId: MailboxIdSchema,
+    mailboxId: MailboxScopeSchema,
     folder: ThreadFolderSchema.optional(),
     unread: z.enum(['0', '1']).optional(),
     q: SearchQuerySchema.optional(),
@@ -26,7 +28,7 @@ export const ThreadListQuerySchema = z
 export type ThreadListQuery = z.infer<typeof ThreadListQuerySchema>
 
 export type NormalizedThreadListQuery = Readonly<{
-  mailboxId: MailboxId
+  mailboxId: MailboxId | 'other'
   folder: ThreadFolder
   unreadOnly: boolean
   search?: string
@@ -38,7 +40,7 @@ export function normalizeThreadListQuery(input: unknown): NormalizedThreadListQu
   const query = ThreadListQuerySchema.parse(input)
   const common = {
     mailboxId: query.mailboxId,
-    folder: query.folder ?? 'all',
+    folder: query.folder ?? 'inbox',
     unreadOnly: query.unread === '1',
     limit: query.limit === undefined ? DEFAULT_THREAD_PAGE_SIZE : Number.parseInt(query.limit, 10),
   } satisfies Omit<NormalizedThreadListQuery, 'search' | 'cursor'>
@@ -52,7 +54,7 @@ export function normalizeThreadListQuery(input: unknown): NormalizedThreadListQu
 
 export const InboxSearchParamsSchema = z
   .object({
-    mailbox: MailboxIdSchema.optional(),
+    mailbox: MailboxScopeSchema.optional(),
     folder: ThreadFolderSchema.optional(),
     unread: z.literal('1').optional(),
     q: SearchQuerySchema.optional(),
