@@ -86,6 +86,7 @@ export interface MailboxSummary {
   createdAt: number
   forwardHtml: boolean
   renderHtml: boolean
+  whitelisted: boolean
   forwardTo: string | null
   id: string
   needsReplyCount: number
@@ -100,6 +101,7 @@ export interface MailboxSettings {
   address: string
   forwardHtml: boolean
   renderHtml: boolean
+  whitelisted: boolean
   forwardTo: string | null
   id: string
   senderAlias: string | null
@@ -222,6 +224,7 @@ export class MailboxScopedRepository {
         forwardTo: mailboxes.forwardTo,
         forwardHtml: mailboxes.forwardHtml,
         renderHtml: mailboxes.renderHtml,
+        whitelisted: mailboxes.whitelisted,
         id: mailboxes.id,
         needsReplyCount,
         role: mailboxMembers.role,
@@ -246,6 +249,7 @@ export class MailboxScopedRepository {
         mailboxes.forwardTo,
         mailboxes.forwardHtml,
         mailboxes.renderHtml,
+        mailboxes.whitelisted,
         mailboxes.createdAt,
         mailboxes.updatedAt,
         mailboxMembers.role,
@@ -292,7 +296,11 @@ export class MailboxScopedRepository {
       'EXISTS (SELECT 1 FROM message_search WHERE message_search.thread_id = t.id AND message_search.mailbox_id = t.mailbox_id AND message_search MATCH ?)',
     ]
 
-    if (input.mailboxId !== undefined) {
+    if (input.mailboxId === 'other') {
+      clauses.push(
+        'EXISTS (SELECT 1 FROM mailboxes mb WHERE mb.id = t.mailbox_id AND mb.whitelisted = 0)',
+      )
+    } else if (input.mailboxId !== undefined) {
       clauses.push('t.mailbox_id = ?')
       values.push(input.mailboxId)
     }
@@ -353,6 +361,7 @@ export class MailboxScopedRepository {
         forwardTo: mailboxes.forwardTo,
         forwardHtml: mailboxes.forwardHtml,
         renderHtml: mailboxes.renderHtml,
+        whitelisted: mailboxes.whitelisted,
         id: mailboxes.id,
         senderAlias: mailboxes.senderAlias,
         updatedAt: mailboxes.updatedAt,
@@ -732,6 +741,7 @@ export class MailboxScopedRepository {
       senderAlias?: string | null
       forwardHtml?: boolean
       renderHtml?: boolean
+      whitelisted?: boolean
     },
     now: number,
   ): Promise<boolean> {
@@ -743,6 +753,7 @@ export class MailboxScopedRepository {
       .prepare(`
         UPDATE mailboxes
         SET
+          whitelisted = CASE WHEN ? = 1 THEN ? ELSE whitelisted END,
           forward_to = CASE WHEN ? = 1 THEN ? ELSE forward_to END,
           sender_alias = CASE WHEN ? = 1 THEN ? ELSE sender_alias END,
           forward_html = CASE WHEN ? = 1 THEN ? ELSE forward_html END,
@@ -757,6 +768,8 @@ export class MailboxScopedRepository {
           )
       `)
       .bind(
+        values.whitelisted === undefined ? 0 : 1,
+        values.whitelisted ? 1 : 0,
         values.forwardTo === undefined ? 0 : 1,
         values.forwardTo ?? null,
         values.senderAlias === undefined ? 0 : 1,
@@ -775,7 +788,11 @@ export class MailboxScopedRepository {
 
   #threadPredicates(input: ListThreadsInput): SQL[] {
     const predicates: SQL[] = []
-    if (input.mailboxId !== undefined) {
+    if (input.mailboxId === 'other') {
+      predicates.push(
+        sql`EXISTS (SELECT 1 FROM mailboxes mb WHERE mb.id = ${threads.mailboxId} AND mb.whitelisted = 0)`,
+      )
+    } else if (input.mailboxId !== undefined) {
       predicates.push(eq(threads.mailboxId, input.mailboxId))
     }
 

@@ -7,6 +7,7 @@ import type { SendResponse } from '@cloudflare-inbox/contracts/send'
 
 import {
   ApiRequestError,
+  createMailbox,
   listThreadPage,
   markThreadRead,
   sendNewMessage,
@@ -367,6 +368,7 @@ function Inbox() {
               mailbox.id === mailboxId
                 ? {
                     ...mailbox,
+                    whitelisted: result.whitelisted,
                     forwardTo: result.forwardTo,
                     forwardHtml: result.forwardHtml,
                     renderHtml: result.renderHtml,
@@ -421,6 +423,12 @@ function Inbox() {
       onReply={reply}
       onSelectThread={selectThread}
       onSignOut={logout}
+      onCreateMailbox={async (address, forward) => {
+        const mailbox = await createMailbox(address, forward)
+        await fetchSnapshot({ ...search, mailbox: mailbox.id }, false)
+        await changeQuery({ mailboxId: mailbox.id, threadId: null })
+        return mailbox
+      }}
       onUpdateMailbox={saveMailboxSettings}
       query={query}
       refreshing={refreshing}

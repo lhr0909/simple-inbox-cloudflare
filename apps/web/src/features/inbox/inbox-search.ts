@@ -1,7 +1,7 @@
 import { ThreadFolderSchema } from '@cloudflare-inbox/contracts/folders'
 import type { ThreadFolder } from '@cloudflare-inbox/contracts/folders'
-import { MailboxIdSchema, ThreadIdSchema } from '@cloudflare-inbox/contracts/ids'
-import { SearchQuerySchema } from '@cloudflare-inbox/contracts/queries'
+import { ThreadIdSchema } from '@cloudflare-inbox/contracts/ids'
+import { MailboxScopeSchema, SearchQuerySchema } from '@cloudflare-inbox/contracts/queries'
 
 import type { InboxQuery } from './inbox-types'
 
@@ -34,7 +34,7 @@ function parsedValue<T>(
  */
 export function parseInboxSearch(input: unknown): InboxSearch {
   const record = searchRecord(input)
-  const mailbox = parsedValue(MailboxIdSchema, record['mailbox'])
+  const mailbox = parsedValue(MailboxScopeSchema, record['mailbox'])
   const folder = parsedValue(ThreadFolderSchema, record['folder']) ?? 'all'
   const query = parsedValue(SearchQuerySchema, record['q'])
   const thread = parsedValue(ThreadIdSchema, record['thread'])

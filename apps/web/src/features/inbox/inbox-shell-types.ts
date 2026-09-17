@@ -27,5 +27,6 @@ export type InboxShellProps = Readonly<{
   onReply?: (threadId: string, draft: ReplyDraft) => Promise<SendResponse>
   onCompose?: (mailboxId: string, draft: NewMessageDraft) => Promise<SendResponse>
   onSignOut?: () => Promise<void> | void
+  onCreateMailbox?: (address: string, forward: boolean) => Promise<MailboxSettings>
   onUpdateMailbox?: (mailboxId: string, patch: PatchMailboxRequest) => Promise<MailboxSettings>
 }>

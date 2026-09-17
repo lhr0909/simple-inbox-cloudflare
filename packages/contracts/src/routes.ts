@@ -23,6 +23,7 @@ import {
   InternalSendStatusResponseSchema,
 } from './internal'
 import {
+  CreateMailboxRequestSchema,
   MailboxListResponseSchema,
   MailboxSettingsSchema,
   PatchMailboxRequestSchema,
@@ -209,6 +210,20 @@ export const listMailboxesRoute = createRoute({
     500: standardErrors[500],
     503: standardErrors[503],
   },
+})
+
+export const createMailboxRoute = createRoute({
+  method: 'post',
+  path: '/v1/mailboxes',
+  operationId: 'createMailbox',
+  tags: ['Mailboxes'],
+  request: {
+    body: {
+      required: true,
+      content: { 'application/json': { schema: CreateMailboxRequestSchema } },
+    },
+  },
+  responses: { 200: json(MailboxSettingsSchema), ...standardErrors },
 })
 
 export const patchMailboxRoute = createRoute({
@@ -518,6 +533,7 @@ export const PUBLIC_API_ROUTES = [
   getSessionRoute,
   logoutRoute,
   listMailboxesRoute,
+  createMailboxRoute,
   patchMailboxRoute,
   listThreadsRoute,
   getThreadRoute,

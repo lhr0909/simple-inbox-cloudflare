@@ -358,6 +358,9 @@
           "renderHtml": {
             "type": "boolean"
           },
+          "whitelisted": {
+            "type": "boolean"
+          },
           "counts": {
             "$ref": "#/components/schemas/ThreadFolderCounts"
           },
@@ -379,6 +382,7 @@
           "forwardTo",
           "forwardHtml",
           "renderHtml",
+          "whitelisted",
           "counts",
           "createdAt",
           "updatedAt"
@@ -445,6 +449,9 @@
           "renderHtml": {
             "type": "boolean"
           },
+          "whitelisted": {
+            "type": "boolean"
+          },
           "updatedAt": {
             "type": "string",
             "format": "date-time",
@@ -458,8 +465,27 @@
           "forwardTo",
           "forwardHtml",
           "renderHtml",
+          "whitelisted",
           "updatedAt"
         ],
+        "additionalProperties": false
+      },
+      "CreateMailboxRequest": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 254,
+            "format": "email",
+            "example": "owner@example.test"
+          },
+          "forward": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": ["address"],
         "additionalProperties": false
       },
       "PatchMailboxRequest": {
@@ -481,6 +507,9 @@
             "type": "boolean"
           },
           "renderHtml": {
+            "type": "boolean"
+          },
+          "whitelisted": {
             "type": "boolean"
           }
         },
@@ -1604,6 +1633,142 @@
             }
           }
         }
+      },
+      "post": {
+        "operationId": "createMailbox",
+        "tags": ["Mailboxes"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMailboxRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailboxSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request was not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The operation is not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was absent or unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with existing state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is too large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request content type is not supported.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The request was rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The upstream mail provider failed or returned an unknown result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required service is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/mailboxes/{mailboxId}": {
@@ -1763,9 +1928,17 @@
         "parameters": [
           {
             "schema": {
-              "type": "string",
-              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-              "example": "01996f7a-7bcd-7abc-8def-1123456789ab"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "example": "01996f7a-7bcd-7abc-8def-1123456789ab"
+                },
+                {
+                  "type": "string",
+                  "enum": ["other"]
+                }
+              ]
             },
             "required": true,
             "name": "mailboxId",

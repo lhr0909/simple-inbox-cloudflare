@@ -35,7 +35,7 @@ export function useThreadDetail(mailboxId: string, threadId: string | null) {
       void getThreadDetail(threadId, request.signal)
         .then((detail) => {
           if (!request.isLatest() || activeKey.current !== key) return
-          if (detail.thread.mailboxId !== mailboxId) throw new ApiRequestError(404, 'Not found')
+          if (mailboxId !== 'other' && detail.thread.mailboxId !== mailboxId) throw new ApiRequestError(404, 'Not found')
           setState({ key, detail, error: null })
         })
         .catch((cause: unknown) => {

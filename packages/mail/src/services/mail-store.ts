@@ -28,7 +28,7 @@ import {
   parseReplyAlias,
   type SubjectThreadCandidate,
 } from '@cloudflare-inbox/mail-core'
-import { and, asc, desc, eq, gte, isNull, lte, or } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, isNull, lte, or, sql } from 'drizzle-orm'
 
 import type {
   MailStore,
@@ -75,7 +75,7 @@ export class D1MailStore implements MailStore {
     ownerEmail: string
     userId: string
   }): Promise<MailboxRecord> {
-    await this.#auth.bootstrapOwner(input)
+    await this.#auth.bootstrapOwner({ ...input, whitelisted: false })
     const row = await this.#findOwnedMailboxByAddress(input.mailboxAddress, input.ownerEmail)
     if (row === undefined) throw new Error('Mailbox bootstrap did not produce an owner membership.')
     return mailboxRecord(row)
@@ -329,7 +329,9 @@ export class D1MailStore implements MailStore {
     const [mailbox] = await this.#db
       .select({
         address: mailboxes.address,
-        forwardTo: mailboxes.forwardTo,
+        forwardTo: sql<
+          string | null
+        >`CASE WHEN ${mailboxes.whitelisted} = 1 THEN ${mailboxes.forwardTo} ELSE NULL END`,
         forwardHtml: mailboxes.forwardHtml,
         id: mailboxes.id,
         ownerUserId: users.id,
@@ -444,7 +446,9 @@ export class D1MailStore implements MailStore {
     const [row] = await this.#db
       .select({
         address: mailboxes.address,
-        forwardTo: mailboxes.forwardTo,
+        forwardTo: sql<
+          string | null
+        >`CASE WHEN ${mailboxes.whitelisted} = 1 THEN ${mailboxes.forwardTo} ELSE NULL END`,
         forwardHtml: mailboxes.forwardHtml,
         id: mailboxes.id,
         ownerUserId: users.id,
@@ -467,7 +471,9 @@ export class D1MailStore implements MailStore {
     const [row] = await this.#db
       .select({
         address: mailboxes.address,
-        forwardTo: mailboxes.forwardTo,
+        forwardTo: sql<
+          string | null
+        >`CASE WHEN ${mailboxes.whitelisted} = 1 THEN ${mailboxes.forwardTo} ELSE NULL END`,
         forwardHtml: mailboxes.forwardHtml,
         id: mailboxes.id,
         ownerUserId: users.id,

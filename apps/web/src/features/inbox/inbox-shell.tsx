@@ -8,6 +8,8 @@ import { MailboxSidebar, CompactHeader, MobileFolders } from './mailbox-navigati
 import { ThreadListPane } from './thread-list-pane'
 import { ConversationPane } from './conversation-pane'
 import { NewMessageDialog } from './new-message-dialog'
+import { AliasDialog } from './alias-dialog'
+import { Button } from '#/components/ui/button'
 import { MailboxSettingsDialog } from './mailbox-settings-dialog'
 import type { InboxShellProps } from './inbox-shell-types'
 
@@ -31,6 +33,7 @@ export function InboxShell({
   onCompose,
   onSignOut,
   onUpdateMailbox,
+  onCreateMailbox,
 }: InboxShellProps) {
   const [localTimesReady, setLocalTimesReady] = useState(false)
   const [navigationCollapsed, setNavigationCollapsed] = useState(false)
@@ -38,8 +41,17 @@ export function InboxShell({
   const [threadListWidth, setThreadListWidth] = useState(390)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [composeOpen, setComposeOpen] = useState(false)
-  const mailbox =
-    data.mailboxes.find((item) => item.id === query.mailboxId) ?? data.mailboxes[0] ?? null
+  const [aliasOpen, setAliasOpen] = useState(false)
+  const mailbox = data.mailboxes.find((item) => item.id === query.mailboxId) ?? null
+  const detailMailbox =
+    data.mailboxes.find((item) => item.id === data.selectedThread?.thread.mailboxId) ?? mailbox
+  const navigateMailbox: InboxShellProps['onQueryChange'] = (update, options) => {
+    if (update.mailboxId === 'create') {
+      setAliasOpen(true)
+      return
+    }
+    return onQueryChange?.(update, options)
+  }
   const mobileDetailVisible = query.threadId !== null
   const paneStyle = {
     '--navigation-width': `${navigationCollapsed ? 68 : navigationWidth}px`,
@@ -62,7 +74,7 @@ export function InboxShell({
             query={query}
             onCollapse={() => setNavigationCollapsed((current) => !current)}
             onOpenSettings={() => setSettingsOpen(true)}
-            onQueryChange={onQueryChange}
+            onQueryChange={navigateMailbox}
             onSignOut={onSignOut}
           />
           <PaneResizeHandle
@@ -84,7 +96,7 @@ export function InboxShell({
             mailboxes={data.mailboxes}
             query={query}
             onOpenSettings={() => setSettingsOpen(true)}
-            onQueryChange={onQueryChange}
+            onQueryChange={navigateMailbox}
           />
           <MobileFolders
             className={cn(
@@ -93,7 +105,7 @@ export function InboxShell({
             )}
             mailbox={mailbox}
             query={query}
-            onQueryChange={onQueryChange}
+            onQueryChange={navigateMailbox}
           />
 
           <ThreadListPane
@@ -102,14 +114,14 @@ export function InboxShell({
               mobileDetailVisible ? 'hidden md:flex' : 'flex',
             )}
             busy={busy}
-            mailboxAddress={mailbox?.address ?? 'Inbox'}
+            mailboxAddress={mailbox?.address ?? 'Other inbound'}
             nextCursor={data.nextCursor}
             query={query}
             refreshing={refreshing}
             loadingMore={loadingMore}
             selectedThreadId={query.threadId}
             threads={data.threads}
-            onQueryChange={onQueryChange}
+            onQueryChange={navigateMailbox}
             onCompose={() => setComposeOpen(true)}
             onLoadMore={onLoadMore}
             onRefresh={onRefresh}
@@ -131,13 +143,31 @@ export function InboxShell({
             )}
             busy={busy}
             detail={data.selectedThread}
-            renderHtml={mailbox?.renderHtml ?? false}
+            renderHtml={detailMailbox?.renderHtml ?? false}
             loading={detailLoading}
             error={detailError}
             onRetry={onRetryThread}
             onArchiveThread={onArchiveThread}
             onBack={onBack}
             onReply={onReply}
+            aliasNotice={
+              detailMailbox && !detailMailbox.whitelisted ? (
+                <div className="flex flex-wrap items-center gap-2 border-b bg-background px-4 py-2 text-xs">
+                  <span className="min-w-0 flex-1 break-all">
+                    Received at {detailMailbox.address} · forwarding off
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      await onCreateMailbox?.(detailMailbox.address, true)
+                    }}
+                  >
+                    Create inbox for this alias
+                  </Button>
+                </div>
+              ) : null
+            }
           />
         </div>
 
@@ -150,6 +180,11 @@ export function InboxShell({
           </div>
         ) : null}
 
+        <AliasDialog
+          open={aliasOpen}
+          onOpenChange={setAliasOpen}
+          onCreateMailbox={onCreateMailbox}
+        />
         <MailboxSettingsDialog
           busy={busy}
           mailbox={mailbox}

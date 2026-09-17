@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { eq } from 'drizzle-orm'
 
 import {
+  AuthRepository,
   createInboxDatabase,
   MailboxScopedRepository,
   mailboxes,
@@ -50,6 +51,7 @@ describe('mail module D1 adapter', () => {
       createStore: () => store,
       generateId: () => testUuid(id++),
     })
+    await new AuthRepository(binding).bootstrapOwner({ mailboxAddress: 'support@example.test', mailboxId: testUuid(90), now: NOW, ownerEmail: 'owner@example.test', userId: testUuid(91) })
     const raw = new TextEncoder().encode(inboundFixture)
 
     const outcome = await captureInboundEmail(
@@ -282,7 +284,7 @@ describe('mail module D1 adapter', () => {
 
     expect(mailbox).toMatchObject({
       address: 'campaigns@other.example.test',
-      forwardTo: 'owner@example.test',
+      forwardTo: null,
     })
     expect(thread).toEqual({ mailboxId: mailbox?.id, messageCount: 1 })
     expect(message).toMatchObject({ mailboxId: mailbox?.id, rawR2Key: expect.any(String) })

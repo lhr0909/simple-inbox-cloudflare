@@ -34,6 +34,7 @@ export function MailboxSettingsDialog({
   const preserveOpenDraft = useRef(false)
   const id = useId()
   const [alias, setAlias] = useState(mailbox?.senderAlias ?? '')
+  const [whitelisted, setWhitelisted] = useState(mailbox?.whitelisted ?? false)
   const [forwardTo, setForwardTo] = useState(mailbox?.forwardTo ?? '')
   const [forwardHtml, setForwardHtml] = useState(mailbox?.forwardHtml ?? false)
   const [renderHtml, setRenderHtml] = useState(mailbox?.renderHtml ?? false)
@@ -59,6 +60,7 @@ export function MailboxSettingsDialog({
     if (!mailboxChanged && preserveOpenDraft.current) return
     draftMailboxId.current = mailboxId
     preserveOpenDraft.current = false
+    setWhitelisted(mailbox?.whitelisted ?? false)
     setAlias(mailbox?.senderAlias ?? '')
     setForwardTo(mailbox?.forwardTo ?? '')
     setForwardHtml(mailbox?.forwardHtml ?? false)
@@ -66,6 +68,7 @@ export function MailboxSettingsDialog({
     setForwardToEdited(false)
     setStatus('idle')
   }, [
+    mailbox?.whitelisted,
     mailbox?.forwardTo,
     mailbox?.id,
     mailbox?.senderAlias,
@@ -79,6 +82,7 @@ export function MailboxSettingsDialog({
     if (mailbox === null || onUpdateMailbox === undefined) return
     const senderAlias = alias.trim() || null
     const patch: PatchMailboxRequest = {
+      ...(whitelisted === mailbox.whitelisted ? {} : { whitelisted }),
       ...(forwardHtml === mailbox.forwardHtml ? {} : { forwardHtml }),
       ...(renderHtml === mailbox.renderHtml ? {} : { renderHtml }),
       ...(senderAlias === mailbox.senderAlias ? {} : { senderAlias }),
@@ -140,6 +144,23 @@ export function MailboxSettingsDialog({
           </Button>
         </div>
 
+        <label className="mt-5 flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            checked={whitelisted}
+            disabled={busy || mailbox === null}
+            onChange={(event) => {
+              setWhitelisted(event.currentTarget.checked)
+              setStatus('idle')
+            }}
+          />
+          <span>
+            Show as an inbox
+            <span className="block text-xs text-muted-foreground">
+              Turning this off moves mail to Other inbound and disables forwarding.
+            </span>
+          </span>
+        </label>
         <Field className="mt-5">
           <FieldLabel htmlFor={`${id}-alias`}>Sender alias</FieldLabel>
           <Input

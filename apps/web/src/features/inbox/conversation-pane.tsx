@@ -39,6 +39,7 @@ export function ConversationPane({
   onBack,
   onArchiveThread,
   onReply,
+  aliasNotice,
 }: Readonly<{
   className?: string
   renderHtml?: boolean
@@ -50,6 +51,7 @@ export function ConversationPane({
   onBack?: InboxShellProps['onBack']
   onArchiveThread?: InboxShellProps['onArchiveThread']
   onReply?: InboxShellProps['onReply']
+  aliasNotice?: ReactNode
 }>) {
   const [composerOpen, setComposerOpen] = useState(false)
   const scrollPane = useRef<HTMLDivElement>(null)
@@ -152,6 +154,7 @@ export function ConversationPane({
         </Button>
       </header>
 
+      {aliasNotice}
       <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5" ref={scrollPane}>
         <div className="mx-auto max-w-3xl space-y-3">
           {detail.messages.map((message) => (

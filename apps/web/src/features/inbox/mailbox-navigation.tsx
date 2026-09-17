@@ -56,11 +56,15 @@ function MailboxSelect({
       value={query.mailboxId}
     >
       {mailboxes.length === 0 ? <option value="">No mailbox assigned</option> : null}
-      {mailboxes.map((mailbox) => (
-        <option key={mailbox.id} value={mailbox.id}>
-          {mailbox.address}
-        </option>
-      ))}
+      <option value="other">Other inbound</option>
+      <option value="create">+ New inbox…</option>
+      {mailboxes
+        .filter((mailbox) => mailbox.whitelisted)
+        .map((mailbox) => (
+          <option key={mailbox.id} value={mailbox.id}>
+            {mailbox.address}
+          </option>
+        ))}
     </select>
   )
 }

@@ -42,6 +42,7 @@ export const mailboxes = sqliteTable(
     id: text('id').primaryKey().notNull(),
     address: text('address').notNull(),
     senderAlias: text('sender_alias'),
+    whitelisted: integer('whitelisted', { mode: 'boolean' }).notNull().default(false),
     forwardTo: text('forward_to'),
     forwardHtml: integer('forward_html', { mode: 'boolean' }).notNull().default(true),
     renderHtml: integer('render_html', { mode: 'boolean' }).notNull().default(false),

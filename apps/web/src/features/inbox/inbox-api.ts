@@ -159,3 +159,11 @@ export function getThreadDetail(threadId: string, signal: AbortSignal) {
     { signal },
   )
 }
+
+export function createMailbox(address: string, forward = true) {
+  return requestJson('/api/v1/mailboxes', MailboxSettingsSchema, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ address, forward }),
+  })
+}

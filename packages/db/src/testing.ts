@@ -75,6 +75,7 @@ export async function seedSyntheticInbox(
           address: mailbox.address,
           createdAt: input.now,
           forwardTo: mailbox.forwardTo,
+          whitelisted: true,
           id: mailbox.id,
           senderAlias: mailbox.senderAlias,
           updatedAt: input.now,
