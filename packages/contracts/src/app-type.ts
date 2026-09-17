@@ -14,7 +14,8 @@ import type { MailboxListResponse, MailboxSettings, PatchMailboxRequest } from '
 import type { ThreadListQuery } from './queries'
 import type { NewMessageForm, ReplyMessageForm, SendResponse } from './send'
 import type { CompleteSetupRequest, SetupStatusResponse } from './setup'
-import type { ThreadDetailResponse, ThreadListResponse } from './threads'
+import type { CreateSpamRule, SpamRulesResponse } from './spam'
+import type { PatchMessageState, ThreadDetailResponse, ThreadListResponse } from './threads'
 
 type JsonEndpoint<Input, Output, Status extends number> = {
   input: Input
@@ -85,6 +86,10 @@ export type PublicApiSchema = {
     $post: WithStandardErrors<{}, EmptyEndpoint<{}, 204>>
   }
   '/v1/mailboxes': {
+    $post: WithStandardErrors<
+      { json: { address: string; forward?: boolean } },
+      JsonEndpoint<{ json: { address: string; forward?: boolean } }, MailboxSettings, 200>
+    >
     $get: WithStandardErrors<{}, JsonEndpoint<{}, MailboxListResponse, 200>>
   }
   '/v1/mailboxes/:mailboxId': {
@@ -107,6 +112,25 @@ export type PublicApiSchema = {
     $get: WithStandardErrors<
       { param: { threadId: ThreadId } },
       JsonEndpoint<{ param: { threadId: ThreadId } }, ThreadDetailResponse, 200>
+    >
+  }
+  '/v1/spam-rules': {
+    $get: WithStandardErrors<{}, JsonEndpoint<{}, SpamRulesResponse, 200>>
+    $post: WithStandardErrors<
+      { json: CreateSpamRule },
+      EmptyEndpoint<{ json: CreateSpamRule }, 204>
+    >
+  }
+  '/v1/spam-rules/:ruleId': {
+    $delete: WithStandardErrors<
+      { param: { ruleId: string } },
+      EmptyEndpoint<{ param: { ruleId: string } }, 204>
+    >
+  }
+  '/v1/threads/:threadId/state': {
+    $patch: WithStandardErrors<
+      { param: { threadId: ThreadId }; json: PatchMessageState },
+      EmptyEndpoint<{ param: { threadId: ThreadId }; json: PatchMessageState }, 204>
     >
   }
   '/v1/threads/:threadId/read': {

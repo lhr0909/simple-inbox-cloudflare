@@ -20,7 +20,8 @@
     "./queries": "./src/queries.ts",
     "./routes": "./src/routes.ts",
     "./send": "./src/send.ts",
-    "./threads": "./src/threads.ts"
+    "./threads": "./src/threads.ts",
+    "./spam": "./src/spam.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",

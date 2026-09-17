@@ -44,6 +44,25 @@ export function InboxShell({
   const [composeOpen, setComposeOpen] = useState(false)
   const [aliasOpen, setAliasOpen] = useState(false)
   const mailbox = data.mailboxes.find((item) => item.id === query.mailboxId) ?? null
+  const [aliasError, setAliasError] = useState<string | null>(null)
+  const baseMailbox = data.mailboxes[0]
+  const navigationMailbox =
+    mailbox ??
+    (baseMailbox
+      ? {
+          ...baseMailbox,
+          counts: data.mailboxes
+            .filter((item) => !item.whitelisted)
+            .reduce(
+              (counts, item) => {
+                for (const key of Object.keys(counts) as (keyof typeof counts)[])
+                  counts[key] += item.counts[key]
+                return counts
+              },
+              { all: 0, inbox: 0, archive: 0, starred: 0, sent: 0, spam: 0, trash: 0, unread: 0 },
+            ),
+        }
+      : null)
   const detailMailbox =
     data.mailboxes.find((item) => item.id === data.selectedThread?.thread.mailboxId) ?? mailbox
   const navigateMailbox: InboxShellProps['onQueryChange'] = (update, options) => {
@@ -70,7 +89,7 @@ export function InboxShell({
         >
           <MailboxSidebar
             collapsed={navigationCollapsed}
-            mailbox={mailbox}
+            mailbox={navigationMailbox}
             mailboxes={data.mailboxes}
             query={query}
             onCollapse={() => setNavigationCollapsed((current) => !current)}
@@ -93,7 +112,7 @@ export function InboxShell({
               'col-start-1 row-start-1 md:col-span-2 xl:hidden',
               mobileDetailVisible && 'hidden md:flex',
             )}
-            mailbox={mailbox}
+            mailbox={navigationMailbox}
             mailboxes={data.mailboxes}
             query={query}
             onOpenSettings={() => setSettingsOpen(true)}
@@ -104,7 +123,7 @@ export function InboxShell({
               'col-start-1 row-start-2 md:col-span-2 xl:hidden',
               mobileDetailVisible && 'hidden md:flex',
             )}
-            mailbox={mailbox}
+            mailbox={navigationMailbox}
             query={query}
             onQueryChange={navigateMailbox}
           />
@@ -115,6 +134,9 @@ export function InboxShell({
               mobileDetailVisible ? 'hidden md:flex' : 'flex',
             )}
             busy={busy}
+            aliasAddresses={Object.fromEntries(
+              data.mailboxes.map((item) => [item.id, item.address]),
+            )}
             mailboxAddress={mailbox?.address ?? 'Other inbound'}
             nextCursor={data.nextCursor}
             query={query}
@@ -138,6 +160,7 @@ export function InboxShell({
           />
 
           <ConversationPane
+            key={`${query.mailboxId}:${query.folder}:${query.threadId ?? ''}`}
             className={cn(
               'col-start-1 row-start-3 md:col-start-2 md:row-start-3 xl:col-start-5 xl:row-start-1',
               mobileDetailVisible ? 'flex' : 'hidden md:flex',
@@ -162,7 +185,12 @@ export function InboxShell({
                     size="sm"
                     variant="outline"
                     onClick={async () => {
-                      await onCreateMailbox?.(detailMailbox.address, true)
+                      try {
+                        setAliasError(null)
+                        await onCreateMailbox?.(detailMailbox.address, true)
+                      } catch {
+                        setAliasError('Could not create inbox. Try again.')
+                      }
                     }}
                   >
                     Create inbox for this alias
@@ -173,12 +201,12 @@ export function InboxShell({
           />
         </div>
 
-        {error ? (
+        {error || aliasError ? (
           <div
             className="absolute right-4 bottom-4 z-30 max-w-sm rounded-xl border border-destructive/30 bg-background px-4 py-3 text-sm text-foreground shadow-lg"
             role="alert"
           >
-            {error}
+            {error ?? aliasError}
           </div>
         ) : null}
 
@@ -205,5 +233,3 @@ export function InboxShell({
     </HydratedTimeContext.Provider>
   )
 }
-
-export { InboxStatusLegend } from './inbox-primitives'

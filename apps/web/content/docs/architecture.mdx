@@ -20,13 +20,13 @@ packages, but they run in one isolate and use in-process adapters rather than Se
 
 ## Logical responsibilities
 
-| Component | Owns                                                                                      |
-| --------- | ----------------------------------------------------------------------------------------- |
-| Root/web  | Public routing, UI/SSR, docs, security headers, setup redirects, `/api/v1` bridge         |
-| API       | Setup, sessions, CSRF, scopes, mailbox authorization, contracts, orchestration            |
-| Mail      | Inbound capture, MIME parsing, threading, forwarding, outbound delivery, retention        |
-| D1        | Installation, users, mailboxes, projections, sessions, idempotency, workflows, tombstones |
-| R2        | Canonical raw `.eml` objects under opaque keys                                            |
+| Component | Owns                                                                                                      |
+| --------- | --------------------------------------------------------------------------------------------------------- |
+| Root/web  | Public routing, UI/SSR, docs, security headers, setup redirects, `/api/v1` bridge                         |
+| API       | Setup, sessions, CSRF, scopes, mailbox authorization, contracts, orchestration                            |
+| Mail      | Inbound capture, MIME parsing, threading, forwarding, outbound delivery, retention                        |
+| D1        | Installation, users, mailboxes, projections, sessions, idempotency, message state, blacklists, tombstones |
+| R2        | Canonical raw `.eml` objects under opaque keys                                                            |
 
 The root router is the only HTTP edge. The API calls mail through a narrow in-memory fetcher that
 accepts only the fixed `https://mail.internal/internal/*` surface. The public router never maps those
@@ -80,3 +80,19 @@ Worker config. Email domain verification, R2 lifecycle, custom domains, and Emai
 manual Cloudflare Dashboard owner actions.
 
 No repository command discovers, imports, switches, or deletes a legacy resource.
+
+## Everyday inbox organization
+
+New catch-all aliases are captured under **Other inbound** without forwarding. Promote an alias to
+an inbox from its conversation, or choose **+ New inbox…** in the mailbox dropdown. Turning off
+**Show as an inbox** hides the alias and disables forwarding without deleting mail.
+
+Inbox, Starred, Sent, All Mail, Spam, and Trash are views over message state. Sent retains a
+conversation when someone replies. Opening any result shows the full thread in collapsible message
+cards. Archive removes inbox membership, while Trash supports restore. Read state changes only for
+expanded incoming messages. Reading a forwarded copy in another mail client does not sync back.
+
+Settings provides explicit spam blacklists for inbound aliases, sender addresses, and sender domains
+(including subdomains). Matching future mail is retained in Spam without forwarding. Not spam
+restores existing mail without removing the rule. Spam/Trash follow the configured installation
+retention; no separate 30-day deletion policy is applied. No keyword or AI classifier is enabled.

@@ -10,6 +10,7 @@ import {
   createMailbox,
   listThreadPage,
   patchThreadState,
+  getThreadDetail,
   sendNewMessage,
   sendReply,
   setThreadArchived,
@@ -96,7 +97,13 @@ function Inbox() {
   activeSearchKey.current = currentKey
   const source = refreshed?.listKey === currentListKey ? refreshed : loaded
   const query = inboxQueryFromSearch(search, source.effectiveMailboxId)
-  const conversation = useThreadDetail(query.mailboxId, query.threadId)
+  const selectedSummary = source.data.threads.find((thread) => thread.id === query.threadId)
+  const conversation = useThreadDetail(
+    query.mailboxId,
+    query.threadId,
+    selectedSummary ? `${selectedSummary.lastMessageAt}:${selectedSummary.messageCount}` : '',
+    query.folder,
+  )
   const { reload: reloadThread, commit: commitSelectedThread } = conversation
   const data = useMemo(
     () =>
@@ -166,22 +173,25 @@ function Inbox() {
   )
 
   const navigateSearch = useCallback(
-    (nextSearch: InboxSearch, replace = false) => {
+    (update: Partial<InboxQuery>, replace = false) => {
       snapshotRequests.current.invalidate()
       pageRequests.current.invalidate()
       setRefreshing(false)
       setLoadingMore(false)
-      return navigate({ search: nextSearch, replace, resetScroll: false })
+      return navigate({
+        search: (previous) => updateInboxSearch(previous, update),
+        replace,
+        resetScroll: false,
+      })
     },
     [navigate],
   )
 
   const changeQuery = useCallback(
     (update: Partial<InboxQuery>, options?: Readonly<{ replace?: boolean }>) => {
-      const nextSearch = updateInboxSearch(search, update)
-      return navigateSearch(nextSearch, options?.replace ?? false)
+      return navigateSearch(update, options?.replace ?? false)
     },
-    [navigateSearch, search],
+    [navigateSearch],
   )
 
   function setThreadOptimistic(threadId: string, state: OptimisticThreadState | null): void {
@@ -229,7 +239,7 @@ function Inbox() {
   async function selectThread(threadId: string): Promise<void> {
     setError(null)
     try {
-      await navigateSearch(updateInboxSearch(search, { threadId }))
+      await navigateSearch({ threadId })
     } catch {
       setError('The conversation could not be opened. The current list is still available.')
     }
@@ -391,6 +401,20 @@ function Inbox() {
       error={error}
       loadingMore={loadingMore}
       onMessageState={async (threadId, patch) => {
+        if (patch.read === true && patch.messageIds) {
+          try {
+            await patchThreadState(threadId, patch)
+            const detail = await getThreadDetail(threadId, new AbortController().signal)
+            commitThreadState(threadId, { unreadCount: detail.thread.unreadCount })
+            conversation.replace(detail)
+          } catch (cause) {
+            if (!redirectIfAnonymous(cause))
+              setError(
+                'Read state could not be saved. Close and reopen the conversation to try again.',
+              )
+          }
+          return
+        }
         beginOperation()
         try {
           await patchThreadState(threadId, patch)

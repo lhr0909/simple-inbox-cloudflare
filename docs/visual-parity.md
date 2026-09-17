@@ -15,9 +15,9 @@ deterministic `example.test` fixture from `apps/web/tests/fixtures/messages`.
 
 ## State and interaction inventory
 
-- Populated and unread lists show sender, subject, preview, time, workflow state, attachment count,
+- Populated and unread lists show sender, subject, preview, time, starred state, attachment count,
   and unread indication without shifting the row layout.
-- All, Needs reply, Sent, and Archive expose counts and current-folder semantics; Unread is an
+- Inbox, Starred, Sent, All Mail, Spam, and Trash expose counts and current-folder semantics; Unread is an
   independent pressed state.
 - Search is visibly pending, debounced, URL-backed, and has a useful empty result without erasing
   the last successful list on refresh failure.

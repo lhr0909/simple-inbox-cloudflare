@@ -1,5 +1,6 @@
 import {
   AuthRepository,
+  SpamRuleRepository,
   MailProjectionRepository,
   OutboundSendRepository,
   attachments,
@@ -28,7 +29,7 @@ import {
   parseReplyAlias,
   type SubjectThreadCandidate,
 } from '@cloudflare-inbox/mail-core'
-import { and, asc, desc, eq, gte, isNull, lte, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, isNull, lte, or, inArray, isNotNull } from 'drizzle-orm'
 
 import type {
   MailStore,
@@ -41,6 +42,7 @@ import type {
 
 type MailboxJoinRow = {
   forwardHtml: boolean
+  whitelisted: boolean
   address: string
   forwardTo: string | null
   id: string
@@ -56,16 +58,42 @@ type MailboxJoinRow = {
  * exported schema objects so Worker handlers never contain SQL.
  */
 export class D1MailStore implements MailStore {
+  readonly #binding: D1Database
   readonly #auth: AuthRepository
   readonly #db: InboxDatabase
   readonly #outbound: OutboundSendRepository
   readonly #projection: MailProjectionRepository
 
   constructor(binding: D1Database) {
+    this.#binding = binding
     this.#auth = new AuthRepository(binding)
     this.#db = createInboxDatabase(binding)
     this.#outbound = new OutboundSendRepository(binding)
     this.#projection = new MailProjectionRepository(binding)
+  }
+
+  async listSpamRules(ownerEmail: string) {
+    return SpamRuleRepository.forOwner(this.#binding, ownerEmail)
+  }
+
+  async suppressForward(messageId: string, reason: string, now: number): Promise<void> {
+    await this.#db
+      .update(messages)
+      .set({
+        spamAt: now,
+        spamReason: reason,
+        inbox: false,
+        forwardState: 'not_applicable',
+        retryability: 'not_retryable',
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(messages.id, messageId),
+          eq(messages.forwardState, 'pending'),
+          isNull(messages.forwardAttemptedAt),
+        ),
+      )
   }
 
   async ensureMailbox(input: {
@@ -283,6 +311,15 @@ export class D1MailStore implements MailStore {
           eq(messages.direction, 'inbound'),
           eq(messages.forwardState, 'pending'),
           isNull(messages.forwardAttemptedAt),
+          isNull(messages.spamAt),
+          isNull(messages.trashedAt),
+          inArray(
+            messages.mailboxId,
+            this.#db
+              .select({ id: mailboxes.id })
+              .from(mailboxes)
+              .where(and(eq(mailboxes.whitelisted, true), isNotNull(mailboxes.forwardTo))),
+          ),
         ),
       )
       .run()
@@ -329,9 +366,8 @@ export class D1MailStore implements MailStore {
     const [mailbox] = await this.#db
       .select({
         address: mailboxes.address,
-        forwardTo: sql<
-          string | null
-        >`CASE WHEN ${mailboxes.whitelisted} = 1 THEN ${mailboxes.forwardTo} ELSE NULL END`,
+        forwardTo: mailboxes.forwardTo,
+        whitelisted: mailboxes.whitelisted,
         forwardHtml: mailboxes.forwardHtml,
         id: mailboxes.id,
         ownerUserId: users.id,
@@ -446,9 +482,8 @@ export class D1MailStore implements MailStore {
     const [row] = await this.#db
       .select({
         address: mailboxes.address,
-        forwardTo: sql<
-          string | null
-        >`CASE WHEN ${mailboxes.whitelisted} = 1 THEN ${mailboxes.forwardTo} ELSE NULL END`,
+        forwardTo: mailboxes.forwardTo,
+        whitelisted: mailboxes.whitelisted,
         forwardHtml: mailboxes.forwardHtml,
         id: mailboxes.id,
         ownerUserId: users.id,
@@ -471,9 +506,8 @@ export class D1MailStore implements MailStore {
     const [row] = await this.#db
       .select({
         address: mailboxes.address,
-        forwardTo: sql<
-          string | null
-        >`CASE WHEN ${mailboxes.whitelisted} = 1 THEN ${mailboxes.forwardTo} ELSE NULL END`,
+        forwardTo: mailboxes.forwardTo,
+        whitelisted: mailboxes.whitelisted,
         forwardHtml: mailboxes.forwardHtml,
         id: mailboxes.id,
         ownerUserId: users.id,
@@ -578,7 +612,7 @@ export class D1MailStore implements MailStore {
 function mailboxRecord(row: MailboxJoinRow): MailboxRecord {
   return {
     address: row.address,
-    forwardTo: row.forwardTo,
+    forwardTo: row.whitelisted ? row.forwardTo : null,
     forwardHtml: row.forwardHtml,
     id: row.id,
     ownerUserId: row.ownerUserId,

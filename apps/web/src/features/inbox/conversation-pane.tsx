@@ -363,7 +363,14 @@ function MessageCard({
           </header>
           {message.spamAt !== null ? (
             <p className="border-t bg-muted px-4 py-2 text-xs">
-              Spam · {message.spamReason ?? 'Marked as spam'}
+              Spam ·{' '}
+              {message.spamReason === 'blacklist_recipient'
+                ? 'Blocked inbound alias'
+                : message.spamReason === 'blacklist_sender'
+                  ? 'Blocked sender address'
+                  : message.spamReason === 'blacklist_domain'
+                    ? 'Blocked sender domain'
+                    : 'Marked as spam'}
             </p>
           ) : null}
           {message.trashedAt !== null ? (

@@ -16,6 +16,8 @@ const MAX_D1_MESSAGE_BODY_PROJECTION_BYTES = 1_500_000
 const UTF8_ENCODER = new TextEncoder()
 
 export interface MessageProjection {
+  spamAt?: number | null
+  spamReason?: string | null
   createdAt: number
   direction: MessageDirection
   forwardAttemptedAt: number | null
@@ -167,12 +169,12 @@ export class MailProjectionRepository {
         .prepare(`
           UPDATE threads
           SET
-            archived_at = NULL,
+            archived_at = CASE WHEN ? = 1 THEN archived_at ELSE NULL END,
             workflow_state = 'needs_reply',
             updated_at = max(updated_at, ?)
           WHERE id = ? AND mailbox_id = ?
         `)
-        .bind(message.updatedAt, message.threadId, message.mailboxId),
+        .bind(message.spamAt ? 1 : 0, message.updatedAt, message.threadId, message.mailboxId),
     )
 
     const results = await this.#binding.batch(statements)
@@ -254,10 +256,10 @@ export class MailProjectionRepository {
             from_address, from_name, subject, preview, text_body, html_body,
             html_policy, sent_at, received_at, raw_r2_key, raw_size, raw_sha256,
             read_at, send_state, forward_state, provider_error_code, retryability,
-            send_attempted_at, forward_attempted_at, created_at, updated_at, inbox
+            send_attempted_at, forward_attempted_at, created_at, updated_at, inbox, spam_at, spam_reason
           ) VALUES (
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
           )
         `)
         .bind(
@@ -290,7 +292,9 @@ export class MailProjectionRepository {
           message.forwardAttemptedAt,
           message.createdAt,
           message.updatedAt,
-          message.direction === 'inbound' ? 1 : 0,
+          message.direction === 'inbound' && !message.spamAt ? 1 : 0,
+          message.spamAt ?? null,
+          message.spamReason ?? null,
         ),
     ]
 

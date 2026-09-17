@@ -34,14 +34,21 @@
       "idx": 4,
       "version": "6",
       "when": 1789615211519,
-      "tag": "0004_productive_iron_fist",
+      "tag": "0004_alias_whitelist",
       "breakpoints": true
     },
     {
       "idx": 5,
       "version": "6",
       "when": 1789615459318,
-      "tag": "0005_military_photon",
+      "tag": "0005_message_organization",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1789615885838,
+      "tag": "0006_spam_blacklist",
       "breakpoints": true
     }
   ]

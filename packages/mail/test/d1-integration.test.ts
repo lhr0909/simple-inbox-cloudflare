@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm'
 
 import {
   AuthRepository,
+  SpamRuleRepository,
   createInboxDatabase,
   MailboxScopedRepository,
   mailboxes,
@@ -295,6 +296,144 @@ describe('mail module D1 adapter', () => {
     expect(thread).toEqual({ mailboxId: mailbox?.id, messageCount: 1 })
     expect(message).toMatchObject({ mailboxId: mailbox?.id, rawR2Key: expect.any(String) })
     expect(runtime.objects.get(String(message?.rawR2Key))).toEqual(raw)
+  })
+
+  it.each(['recipient', 'sender', 'domain'] as const)(
+    'quarantines %s blacklist matches without forwarding or duplicate delivery',
+    async (kind) => {
+      const database = new TestD1Database()
+      databases.push(database)
+      const binding = database.asD1()
+      const owner = await new AuthRepository(binding).bootstrapOwner({
+        mailboxAddress: 'support@example.test',
+        mailboxId: testUuid(500),
+        now: NOW,
+        ownerEmail: 'owner@example.test',
+        userId: testUuid(501),
+      })
+      const rules = new SpamRuleRepository(binding, owner.userId)
+      await rules.add({
+        id: testUuid(502),
+        kind,
+        value:
+          kind === 'recipient'
+            ? 'support@example.test'
+            : kind === 'sender'
+              ? 'alice@sender.example.test'
+              : 'sender.example.test',
+        createdAt: NOW,
+      })
+      const store = new D1MailStore(binding)
+      const runtime = createFakeEnvironment()
+      runtime.env.DB = binding
+      let id = 510
+      const dependencies = createDependencies(new FakeMailStore(), {
+        createStore: () => store,
+        generateId: () => testUuid(id++),
+      })
+      const raw = new TextEncoder().encode(inboundFixture)
+      const first = await captureInboundEmail(
+        createForwardableMessage(raw).message,
+        runtime.env,
+        dependencies,
+        'trace_spam_test',
+      )
+      expect(first.kind).toBe('captured')
+      if (first.kind !== 'captured') throw new Error('Capture failed')
+      const repo = new MailboxScopedRepository(binding, { userId: owner.userId })
+      const detail = await repo.getThreadDetail(first.threadId)
+      expect(detail?.messages[0]).toMatchObject({
+        spamAt: NOW,
+        spamReason: `blacklist_${kind}`,
+        forwardState: 'not_applicable',
+        inbox: false,
+      })
+      expect((await repo.listThreads({ folder: 'spam' })).items).toHaveLength(1)
+      expect((await repo.listThreads({ folder: 'inbox' })).items).toHaveLength(0)
+      expect((await repo.listThreads({ folder: 'all' })).items).toHaveLength(0)
+      expect(runtime.sent).toHaveLength(0)
+      expect(runtime.objects.size).toBe(1)
+      await rules.remove(testUuid(502))
+      await captureInboundEmail(
+        createForwardableMessage(raw).message,
+        runtime.env,
+        dependencies,
+        'trace_spam_duplicate',
+      )
+      expect(runtime.sent).toHaveLength(0)
+      await repo.patchMessageState(first.threadId, { location: 'not_spam' }, NOW + 1)
+      expect((await repo.listThreads({ folder: 'inbox' })).items).toHaveLength(1)
+      expect(runtime.sent).toHaveLength(0)
+    },
+  )
+
+  it('promotes a quiet alias without forwarding history and keeps hide/forward policy effective on retries', async () => {
+    const database = new TestD1Database()
+    databases.push(database)
+    const binding = database.asD1()
+    const store = new D1MailStore(binding)
+    const runtime = createFakeEnvironment()
+    runtime.env.DB = binding
+    let id = 600
+    const dependencies = createDependencies(new FakeMailStore(), {
+      createStore: () => store,
+      generateId: () => testUuid(id++),
+    })
+    const raw = new TextEncoder().encode(inboundFixture)
+    const first = await captureInboundEmail(
+      createForwardableMessage(raw).message,
+      runtime.env,
+      dependencies,
+      'trace_quiet_alias',
+    )
+    expect(first.kind).toBe('captured')
+    const mailbox = await store.ensureMailbox({
+      mailboxAddress: 'support@example.test',
+      mailboxId: testUuid(690),
+      now: NOW,
+      ownerEmail: 'owner@example.test',
+      userId: testUuid(691),
+    })
+    const repo = new MailboxScopedRepository(binding, { userId: mailbox.ownerUserId })
+    expect(await repo.getMailboxSettings(mailbox.id)).toMatchObject({
+      whitelisted: false,
+      forwardTo: null,
+    })
+    expect((await repo.listThreads({ mailboxId: 'other', folder: 'inbox' })).items).toHaveLength(1)
+    expect(runtime.sent).toHaveLength(0)
+    await repo.updateMailboxSettings(
+      mailbox.id,
+      { whitelisted: true, forwardTo: 'owner@example.test' },
+      NOW + 1,
+    )
+    expect((await repo.listThreads({ mailboxId: 'other', folder: 'inbox' })).items).toHaveLength(0)
+    await captureInboundEmail(
+      createForwardableMessage(raw).message,
+      runtime.env,
+      dependencies,
+      'trace_promoted_duplicate',
+    )
+    expect(runtime.sent).toHaveLength(0)
+    const nextRaw = new TextEncoder().encode(
+      inboundFixture
+        .replace('Message-ID:', 'X-Previous-Message-ID:')
+        .replace('Subject:', 'Message-ID: <promoted-next@example.test>\r\nSubject:'),
+    )
+    await captureInboundEmail(
+      createForwardableMessage(nextRaw).message,
+      runtime.env,
+      dependencies,
+      'trace_promoted_next',
+    )
+    expect(runtime.sent).toHaveLength(1)
+    await repo.updateMailboxSettings(mailbox.id, { whitelisted: false }, NOW + 2)
+    expect(
+      (
+        await store.getInboundForwardContext(
+          first.kind === 'captured' ? first.messageId : 'missing',
+        )
+      )?.mailbox.forwardTo,
+    ).toBeNull()
   })
 
   it('enforces actor mailbox scope for outbound context and send reservation', async () => {

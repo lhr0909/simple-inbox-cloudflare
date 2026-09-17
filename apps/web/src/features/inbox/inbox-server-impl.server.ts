@@ -96,7 +96,7 @@ export async function consumeMagicLink(
   }
 
   const incoming = getRequest()
-  const returnTo = readReturnPathCookie(incoming.headers.get('cookie')) ?? '/inbox?folder=all'
+  const returnTo = readReturnPathCookie(incoming.headers.get('cookie')) ?? '/inbox?folder=inbox'
   setResponseHeader('set-cookie', [
     ...response.headers.getSetCookie(),
     returnPathCookie('', 0, new URL(incoming.url).protocol === 'https:'),

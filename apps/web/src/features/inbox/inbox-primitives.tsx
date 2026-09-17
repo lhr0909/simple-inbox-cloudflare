@@ -1,9 +1,7 @@
 import { createContext, useContext, useRef } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
-import ClockIcon from 'lucide-react/dist/esm/icons/clock-3.mjs'
 import InboxIcon from 'lucide-react/dist/esm/icons/inbox.mjs'
 import MailOpenIcon from 'lucide-react/dist/esm/icons/mail-open.mjs'
-import TagIcon from 'lucide-react/dist/esm/icons/tag.mjs'
 
 import { cn } from '#/lib/utils'
 
@@ -146,20 +144,5 @@ export function PaneResizeHandle({
       role="separator"
       tabIndex={disabled ? -1 : 0}
     />
-  )
-}
-
-export function InboxStatusLegend() {
-  return (
-    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-      <span className="inline-flex items-center gap-1">
-        <TagIcon aria-hidden="true" className="size-3" />
-        Needs reply
-      </span>
-      <span className="inline-flex items-center gap-1">
-        <ClockIcon aria-hidden="true" className="size-3" />
-        Waiting
-      </span>
-    </div>
   )
 }

@@ -731,6 +731,7 @@ export class MailboxScopedRepository {
         .bind(...values, threadId, this.#actorUserId, ...(patch.messageIds ?? [])),
       this.#binding
         .prepare(`UPDATE threads SET
+        message_count = (SELECT count(*) FROM messages m WHERE m.thread_id = threads.id),
         unread_count = (SELECT count(*) FROM messages m WHERE m.thread_id = threads.id AND m.direction = 'inbound' AND m.read_at IS NULL),
         archived_at = CASE WHEN EXISTS (SELECT 1 FROM messages m WHERE m.thread_id = threads.id AND m.inbox = 1 AND m.spam_at IS NULL AND m.trashed_at IS NULL) THEN NULL ELSE coalesce(archived_at, ?) END,
         updated_at = max(updated_at, ?)

@@ -14,8 +14,13 @@ type DetailState = Readonly<{
 }>
 
 /** The list stays interactive while only the selected conversation loads. */
-export function useThreadDetail(mailboxId: string, threadId: string | null) {
-  const key = `${mailboxId}\u0000${threadId ?? ''}`
+export function useThreadDetail(
+  mailboxId: string,
+  threadId: string | null,
+  version = '',
+  scope = '',
+) {
+  const key = `${mailboxId}\u0000${threadId ?? ''}\u0000${scope}`
   const activeKey = useRef(key)
   activeKey.current = key
   const requests = useRef(new LatestRequestCoordinator())
@@ -56,7 +61,7 @@ export function useThreadDetail(mailboxId: string, threadId: string | null) {
         })
     }
     return () => coordinator.invalidate()
-  }, [key, mailboxId, revision, threadId])
+  }, [key, mailboxId, revision, threadId, version])
 
   const commit = useCallback((id: string, patch: OptimisticThreadState) => {
     setState((current) => {
@@ -81,5 +86,13 @@ export function useThreadDetail(mailboxId: string, threadId: string | null) {
     loading: threadId !== null && Boolean(mailboxId) && current === null,
     reload,
     commit,
+    replace: (detail: ThreadDetailResponse) =>
+      setState((current) =>
+        current?.key === activeKey.current &&
+        current.detail?.thread.id === detail.thread.id &&
+        detail.thread.messageCount >= current.detail.thread.messageCount
+          ? { ...current, detail }
+          : current,
+      ),
   }
 }

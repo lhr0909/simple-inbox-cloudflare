@@ -1,3 +1,4 @@
+import { SpamSettings } from './spam-settings'
 import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import LogOutIcon from 'lucide-react/dist/esm/icons/log-out.mjs'
@@ -292,6 +293,8 @@ export function MailboxSettingsDialog({
             </span>
           </label>
         </fieldset>
+
+        <SpamSettings open={open} />
 
         <Field className="mt-4">
           <FieldLabel htmlFor={`${id}-theme`}>Color theme</FieldLabel>

@@ -133,7 +133,9 @@ export function MailboxSidebar({
               onQueryChange={onQueryChange}
             />
             <p className="mt-2 truncate text-xs text-muted-foreground">
-              Sending as {mailbox?.senderAlias ?? mailbox?.address ?? 'the configured mailbox'}
+              {query.mailboxId === 'other'
+                ? 'Unlisted aliases · forwarding off'
+                : `Sending as ${mailbox?.senderAlias ?? mailbox?.address ?? 'the configured mailbox'}`}
             </p>
           </div>
         </div>

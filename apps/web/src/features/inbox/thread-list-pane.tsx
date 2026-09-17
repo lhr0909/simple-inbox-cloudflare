@@ -22,6 +22,7 @@ export function ThreadListPane({
   className,
   busy,
   mailboxAddress,
+  aliasAddresses,
   nextCursor,
   query,
   refreshing,
@@ -37,6 +38,7 @@ export function ThreadListPane({
   className?: string
   busy: boolean
   mailboxAddress: string
+  aliasAddresses?: Readonly<Record<string, string>>
   nextCursor: string | null
   query: InboxQuery
   refreshing: boolean
@@ -76,7 +78,12 @@ export function ThreadListPane({
           </p>
         </div>
         <div className="flex items-center gap-1">
-          <Button onClick={onCompose} size="sm">
+          <Button
+            onClick={onCompose}
+            size="sm"
+            disabled={query.mailboxId === 'other' || !query.mailboxId}
+            title={query.mailboxId === 'other' ? 'Choose or create an inbox to compose' : undefined}
+          >
             <SendIcon aria-hidden="true" className="size-4" />
             Compose
           </Button>
@@ -140,6 +147,9 @@ export function ThreadListPane({
         ) : (
           threads.map((thread) => (
             <ThreadRow
+              aliasAddress={
+                query.mailboxId === 'other' ? aliasAddresses?.[thread.mailboxId] : undefined
+              }
               active={selectedThreadId === thread.id}
               key={thread.id}
               onSelect={onSelectThread}
@@ -165,10 +175,12 @@ export function ThreadListPane({
 }
 
 function ThreadRow({
+  aliasAddress,
   active,
   onSelect,
   thread,
 }: Readonly<{
+  aliasAddress?: string | undefined
   active: boolean
   onSelect?: InboxShellProps['onSelectThread']
   thread: ThreadSummary
@@ -214,6 +226,9 @@ function ThreadRow({
         <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
           {thread.preview}
         </p>
+        {aliasAddress ? (
+          <p className="mt-1 truncate text-xs text-muted-foreground">To: {aliasAddress}</p>
+        ) : null}
         <div className="mt-2 flex min-h-5 items-center gap-1.5">
           {thread.attachmentCount > 0 ? (
             <PaperclipIcon className="size-3 text-muted-foreground" aria-label="Has attachments" />

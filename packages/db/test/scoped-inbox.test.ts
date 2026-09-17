@@ -149,6 +149,43 @@ describe('MailboxScopedRepository', () => {
     ).toEqual({ archived_at: NOW + 1 })
   })
 
+  it('keeps per-message flags independent, bounds read updates, and restores full Sent threads', async () => {
+    const database = setupTwoUsers()
+    insertThread(database.sqlite, 'conversation', 'mailbox_owner')
+    insertInboundMessage(database.sqlite, 'a1', 'mailbox_owner', 'conversation', NOW)
+    insertInboundMessage(database.sqlite, 'b2', 'mailbox_owner', 'conversation', NOW + 1)
+    insertOutboundMessage(database.sqlite, 'c3', 'mailbox_owner', 'conversation', NOW + 2)
+    const repo = new MailboxScopedRepository(database.asD1(), { userId: 'user_owner' })
+    await repo.patchMessageState('conversation', { read: true, messageIds: ['a1'] }, NOW + 3)
+    expect((await repo.getThread('conversation'))?.unreadCount).toBe(1)
+    await repo.patchMessageState('conversation', { starred: true, messageIds: ['a1'] }, NOW + 4)
+    await repo.patchMessageState('conversation', { location: 'archive' }, NOW + 5)
+    expect((await repo.listThreads({ folder: 'inbox' })).items).toHaveLength(0)
+    expect((await repo.listThreads({ folder: 'starred' })).items).toHaveLength(1)
+    expect((await repo.listThreads({ folder: 'sent' })).items).toHaveLength(1)
+    expect((await repo.getThreadDetail('conversation'))?.messages).toHaveLength(3)
+    await repo.patchMessageState('conversation', { location: 'trash' }, NOW + 6)
+    expect((await repo.listThreads({ folder: 'sent' })).items).toHaveLength(0)
+    expect((await repo.listThreads({ folder: 'all' })).items).toHaveLength(0)
+    expect((await repo.listThreads({ folder: 'trash' })).items).toHaveLength(1)
+    await repo.patchMessageState('conversation', { location: 'restore' }, NOW + 7)
+    expect((await repo.listThreads({ folder: 'sent' })).items).toHaveLength(1)
+    expect((await repo.listThreads({ folder: 'inbox' })).items).toHaveLength(0)
+    await repo.patchMessageState('conversation', { location: 'spam' }, NOW + 8)
+    expect((await repo.listThreads({ folder: 'starred' })).items).toHaveLength(0)
+    expect((await repo.listThreads({ folder: 'spam' })).items).toHaveLength(1)
+    await repo.patchMessageState('conversation', { location: 'not_spam', read: false }, NOW + 9)
+    expect((await repo.getThread('conversation'))?.unreadCount).toBe(2)
+    expect((await repo.listThreads({ folder: 'inbox' })).items).toHaveLength(1)
+    expect(
+      await repo.patchMessageState(
+        'conversation',
+        { starred: true, messageIds: ['missing'] },
+        NOW + 10,
+      ),
+    ).toBe(false)
+  })
+
   it('keeps Sent conversations after a new inbound reply', async () => {
     const testDb = setupTwoUsers()
     insertThread(testDb.sqlite, 'thread_latest_outbound', 'mailbox_owner', NOW + 200)

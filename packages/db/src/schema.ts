@@ -809,3 +809,28 @@ export type SessionRow = typeof sessions.$inferSelect
 export type TagRow = typeof tags.$inferSelect
 export type ThreadRow = typeof threads.$inferSelect
 export type UserRow = typeof users.$inferSelect
+
+export const spamRules = sqliteTable(
+  'spam_rules',
+  {
+    id: text('id').primaryKey().notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: text('kind', { enum: ['recipient', 'sender', 'domain'] }).notNull(),
+    value: text('value').notNull(),
+    createdAt: integer('created_at', { mode: 'number' }).notNull(),
+  },
+  (table) => ({
+    uniqueRule: uniqueIndex('spam_rules_owner_kind_value_idx').on(
+      table.userId,
+      table.kind,
+      table.value,
+    ),
+    kind: check('spam_rules_kind_check', sql`${table.kind} IN ('recipient', 'sender', 'domain')`),
+    normalized: check(
+      'spam_rules_normalized_check',
+      sql`${table.value} = lower(trim(${table.value})) AND length(${table.value}) BETWEEN 1 AND 320`,
+    ),
+  }),
+)

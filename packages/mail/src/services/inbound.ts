@@ -1,5 +1,6 @@
 import {
   DEFAULT_THREAD_FALLBACK_WINDOW_MS,
+  matchBlacklist,
   appendReference,
   buildInboundRawKey,
   checkProviderLimits,
@@ -172,6 +173,10 @@ export async function captureInboundEmail(
     )
   }
 
+  const spamRule = matchBlacklist(await store.listSpamRules(configured.ownerEmail), {
+    recipient: envelopeTo,
+    sender: parsed.from.address,
+  })
   const threadId = await resolveInboundThread(
     store,
     mailbox,
@@ -200,7 +205,7 @@ export async function captureInboundEmail(
     id: dependencies.generateId(receivedAt),
     mimeOrdinal,
   }))
-  const forwardingEnabled = mailbox.forwardTo !== null
+  const forwardingEnabled = mailbox.forwardTo !== null && spamRule === undefined
   try {
     await store.projectInboundMessage({
       ...(newThread === undefined ? {} : { newThread }),
@@ -216,6 +221,8 @@ export async function captureInboundEmail(
           size: attachment.bytes.byteLength,
         })),
         message: {
+          spamAt: spamRule ? receivedAt : null,
+          spamReason: spamRule ? `blacklist_${spamRule.kind}` : null,
           createdAt: receivedAt,
           direction: 'inbound',
           forwardAttemptedAt: forwardingEnabled && parseFailed ? receivedAt : null,
@@ -230,7 +237,7 @@ export async function captureInboundEmail(
           internetMessageId: parsed.internetMessageId,
           mailboxId: mailbox.id,
           preview: previewText(parsed.text, parsed.subject),
-          providerErrorCode: parseFailed ? PARSE_FAILURE_CODE : null,
+          providerErrorCode: parseFailed && forwardingEnabled ? PARSE_FAILURE_CODE : null,
           providerMessageId: null,
           rawR2Key: rawKey,
           rawSha256,
@@ -271,7 +278,7 @@ export async function captureInboundEmail(
     throw error
   }
 
-  if (!parseFailed && mailbox.forwardTo !== null) {
+  if (!parseFailed && spamRule === undefined && mailbox.forwardTo !== null) {
     await deliverPendingOwnerForward({
       attachments,
       dependencies,
@@ -450,6 +457,18 @@ async function deliverPendingOwnerForward(input: {
   store: MailStore
   threadId: string
 }): Promise<void> {
+  const rule = matchBlacklist(await input.store.listSpamRules(input.env.OWNER_EMAIL), {
+    recipient: input.mailbox.address,
+    sender: input.parsed.from.address,
+  })
+  if (rule) {
+    await input.store.suppressForward(
+      input.messageId,
+      `blacklist_${rule.kind}`,
+      input.dependencies.now(),
+    )
+    return
+  }
   const alias = await allocateReplyAlias(input.store, input.dependencies, {
     mailbox: input.mailbox,
     messageId: input.messageId,

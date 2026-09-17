@@ -38,6 +38,10 @@ export const ATTACHMENT_ID = testUuid(8)
 export const ALIAS_TOKEN = 'abcdefghijklmnopqrstuvwxyz234567'
 
 export class FakeMailStore implements MailStore {
+  async listSpamRules() {
+    return []
+  }
+  async suppressForward() {}
   readonly aliases = new Map<string, ReplyAliasRecord>()
   readonly events: string[]
   readonly mailboxAddresses = new Map<string, string>([[MAILBOX_ID, 'support@example.test']])

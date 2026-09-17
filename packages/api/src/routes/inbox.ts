@@ -1,4 +1,7 @@
 import {
+  listSpamRulesRoute,
+  createSpamRuleRoute,
+  deleteSpamRuleRoute,
   MailboxListResponseSchema,
   ThreadDetailResponseSchema,
   ThreadListResponseSchema,
@@ -13,12 +16,12 @@ import {
   createMailboxRoute,
   unarchiveThreadRoute,
 } from '@cloudflare-inbox/contracts'
-import { AuthRepository } from '@cloudflare-inbox/db'
+import { AuthRepository, SpamRuleRepository } from '@cloudflare-inbox/db'
 import { normalizeEmailAddress } from '@cloudflare-inbox/mail-core'
 import type { OpenAPIHono } from '@hono/zod-openapi'
 
 import { requireActor, requireCookieMutationOrigin } from '../auth'
-import { ApiFault } from '../http'
+import { ApiFault, isoDate } from '../http'
 import {
   databaseFolder,
   projectMailboxSettings,
@@ -29,6 +32,38 @@ import {
 import type { ApiDependencies, ApiEnv } from '../types'
 
 export function registerInboxRoutes(app: OpenAPIHono<ApiEnv>, dependencies: ApiDependencies): void {
+  app.openapi(listSpamRulesRoute, async (context) => {
+    const actor = await requireActor(context.req.raw, context.env, dependencies, 'settings')
+    const rules = await new SpamRuleRepository(context.env.DB, actor.userId).list()
+    return context.json(
+      { rules: rules.map((rule) => ({ ...rule, createdAt: isoDate(rule.createdAt) })) },
+      200,
+    )
+  })
+  app.openapi(createSpamRuleRoute, async (context) => {
+    const actor = await requireActor(context.req.raw, context.env, dependencies, 'settings')
+    requireCookieMutationOrigin(context.req.raw, context.env, actor)
+    if (actor.email !== context.env.OWNER_EMAIL) throw new ApiFault('forbidden')
+    const input = context.req.valid('json')
+    const value = input.kind === 'domain' ? input.value : normalizeEmailAddress(input.value)
+    const now = dependencies.now()
+    await new SpamRuleRepository(context.env.DB, actor.userId).add({
+      id: dependencies.generateId(now),
+      kind: input.kind,
+      value,
+      createdAt: now,
+    })
+    return context.body(null, 204)
+  })
+  app.openapi(deleteSpamRuleRoute, async (context) => {
+    const actor = await requireActor(context.req.raw, context.env, dependencies, 'settings')
+    requireCookieMutationOrigin(context.req.raw, context.env, actor)
+    await new SpamRuleRepository(context.env.DB, actor.userId).remove(
+      context.req.valid('param').ruleId,
+    )
+    return context.body(null, 204)
+  })
+
   app.openapi(listMailboxesRoute, async (context) => {
     const actor = await requireActor(context.req.raw, context.env, dependencies, 'read')
     const repository = dependencies.inboxRepository(context.env, actor.userId)
