@@ -12,7 +12,6 @@ import { AliasDialog } from './alias-dialog'
 import { Button } from '#/components/ui/button'
 import { MailboxSettingsDialog } from './mailbox-settings-dialog'
 import { GeneralSettingsDialog } from './general-settings-dialog'
-import { ApiRequestError } from './inbox-api'
 import type { InboxShellProps } from './inbox-shell-types'
 
 export function InboxShell({
@@ -33,6 +32,8 @@ export function InboxShell({
   onArchiveThread,
   onMessageState,
   onSpam,
+  onBlockMailbox,
+  onSpamRulesChange,
   onReply,
   onCompose,
   onSignOut,
@@ -44,11 +45,11 @@ export function InboxShell({
   const [navigationWidth, setNavigationWidth] = useState(248)
   const [threadListWidth, setThreadListWidth] = useState(390)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [mailboxSettingsOpen, setMailboxSettingsOpen] = useState(false)
+  const [settingsMailboxId, setSettingsMailboxId] = useState<string | null>(null)
   const [composeOpen, setComposeOpen] = useState(false)
   const [aliasOpen, setAliasOpen] = useState(false)
   const mailbox = data.mailboxes.find((item) => item.id === query.mailboxId) ?? null
-  const [aliasError, setAliasError] = useState<string | null>(null)
+  const [newMailboxAddress, setNewMailboxAddress] = useState('')
   const baseMailbox = data.mailboxes[0]
   const navigationMailbox =
     mailbox ??
@@ -56,7 +57,7 @@ export function InboxShell({
       ? {
           ...baseMailbox,
           counts: data.mailboxes
-            .filter((item) => !item.whitelisted)
+            .filter((item) => !item.whitelisted || item.blocked)
             .reduce(
               (counts, item) => {
                 for (const key of Object.keys(counts) as (keyof typeof counts)[])
@@ -71,6 +72,7 @@ export function InboxShell({
     data.mailboxes.find((item) => item.id === data.selectedThread?.thread.mailboxId) ?? mailbox
   const navigateMailbox: InboxShellProps['onQueryChange'] = (update, options) => {
     if (update.mailboxId === 'create') {
+      setNewMailboxAddress('')
       setAliasOpen(true)
       return
     }
@@ -98,7 +100,7 @@ export function InboxShell({
             query={query}
             onCollapse={() => setNavigationCollapsed((current) => !current)}
             onOpenSettings={() => setSettingsOpen(true)}
-            onOpenMailboxSettings={() => setMailboxSettingsOpen(true)}
+            onOpenMailboxSettings={() => setSettingsMailboxId(mailbox?.id ?? null)}
             onQueryChange={navigateMailbox}
             onSignOut={onSignOut}
           />
@@ -120,7 +122,7 @@ export function InboxShell({
             mailboxes={data.mailboxes}
             query={query}
             onOpenSettings={() => setSettingsOpen(true)}
-            onOpenMailboxSettings={() => setMailboxSettingsOpen(true)}
+            onOpenMailboxSettings={() => setSettingsMailboxId(mailbox?.id ?? null)}
             onQueryChange={navigateMailbox}
           />
           <MobileFolders
@@ -186,44 +188,29 @@ export function InboxShell({
                 <div className="flex flex-wrap items-center gap-2 border-b bg-background px-4 py-2 text-xs">
                   <span className="min-w-0 grow basis-full break-all sm:basis-56">
                     Received at {detailMailbox.address}
-                    {!detailMailbox.whitelisted ? ' · forwarding off' : null}
+                    {detailMailbox.blocked
+                      ? ' · blocked'
+                      : !detailMailbox.whitelisted
+                        ? ' · forwarding off'
+                        : null}
                   </span>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={busy || !onSpam || !data.selectedThread}
-                    title={`Move this conversation to Spam and block future mail to ${detailMailbox.address}`}
-                    onClick={async () => {
-                      if (!onSpam || !data.selectedThread) return
-                      try {
-                        setAliasError(null)
-                        await onSpam(data.selectedThread.thread.id, {
-                          kind: 'recipient',
-                          value: detailMailbox.address,
-                        })
-                      } catch (cause) {
-                        setAliasError(
-                          cause instanceof ApiRequestError
-                            ? cause.message
-                            : 'Could not block this mailbox. Try again.',
-                        )
-                      }
-                    }}
-                  >
-                    Block mailbox
-                  </Button>
-                  {!detailMailbox.whitelisted ? (
+                  {!detailMailbox.whitelisted || detailMailbox.blocked ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setSettingsMailboxId(detailMailbox.id)}
+                    >
+                      Mailbox settings
+                    </Button>
+                  ) : null}
+                  {!detailMailbox.whitelisted && !detailMailbox.blocked ? (
                     <Button
                       size="sm"
                       variant="outline"
                       disabled={busy}
-                      onClick={async () => {
-                        try {
-                          setAliasError(null)
-                          await onCreateMailbox?.(detailMailbox.address, true)
-                        } catch {
-                          setAliasError('Could not create inbox. Try again.')
-                        }
+                      onClick={() => {
+                        setNewMailboxAddress(detailMailbox.address)
+                        setAliasOpen(true)
                       }}
                     >
                       Create inbox for this mailbox
@@ -235,28 +222,33 @@ export function InboxShell({
           />
         </div>
 
-        {error || aliasError ? (
+        {error ? (
           <div
             className="absolute right-4 bottom-4 z-30 max-w-sm rounded-xl border border-destructive/30 bg-background px-4 py-3 text-sm text-foreground shadow-lg"
             role="alert"
           >
-            {error ?? aliasError}
+            {error}
           </div>
         ) : null}
 
         <AliasDialog
+          initialAddress={newMailboxAddress}
           open={aliasOpen}
           onOpenChange={setAliasOpen}
           onCreateMailbox={onCreateMailbox}
         />
         <MailboxSettingsDialog
           busy={busy}
-          mailbox={mailbox}
-          open={mailboxSettingsOpen}
-          onOpenChange={setMailboxSettingsOpen}
+          mailbox={data.mailboxes.find((item) => item.id === settingsMailboxId) ?? null}
+          open={settingsMailboxId !== null}
+          onOpenChange={(open) => {
+            if (!open) setSettingsMailboxId(null)
+          }}
+          onBlockMailbox={onBlockMailbox}
           onUpdateMailbox={onUpdateMailbox}
         />
         <GeneralSettingsDialog
+          onSpamRulesChange={onSpamRulesChange}
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
           onSignOut={onSignOut}

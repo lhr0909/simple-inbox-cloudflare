@@ -227,3 +227,7 @@ Rule creation and deletion affect future mail only. These endpoints require `set
 For an explicit single-message HTML preview while mailbox HTML display is off, request
 `GET /messages/{messageId}/html?preview=1`. This does not update mailbox settings. Authentication,
 mailbox access, raw retention, sanitization, and sandbox requirements still apply.
+
+Mailbox creation accepts `forwardTo` as an email address or `null` to disable forwarding.
+It takes precedence over the legacy `forward` boolean. Mailbox summaries and settings include
+`blocked`, derived from matching recipient blacklist rules. Blocking does not modify existing messages.

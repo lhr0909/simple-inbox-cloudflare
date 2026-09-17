@@ -149,7 +149,7 @@ excluded from the daily mailbox dropdown. Forwarding failure never erases captur
 
 The primary mailbox starts whitelisted. `POST /v1/mailboxes` creates or promotes an alias on the
 configured domain or another already-received mailbox domain. Existing mailbox IDs and thread
-relationships survive promotion. Enabling forwarding applies to future mail; previously suppressed
+relationships survive promotion. Creation accepts an explicit forwarding destination or null to disable forwarding. Enabling forwarding applies to future mail; previously suppressed
 messages remain `not_applicable` and are never replayed as forwards. Hiding an inbox disables its
 effective forwarding while retaining its destination preference for later reactivation.
 
@@ -174,8 +174,8 @@ and the persisted decision is part of the inbound D1 transaction before forwardi
 path rechecks current rules before claiming delivery; the claim also requires a whitelisted mailbox,
 a destination, and a message outside Spam/Trash. Issued owner reply aliases resolve before ordinary
 recipient filtering. The Spam confirmation first saves an explicit sender/domain rule, then moves the conversation;
-a failed second step reports that the rule was saved and allows an idempotent retry. The one-click Block mailbox action uses the same sequence with the actual receiving mailbox as
-the recipient rule. Manual Not spam
+a failed second step reports that the rule was saved and allows an idempotent retry. Block mailbox in mailbox settings only saves a recipient rule; it never changes existing message state.
+Mailbox summaries and settings derive `blocked` from the actor’s recipient rules. Blocked mailboxes are excluded from the dropdown and included in Other inbound listing, search, and counts, even when whitelisted. Removing a rule restores the prior visibility preference. No backfill is needed for existing rules. Manual Not spam
 restores a message without deleting its blacklist rule or forwarding historical mail. General settings
 owns the shared blacklist and browser theme; mailbox settings owns alias and forwarding preferences. There are no keyword rules, AI calls, or new Cloudflare resources.
 

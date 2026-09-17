@@ -448,6 +448,9 @@
           "whitelisted": {
             "type": "boolean"
           },
+          "blocked": {
+            "type": "boolean"
+          },
           "counts": {
             "$ref": "#/components/schemas/ThreadFolderCounts"
           },
@@ -470,6 +473,7 @@
           "forwardHtml",
           "renderHtml",
           "whitelisted",
+          "blocked",
           "counts",
           "createdAt",
           "updatedAt"
@@ -551,6 +555,9 @@
           "whitelisted": {
             "type": "boolean"
           },
+          "blocked": {
+            "type": "boolean"
+          },
           "updatedAt": {
             "type": "string",
             "format": "date-time",
@@ -565,6 +572,7 @@
           "forwardHtml",
           "renderHtml",
           "whitelisted",
+          "blocked",
           "updatedAt"
         ],
         "additionalProperties": false
@@ -574,6 +582,13 @@
         "properties": {
           "address": {
             "type": "string",
+            "minLength": 3,
+            "maxLength": 254,
+            "format": "email",
+            "example": "owner@example.test"
+          },
+          "forwardTo": {
+            "type": ["string", "null"],
             "minLength": 3,
             "maxLength": 254,
             "format": "email",

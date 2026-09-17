@@ -11,10 +11,12 @@ export function GeneralSettingsDialog({
   open,
   onOpenChange,
   onSignOut,
+  onSpamRulesChange,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSignOut?: InboxShellProps['onSignOut']
+  onSpamRulesChange?: InboxShellProps['onSpamRulesChange']
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const id = useId()
@@ -72,7 +74,7 @@ export function GeneralSettingsDialog({
         </p>
       </Field>
 
-      <SpamSettings open={open} />
+      <SpamSettings open={open} onRulesChange={onSpamRulesChange} />
       <div className="mt-6 flex flex-wrap items-center gap-2 border-t pt-4">
         <Button onClick={() => onOpenChange(false)}>Done</Button>
         <Button className="ml-auto" variant="ghost" onClick={() => void onSignOut?.()}>

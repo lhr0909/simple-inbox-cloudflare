@@ -129,10 +129,13 @@ export async function loadProtectedInbox(search: InboxSearch): Promise<InboxServ
 
   const mailboxes = mailboxResult.value.mailboxes
   const effectiveMailboxId =
-    search.mailbox === 'other'
+    search.mailbox === 'other' ||
+    mailboxes.some((mailbox) => mailbox.id === search.mailbox && mailbox.blocked)
       ? 'other'
-      : (mailboxes.find((mailbox) => mailbox.id === search.mailbox && mailbox.whitelisted)?.id ??
-        mailboxes.find((mailbox) => mailbox.whitelisted)?.id ??
+      : (mailboxes.find(
+          (mailbox) => mailbox.id === search.mailbox && mailbox.whitelisted && !mailbox.blocked,
+        )?.id ??
+        mailboxes.find((mailbox) => mailbox.whitelisted && !mailbox.blocked)?.id ??
         'other')
 
   if (!effectiveMailboxId) {

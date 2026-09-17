@@ -18,12 +18,14 @@ export function MailboxSettingsDialog({
   open,
   onOpenChange,
   onUpdateMailbox,
+  onBlockMailbox,
 }: Readonly<{
   busy: boolean
   mailbox: InboxData['mailboxes'][number] | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onUpdateMailbox?: InboxShellProps['onUpdateMailbox']
+  onBlockMailbox?: InboxShellProps['onBlockMailbox']
 }>) {
   const dialog = useRef<HTMLDialogElement>(null)
   const draftMailboxId = useRef(mailbox?.id ?? null)
@@ -35,6 +37,7 @@ export function MailboxSettingsDialog({
   const [forwardHtml, setForwardHtml] = useState(mailbox?.forwardHtml ?? false)
   const [renderHtml, setRenderHtml] = useState(mailbox?.renderHtml ?? false)
   const [forwardToEdited, setForwardToEdited] = useState(false)
+  const [blockStatus, setBlockStatus] = useState<'idle' | 'saving' | 'error'>('idle')
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
   useEffect(() => {
@@ -52,6 +55,7 @@ export function MailboxSettingsDialog({
     const mailboxId = mailbox?.id ?? null
     const mailboxChanged = draftMailboxId.current !== mailboxId
     if (!mailboxChanged && preserveOpenDraft.current) return
+    setBlockStatus('idle')
     draftMailboxId.current = mailboxId
     preserveOpenDraft.current = false
     setWhitelisted(mailbox?.whitelisted ?? false)
@@ -141,8 +145,8 @@ export function MailboxSettingsDialog({
         <label className="mt-5 flex items-start gap-3 text-sm">
           <input
             type="checkbox"
-            checked={whitelisted}
-            disabled={busy || mailbox === null}
+            checked={whitelisted && !mailbox?.blocked}
+            disabled={busy || mailbox === null || mailbox.blocked}
             onChange={(event) => {
               setWhitelisted(event.currentTarget.checked)
               setStatus('idle')
@@ -151,7 +155,9 @@ export function MailboxSettingsDialog({
           <span>
             Show as an inbox
             <span className="block text-xs text-muted-foreground">
-              Turning this off moves mail to Other inbound and disables forwarding.
+              {mailbox?.blocked
+                ? 'Blocked mailboxes are hidden in Other inbound. Remove the mailbox blacklist rule in General settings to show this inbox again.'
+                : 'Turning this off moves mail to Other inbound and disables forwarding.'}
             </span>
           </span>
         </label>
@@ -286,6 +292,47 @@ export function MailboxSettingsDialog({
             </span>
           </label>
         </fieldset>
+
+        <section aria-label="Mailbox blocking" className="mt-5 space-y-3 border-t pt-4">
+          <h3 className="text-sm font-semibold">Mailbox blocking</h3>
+          <p className="text-xs text-muted-foreground">
+            Hide this mailbox from the inbox list and send future incoming mail to Spam without
+            forwarding. Existing messages stay unchanged and remain in Other inbound.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={
+              busy ||
+              mailbox === null ||
+              mailbox.blocked ||
+              !onBlockMailbox ||
+              blockStatus === 'saving'
+            }
+            onClick={async () => {
+              if (!mailbox || !onBlockMailbox || blockStatus === 'saving') return
+              setBlockStatus('saving')
+              try {
+                await onBlockMailbox(mailbox.address)
+                setBlockStatus('idle')
+              } catch {
+                setBlockStatus('error')
+              }
+            }}
+          >
+            {mailbox?.blocked
+              ? 'Mailbox blocked'
+              : blockStatus === 'saving'
+                ? 'Blocking…'
+                : 'Block mailbox'}
+          </Button>
+          {blockStatus === 'error' ? (
+            <p role="alert" className="text-xs text-destructive">
+              Could not finish blocking this mailbox. Try again.
+            </p>
+          ) : null}
+        </section>
 
         <div className="mt-6 flex flex-wrap items-center gap-2 border-t pt-4">
           <Button disabled={busy || mailbox === null || status === 'saving'} type="submit">

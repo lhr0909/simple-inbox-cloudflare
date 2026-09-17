@@ -4,7 +4,13 @@ import { SpamRulesResponseSchema } from '@cloudflare-inbox/contracts/spam'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 
-export function SpamSettings({ open }: { open: boolean }) {
+export function SpamSettings({
+  open,
+  onRulesChange,
+}: {
+  open: boolean
+  onRulesChange?: (() => Promise<void>) | undefined
+}) {
   const [rules, setRules] = useState<SpamRulesResponse['rules']>([])
   const [kind, setKind] = useState<CreateSpamRule['kind']>('recipient')
   const [value, setValue] = useState('')
@@ -44,6 +50,7 @@ export function SpamSettings({ open }: { open: boolean }) {
       if (!response.ok) throw new Error('Invalid rule')
       if (!id) setValue('')
       await load()
+      await onRulesChange?.()
     } catch {
       setError('Could not save blacklist. Check the address or domain and try again.')
     } finally {

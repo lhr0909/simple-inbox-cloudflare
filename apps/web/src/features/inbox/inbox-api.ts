@@ -92,12 +92,16 @@ export function signOut() {
   return requestEmpty('/api/v1/auth/logout', { method: 'POST' })
 }
 
-export async function blacklistAndMoveToSpam(threadId: string, rule: CreateSpamRule) {
-  await requestEmpty('/api/v1/spam-rules', {
+export function addSpamRule(rule: CreateSpamRule) {
+  return requestEmpty('/api/v1/spam-rules', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(rule),
   })
+}
+
+export async function blacklistAndMoveToSpam(threadId: string, rule: CreateSpamRule) {
+  await addSpamRule(rule)
   try {
     await patchThreadState(threadId, { location: 'spam' })
   } catch (cause) {
@@ -177,11 +181,11 @@ export function getThreadDetail(threadId: string, signal: AbortSignal) {
   )
 }
 
-export function createMailbox(address: string, forward = true) {
+export function createMailbox(address: string, forwardTo: string | null) {
   return requestJson('/api/v1/mailboxes', MailboxSettingsSchema, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ address, forward }),
+    body: JSON.stringify({ address, forwardTo }),
   })
 }
 
