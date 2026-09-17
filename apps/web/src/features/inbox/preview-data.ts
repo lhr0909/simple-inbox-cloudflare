@@ -142,6 +142,7 @@ export function createPreviewInboxData(): InboxData {
         forwardHtml: true,
         renderHtml: false,
         whitelisted: true,
+        blocked: false,
         senderAlias: 'Example Support',
         counts: {
           all: 18,

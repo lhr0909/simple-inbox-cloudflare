@@ -101,7 +101,14 @@ export function registerInboxRoutes(app: OpenAPIHono<ApiEnv>, dependencies: ApiD
       result.mailboxId,
       {
         whitelisted: true,
-        forwardTo: input.forward ? actor.email : null,
+        forwardTo:
+          input.forwardTo === undefined
+            ? input.forward
+              ? actor.email
+              : null
+            : input.forwardTo === null
+              ? null
+              : normalizeEmailAddress(input.forwardTo),
       },
       now,
     )

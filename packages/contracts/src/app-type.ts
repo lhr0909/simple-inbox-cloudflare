@@ -87,8 +87,12 @@ export type PublicApiSchema = {
   }
   '/v1/mailboxes': {
     $post: WithStandardErrors<
-      { json: { address: string; forward?: boolean } },
-      JsonEndpoint<{ json: { address: string; forward?: boolean } }, MailboxSettings, 200>
+      { json: { address: string; forward?: boolean; forwardTo?: string | null } },
+      JsonEndpoint<
+        { json: { address: string; forward?: boolean; forwardTo?: string | null } },
+        MailboxSettings,
+        200
+      >
     >
     $get: WithStandardErrors<{}, JsonEndpoint<{}, MailboxListResponse, 200>>
   }

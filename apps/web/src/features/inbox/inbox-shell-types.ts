@@ -29,10 +29,12 @@ export type InboxShellProps = Readonly<{
     patch: import('@cloudflare-inbox/contracts/threads').PatchMessageState,
   ) => Promise<void>
   onArchiveThread?: (threadId: string, archived: boolean) => Promise<void> | void
+  onBlockMailbox?: (address: string) => Promise<void>
+  onSpamRulesChange?: () => Promise<void>
   onSpam?: (threadId: string, rule: CreateSpamRule) => Promise<void>
   onReply?: (threadId: string, draft: ReplyDraft) => Promise<SendResponse>
   onCompose?: (mailboxId: string, draft: NewMessageDraft) => Promise<SendResponse>
   onSignOut?: () => Promise<void> | void
-  onCreateMailbox?: (address: string, forward: boolean) => Promise<MailboxSettings>
+  onCreateMailbox?: (address: string, forwardTo: string | null) => Promise<MailboxSettings>
   onUpdateMailbox?: (mailboxId: string, patch: PatchMailboxRequest) => Promise<MailboxSettings>
 }>

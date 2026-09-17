@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
+import { SpamRuleRepository } from '../src/repositories/spam-rules'
+
 import { decodeThreadCursor } from '../src/cursor'
 import { MailboxScopedRepository, normalizeFtsQuery } from '../src/repositories/scoped-inbox'
 import {
@@ -51,6 +53,65 @@ describe('MailboxScopedRepository', () => {
       forwardHtml: true,
       renderHtml: false,
     })
+  })
+
+  it('groups blocked mailboxes under Other inbound without changing messages or visibility preferences', async () => {
+    const db = setupTwoUsers()
+    const repo = new MailboxScopedRepository(db.asD1(), { userId: 'user_owner' })
+    await repo.updateMailboxSettings('mailbox_owner', { whitelisted: true }, NOW)
+    insertThread(db.sqlite, 'thread_blocked', 'mailbox_owner')
+    insertInboundMessage(db.sqlite, 'message_blocked', 'mailbox_owner', 'thread_blocked', NOW)
+    db.sqlite
+      .prepare(`INSERT INTO message_search
+      (message_id, thread_id, mailbox_id, subject, participants, body, tags, workflow_state)
+      VALUES ('message_blocked', 'thread_blocked', 'mailbox_owner', 'Needle', '', '', '', 'needs_reply')`)
+      .run()
+    const before = await repo.getThreadDetail('thread_blocked')
+    const ownerRules = new SpamRuleRepository(db.asD1(), 'user_owner')
+    const otherRules = new SpamRuleRepository(db.asD1(), 'user_intruder')
+    await otherRules.add({
+      id: 'other_rule',
+      kind: 'recipient',
+      value: 'owner-inbox@example.test',
+      createdAt: NOW,
+    })
+    await ownerRules.add({
+      id: 'sender_rule',
+      kind: 'sender',
+      value: 'owner-inbox@example.test',
+      createdAt: NOW,
+    })
+    expect((await repo.listMailboxes())[0]?.blocked).toBe(false)
+    expect((await repo.listThreads({ mailboxId: 'other' })).items).toHaveLength(0)
+    expect((await repo.searchThreads({ mailboxId: 'other', query: 'needle' })).items).toHaveLength(
+      0,
+    )
+    await ownerRules.add({
+      id: 'recipient_rule',
+      kind: 'recipient',
+      value: 'owner-inbox@example.test',
+      createdAt: NOW,
+    })
+    expect(await repo.getMailboxSettings('mailbox_owner')).toMatchObject({
+      blocked: true,
+      whitelisted: true,
+    })
+    expect((await repo.listMailboxes())[0]).toMatchObject({ blocked: true, inboxCount: 1 })
+    expect(
+      (await repo.listThreads({ mailboxId: 'other' })).items.map((thread) => thread.id),
+    ).toEqual(['thread_blocked'])
+    expect(
+      (await repo.searchThreads({ mailboxId: 'other', query: 'needle' })).items.map(
+        (thread) => thread.id,
+      ),
+    ).toEqual(['thread_blocked'])
+    expect(await repo.getThreadDetail('thread_blocked')).toEqual(before)
+    await ownerRules.remove('recipient_rule')
+    expect(await repo.getMailboxSettings('mailbox_owner')).toMatchObject({
+      blocked: false,
+      whitelisted: true,
+    })
+    expect((await repo.listThreads({ mailboxId: 'other' })).items).toHaveLength(0)
   })
 
   it('filters unauthorized mailboxes in the query and preserves stable cursor ordering', async () => {

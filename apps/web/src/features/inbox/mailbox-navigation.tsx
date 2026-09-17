@@ -64,7 +64,7 @@ function MailboxSelect({
       <option value="other">Other inbound</option>
       <option value="create">+ New inbox…</option>
       {mailboxes
-        .filter((mailbox) => mailbox.whitelisted)
+        .filter((mailbox) => mailbox.whitelisted && !mailbox.blocked)
         .map((mailbox) => (
           <option key={mailbox.id} value={mailbox.id}>
             {mailbox.address}

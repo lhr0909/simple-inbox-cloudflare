@@ -86,6 +86,7 @@ export interface MailboxSummary {
   forwardHtml: boolean
   renderHtml: boolean
   whitelisted: boolean
+  blocked: boolean
   forwardTo: string | null
   id: string
   inboxCount: number
@@ -104,6 +105,7 @@ export interface MailboxSettings {
   forwardHtml: boolean
   renderHtml: boolean
   whitelisted: boolean
+  blocked: boolean
   forwardTo: string | null
   id: string
   senderAlias: string | null
@@ -237,6 +239,7 @@ export class MailboxScopedRepository {
         forwardHtml: mailboxes.forwardHtml,
         renderHtml: mailboxes.renderHtml,
         whitelisted: mailboxes.whitelisted,
+        blocked: this.#blockedMailbox(),
         id: mailboxes.id,
         inboxCount,
         starredCount,
@@ -316,8 +319,9 @@ export class MailboxScopedRepository {
 
     if (input.mailboxId === 'other') {
       clauses.push(
-        'EXISTS (SELECT 1 FROM mailboxes mb WHERE mb.id = t.mailbox_id AND mb.whitelisted = 0)',
+        "EXISTS (SELECT 1 FROM mailboxes mb WHERE mb.id = t.mailbox_id AND (mb.whitelisted = 0 OR EXISTS (SELECT 1 FROM spam_rules sr WHERE sr.user_id = ? AND sr.kind = 'recipient' AND sr.value = mb.address)))",
       )
+      values.push(this.#actorUserId)
     } else if (input.mailboxId !== undefined) {
       clauses.push('t.mailbox_id = ?')
       values.push(input.mailboxId)
@@ -380,6 +384,7 @@ export class MailboxScopedRepository {
         forwardHtml: mailboxes.forwardHtml,
         renderHtml: mailboxes.renderHtml,
         whitelisted: mailboxes.whitelisted,
+        blocked: this.#blockedMailbox(),
         id: mailboxes.id,
         senderAlias: mailboxes.senderAlias,
         updatedAt: mailboxes.updatedAt,
@@ -858,11 +863,17 @@ export class MailboxScopedRepository {
     return changed(result)
   }
 
+  #blockedMailbox(): SQL<boolean> {
+    return sql<boolean>`EXISTS (SELECT 1 FROM spam_rules sr WHERE sr.user_id = ${this.#actorUserId} AND sr.kind = 'recipient' AND sr.value = ${mailboxes.address})`.mapWith(
+      Boolean,
+    )
+  }
+
   #threadPredicates(input: ListThreadsInput): SQL[] {
     const predicates: SQL[] = []
     if (input.mailboxId === 'other') {
       predicates.push(
-        sql`EXISTS (SELECT 1 FROM mailboxes mb WHERE mb.id = ${threads.mailboxId} AND mb.whitelisted = 0)`,
+        sql`EXISTS (SELECT 1 FROM mailboxes mb WHERE mb.id = ${threads.mailboxId} AND (mb.whitelisted = 0 OR EXISTS (SELECT 1 FROM spam_rules sr WHERE sr.user_id = ${this.#actorUserId} AND sr.kind = 'recipient' AND sr.value = mb.address)))`,
       )
     } else if (input.mailboxId !== undefined) {
       predicates.push(eq(threads.mailboxId, input.mailboxId))

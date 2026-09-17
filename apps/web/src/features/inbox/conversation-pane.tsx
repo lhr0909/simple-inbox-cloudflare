@@ -306,7 +306,7 @@ function MessageCard({
           aria-expanded={expanded}
           aria-controls={`message-${message.id}`}
           onClick={() => setExpanded((value) => !value)}
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1 text-left focus-visible:outline-2 focus-visible:outline-ring"
+          className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 rounded-lg p-1 text-left focus-visible:outline-2 focus-visible:outline-ring"
         >
           <ChevronIcon
             className={cn('size-4 shrink-0 transition-transform', !expanded && '-rotate-90')}
@@ -320,8 +320,11 @@ function MessageCard({
             ) : null}
           </span>
           <HydratedTime
-            className="shrink-0 text-xs text-muted-foreground"
-            presentation="thread"
+            className={cn(
+              'shrink-0 text-xs text-muted-foreground',
+              expanded && 'basis-full text-right sm:basis-auto',
+            )}
+            presentation={expanded ? 'full' : 'thread'}
             value={message.sentAt}
           />
         </button>
@@ -355,11 +358,6 @@ function MessageCard({
                 {message.readAt === null && message.direction === 'inbound' ? (
                   <Badge variant="secondary">New</Badge>
                 ) : null}
-                <HydratedTime
-                  className="ml-auto text-xs text-muted-foreground"
-                  presentation="full"
-                  value={message.sentAt}
-                />
               </div>
               <p className="mt-0.5 break-all text-xs text-muted-foreground">
                 From: {message.from.address}

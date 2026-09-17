@@ -1,28 +1,33 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useId } from 'react'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import type { InboxShellProps } from './inbox-shell-types'
 
 export function AliasDialog({
   open,
+  initialAddress = '',
   onOpenChange,
   onCreateMailbox,
 }: {
   open: boolean
+  initialAddress?: string
   onOpenChange: (open: boolean) => void
   onCreateMailbox?: InboxShellProps['onCreateMailbox']
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const [address, setAddress] = useState('')
-  const [forward, setForward] = useState(true)
+  const [forwardTo, setForwardTo] = useState('')
+  const helpId = useId()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
     if (open) {
       dialog.current?.showModal()
       setError(null)
+      setAddress(initialAddress)
+      setForwardTo('')
     } else dialog.current?.close()
-  }, [open])
+  }, [open, initialAddress])
   return (
     <dialog
       ref={dialog}
@@ -39,7 +44,7 @@ export function AliasDialog({
           setSaving(true)
           setError(null)
           try {
-            await onCreateMailbox(address, forward)
+            await onCreateMailbox(address.trim(), forwardTo.trim() || null)
             setAddress('')
             onOpenChange(false)
           } catch {
@@ -66,14 +71,22 @@ export function AliasDialog({
             placeholder="team@example.test"
           />
         </label>
-        <label className="flex gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={forward}
-            onChange={(e) => setForward(e.currentTarget.checked)}
+        <label className="block space-y-2 text-sm">
+          Forward incoming mail to
+          <Input
+            type="email"
+            autoComplete="email"
+            maxLength={254}
+            aria-describedby={helpId}
+            value={forwardTo}
+            disabled={saving}
+            onChange={(event) => setForwardTo(event.currentTarget.value)}
+            placeholder="you@example.test"
           />
-          Forward future mail to me
         </label>
+        <p id={helpId} className="text-xs text-muted-foreground">
+          Leave empty to keep mail in this inbox without forwarding.
+        </p>
         {error ? (
           <p role="alert" className="text-sm text-destructive">
             {error}

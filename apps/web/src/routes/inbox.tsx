@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, useRouterState } from '@tanstack/react-router'
+import { createFileRoute, redirect, useRouter, useRouterState } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
@@ -7,6 +7,7 @@ import type { SendResponse } from '@cloudflare-inbox/contracts/send'
 
 import {
   ApiRequestError,
+  addSpamRule,
   blacklistAndMoveToSpam,
   createMailbox,
   listThreadPage,
@@ -76,6 +77,7 @@ export const Route = createFileRoute('/inbox')({
 })
 
 function Inbox() {
+  const router = useRouter()
   const loaded = Route.useLoaderData()
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
@@ -356,6 +358,7 @@ function Inbox() {
                 ? {
                     ...mailbox,
                     whitelisted: result.whitelisted,
+                    blocked: result.blocked,
                     forwardTo: result.forwardTo,
                     forwardHtml: result.forwardHtml,
                     renderHtml: result.renderHtml,
@@ -431,6 +434,19 @@ function Inbox() {
           finishOperation()
         }
       }}
+      onBlockMailbox={async (address) => {
+        beginOperation()
+        try {
+          await addSpamRule({ kind: 'recipient', value: address })
+          await router.invalidate()
+        } catch (cause) {
+          redirectIfAnonymous(cause)
+          throw cause
+        } finally {
+          finishOperation()
+        }
+      }}
+      onSpamRulesChange={() => router.invalidate()}
       onArchiveThread={archiveThread}
       onSpam={async (threadId, rule) => {
         beginOperation()
@@ -452,8 +468,8 @@ function Inbox() {
       onReply={reply}
       onSelectThread={selectThread}
       onSignOut={logout}
-      onCreateMailbox={async (address, forward) => {
-        const mailbox = await createMailbox(address, forward)
+      onCreateMailbox={async (address, forwardTo) => {
+        const mailbox = await createMailbox(address, forwardTo)
         await fetchSnapshot({ ...search, mailbox: mailbox.id }, false)
         await changeQuery({ mailboxId: mailbox.id, threadId: null })
         return mailbox
