@@ -132,14 +132,14 @@
           "mailboxAddress": {
             "type": "string",
             "minLength": 3,
-            "maxLength": 320,
+            "maxLength": 254,
             "format": "email",
             "example": "owner@example.test"
           },
           "ownerEmail": {
             "type": "string",
             "minLength": 3,
-            "maxLength": 320,
+            "maxLength": 254,
             "format": "email",
             "example": "owner@example.test"
           },
@@ -188,7 +188,7 @@
           "email": {
             "type": "string",
             "minLength": 3,
-            "maxLength": 320,
+            "maxLength": 254,
             "format": "email",
             "example": "owner@example.test"
           }
@@ -238,7 +238,7 @@
           "email": {
             "type": "string",
             "minLength": 3,
-            "maxLength": 320,
+            "maxLength": 254,
             "format": "email",
             "example": "owner@example.test"
           },
@@ -336,7 +336,7 @@
           "address": {
             "type": "string",
             "minLength": 3,
-            "maxLength": 320,
+            "maxLength": 254,
             "format": "email",
             "example": "owner@example.test"
           },
@@ -348,7 +348,7 @@
           "forwardTo": {
             "type": ["string", "null"],
             "minLength": 3,
-            "maxLength": 320,
+            "maxLength": 254,
             "format": "email",
             "example": "owner@example.test"
           },
@@ -423,7 +423,7 @@
           "address": {
             "type": "string",
             "minLength": 3,
-            "maxLength": 320,
+            "maxLength": 254,
             "format": "email",
             "example": "owner@example.test"
           },
@@ -435,7 +435,7 @@
           "forwardTo": {
             "type": ["string", "null"],
             "minLength": 3,
-            "maxLength": 320,
+            "maxLength": 254,
             "format": "email",
             "example": "owner@example.test"
           },
@@ -473,7 +473,7 @@
           "forwardTo": {
             "type": ["string", "null"],
             "minLength": 3,
-            "maxLength": 320,
+            "maxLength": 254,
             "format": "email",
             "example": "owner@example.test"
           },
@@ -596,7 +596,7 @@
           "address": {
             "type": "string",
             "minLength": 3,
-            "maxLength": 320,
+            "maxLength": 254,
             "format": "email",
             "example": "owner@example.test"
           },
@@ -789,7 +789,7 @@
           "address": {
             "type": "string",
             "minLength": 3,
-            "maxLength": 320,
+            "maxLength": 254,
             "format": "email",
             "example": "owner@example.test"
           },
@@ -816,7 +816,7 @@
           "address": {
             "type": "string",
             "minLength": 3,
-            "maxLength": 320,
+            "maxLength": 254,
             "format": "email",
             "example": "owner@example.test"
           },

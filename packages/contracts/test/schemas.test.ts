@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   API_ERROR_CODES_V1,
+  EmailAddressSchema,
   ErrorEnvelopeSchema,
   InternalSendFormSchema,
   MagicLinkAcceptedResponseSchema,
@@ -71,6 +72,33 @@ describe('opaque identifiers and auth tokens', () => {
 })
 
 describe('boundary normalization', () => {
+  it.each("!#$%&'*+/=?^_`{|}~.-".split(''))(
+    'accepts routed local-part punctuation %s',
+    (character) => {
+      const address = `route${character}tag@example.test`
+      expect(EmailAddressSchema.parse(address)).toBe(address)
+      expect(normalizeEmailAddress(address.toUpperCase())).toBe(address)
+    },
+  )
+
+  it.each([
+    '.route@example.test',
+    'route.@example.test',
+    'route..tag@example.test',
+    'route tag@example.test',
+    'route@example..test',
+    'route@-example.test',
+    'route@example-.test',
+    'route@example_test',
+    'route@@example.test',
+    'route@example.test\r\nBcc: other@example.test',
+    `${'a'.repeat(65)}@example.test`,
+    `route@${'a'.repeat(64)}.example.test`,
+    `${'a'.repeat(64)}@${'b'.repeat(63)}.${'c'.repeat(63)}.${'d'.repeat(63)}`,
+  ])('rejects malformed or oversized addresses: %s', (address) => {
+    expect(EmailAddressSchema.safeParse(address).success).toBe(false)
+  })
+
   it('normalizes addresses explicitly', () => {
     expect(normalizeEmailAddress(' Owner@Example.Test ')).toBe('owner@example.test')
   })
