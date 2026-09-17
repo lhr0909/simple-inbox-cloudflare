@@ -110,7 +110,8 @@ export function registerMessageRoutes(
       const metadata = await repository.getRawMessage(messageId)
       if (metadata === undefined) throw new ApiFault('message_not_found')
       const mailbox = await repository.getMailboxSettings(metadata.mailboxId)
-      if (!mailbox?.renderHtml) throw new ApiFault('message_not_found')
+      if (!mailbox || (!mailbox.renderHtml && context.req.valid('query').preview !== '1'))
+        throw new ApiFault('message_not_found')
       const preview = await messageHtmlPreview(context.env.RAW_EMAILS, metadata)
       return htmlPreviewResponse(preview.html)
     } catch (error) {

@@ -582,6 +582,23 @@ describe('API module', () => {
     )
     expect(await forwardOnly.json()).toMatchObject({ forwardHtml: true, renderHtml: false })
     expect((await fixture.app.request(path, { headers }, fixture.env)).status).toBe(404)
+    const oneOff = await fixture.app.request(`${path}?preview=1`, { headers }, fixture.env)
+    expect(oneOff.status).toBe(200)
+    expect(oneOff.headers.get('content-security-policy')).toContain('sandbox allow-scripts')
+    expect(await oneOff.text()).toContain('Rich email')
+    expect((await fixture.app.request(path, { headers }, fixture.env)).status).toBe(404)
+    expect((await fixture.app.request(`${path}?preview=0`, { headers }, fixture.env)).status).toBe(
+      400,
+    )
+    const beforeOneOffUnauthorized = fixture.r2Get.mock.calls.length
+    vi.mocked(fixture.inbox.getRawMessage).mockResolvedValueOnce(undefined)
+    expect((await fixture.app.request(`${path}?preview=1`, { headers }, fixture.env)).status).toBe(
+      404,
+    )
+    expect((await fixture.app.request(`${path}?preview=1`, undefined, fixture.env)).status).toBe(
+      401,
+    )
+    expect(fixture.r2Get.mock.calls.length).toBe(beforeOneOffUnauthorized)
     const enabled = await fixture.app.request(
       `/v1/mailboxes/${MAILBOX_ID}`,
       { headers, method: 'PATCH', body: JSON.stringify({ renderHtml: true }) },

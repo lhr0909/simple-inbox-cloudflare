@@ -185,7 +185,7 @@ test('exercises the authenticated inbox parity flow responsively', async ({ page
   await composeDialog.getByRole('button', { name: 'Close new message' }).click()
   await expect(composeDialog).toBeHidden()
 
-  await page.getByRole('button', { name: /^(Mailbox settings|Settings)$/u }).click()
+  await page.getByRole('button', { name: 'Mailbox settings', exact: true }).click()
   const settingsDialog = page.getByRole('dialog', { name: 'Mailbox settings' })
   await expect(settingsDialog).toBeVisible()
   const senderAlias = settingsDialog.getByLabel('Sender alias')
@@ -195,16 +195,30 @@ test('exercises the authenticated inbox parity flow responsively', async ({ page
   await expect(settingsDialog.getByLabel('Forward inbound mail to')).toHaveValue(
     TEST_ADDRESSES.owner,
   )
-  await expect(settingsDialog.getByLabel('Color theme')).toHaveValue(/^(system|light|dark)$/u)
+  await expect(settingsDialog.getByLabel('Color theme')).toHaveCount(0)
+  await expect(settingsDialog.getByRole('region', { name: 'Spam blacklist' })).toHaveCount(0)
   await settingsDialog.getByRole('button', { name: 'Save settings' }).click()
   await expect(settingsDialog).toContainText('Settings saved.')
+  await mkdir('/tmp/simple-inbox-qa', { recursive: true })
+  await page.screenshot({
+    path: `/tmp/simple-inbox-qa/mailbox-settings-${testInfo.project.name}.png`,
+  })
   await page.keyboard.press('Escape')
   await expect(settingsDialog).toBeHidden()
 
-  await page.getByRole('button', { name: /^(Mailbox settings|Settings)$/u }).click()
+  await page.getByRole('button', { name: 'Mailbox settings', exact: true }).click()
   await expect(settingsDialog).toBeVisible()
   await expect(settingsDialog.getByLabel('Sender alias')).toHaveValue('Synthetic E2E Inbox')
-  await settingsDialog.getByRole('button', { name: 'Sign out', exact: true }).click()
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'General settings', exact: true }).click()
+  const generalSettings = page.getByRole('dialog', { name: 'General settings', exact: true })
+  await expect(generalSettings.getByLabel('Sender alias')).toHaveCount(0)
+  await expect(generalSettings.getByLabel('Color theme')).toHaveValue(/^(system|light|dark)$/u)
+  await expect(generalSettings.getByRole('region', { name: 'Spam blacklist' })).toBeVisible()
+  await page.screenshot({
+    path: `/tmp/simple-inbox-qa/general-settings-${testInfo.project.name}.png`,
+  })
+  await generalSettings.getByRole('button', { name: 'Sign out', exact: true }).click()
   await expect(page).toHaveURL((url) => url.pathname === '/sign-in')
   await expect(page.getByRole('heading', { name: 'Sign in to your inbox' })).toBeVisible()
 

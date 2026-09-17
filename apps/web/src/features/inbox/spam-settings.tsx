@@ -65,7 +65,7 @@ export function SpamSettings({ open }: { open: boolean }) {
           value={kind}
           onChange={(e) => setKind(e.currentTarget.value as CreateSpamRule['kind'])}
         >
-          <option value="recipient">Inbound alias</option>
+          <option value="recipient">Mailbox</option>
           <option value="sender">Sender address</option>
           <option value="domain">Sender domain</option>
         </select>
@@ -106,7 +106,7 @@ export function SpamSettings({ open }: { open: boolean }) {
             <span className="min-w-0 flex-1 break-all">
               <span className="text-muted-foreground">
                 {rule.kind === 'recipient'
-                  ? 'Inbound alias'
+                  ? 'Mailbox'
                   : rule.kind === 'sender'
                     ? 'Sender'
                     : 'Domain'}{' '}

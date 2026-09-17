@@ -31,6 +31,7 @@ import type { InboxData } from './inbox-types'
 
 import { HydratedTime } from './inbox-primitives'
 import { ReplyComposer } from './reply-composer'
+import { SpamDialog } from './spam-dialog'
 import type { InboxShellProps } from './inbox-shell-types'
 
 export function ConversationPane({
@@ -44,6 +45,7 @@ export function ConversationPane({
   onBack,
   onArchiveThread,
   onMessageState,
+  onSpam,
   onReply,
   aliasNotice,
 }: Readonly<{
@@ -57,11 +59,13 @@ export function ConversationPane({
   onBack?: InboxShellProps['onBack']
   onArchiveThread?: InboxShellProps['onArchiveThread']
   onMessageState?: InboxShellProps['onMessageState']
+  onSpam?: InboxShellProps['onSpam']
   onReply?: InboxShellProps['onReply']
   aliasNotice?: ReactNode
 }>) {
   const [expandAll, setExpandAll] = useState<boolean | null>(null)
   const [composerOpen, setComposerOpen] = useState(false)
+  const [spamOpen, setSpamOpen] = useState(false)
   const scrollPane = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -189,12 +193,13 @@ export function ConversationPane({
         <Button
           size="sm"
           variant="ghost"
-          disabled={busy}
-          onClick={() =>
-            void onMessageState?.(detail.thread.id, {
-              location: detail.thread.hasSpam ? 'not_spam' : 'spam',
-            })
-          }
+          disabled={busy || (!detail.thread.hasSpam && !canReply)}
+          title={!detail.thread.hasSpam && !canReply ? 'No inbound sender to block' : undefined}
+          onClick={() => {
+            if (detail.thread.hasSpam)
+              void onMessageState?.(detail.thread.id, { location: 'not_spam' })
+            else setSpamOpen(true)
+          }}
         >
           <ShieldIcon className="size-4" />
           {detail.thread.hasSpam ? 'Not spam' : 'Spam'}
@@ -208,6 +213,13 @@ export function ConversationPane({
           {expandAll === true ? 'Collapse all' : 'Expand all'}
         </Button>
       </div>
+      {spamOpen ? (
+        <SpamDialog
+          messages={detail.messages}
+          onClose={() => setSpamOpen(false)}
+          onConfirm={onSpam ? (rule) => onSpam(detail.thread.id, rule) : undefined}
+        />
+      ) : null}
       {aliasNotice}
       <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5" ref={scrollPane}>
         <div className="mx-auto max-w-3xl space-y-3">
@@ -266,6 +278,7 @@ function MessageCard({
   onMessageState?: InboxShellProps['onMessageState']
 }>) {
   const [expanded, setExpanded] = useState(initiallyOpen)
+  const [showHtmlOnce, setShowHtmlOnce] = useState(false)
   const readAttempted = useRef(false)
   useEffect(() => {
     if (expandAll !== null) setExpanded(expandAll)
@@ -282,6 +295,8 @@ function MessageCard({
     void onMessageState?.(message.threadId, { read: true, messageIds: [message.id] })
   }, [expanded, message.direction, message.id, message.readAt, message.threadId, onMessageState])
   const sender = message.from.displayName ?? message.from.address
+  const cc = visibleRecipients(message, 'cc')
+  const bcc = message.direction === 'outbound' ? visibleRecipients(message, 'bcc') : ''
   const delivery = messageDeliveryPresentation(message)
   return (
     <article className="content-auto rounded-xl border bg-background shadow-xs">
@@ -335,7 +350,7 @@ function MessageCard({
             </Avatar>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <p className="text-sm font-semibold">{sender}</p>
+                <p className="min-w-0 break-all text-sm font-semibold">{sender}</p>
                 {delivery ? <Badge variant={delivery.variant}>{delivery.label}</Badge> : null}
                 {message.readAt === null && message.direction === 'inbound' ? (
                   <Badge variant="secondary">New</Badge>
@@ -346,26 +361,24 @@ function MessageCard({
                   value={message.sentAt}
                 />
               </div>
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              <p className="mt-0.5 break-all text-xs text-muted-foreground">
+                From: {message.from.address}
+              </p>
+              <p className="mt-0.5 break-all text-xs text-muted-foreground">
                 To: {visibleRecipients(message, 'to') || 'Undisclosed recipient'}
               </p>
-              {visibleRecipients(message, 'cc') ? (
-                <p className="truncate text-xs text-muted-foreground">
-                  Cc: {visibleRecipients(message, 'cc')}
-                </p>
-              ) : null}
-              {message.direction === 'outbound' && visibleRecipients(message, 'bcc') ? (
-                <p className="truncate text-xs text-muted-foreground">
-                  Bcc: {visibleRecipients(message, 'bcc')}
+              {cc || bcc ? (
+                <p className="mt-0.5 flex flex-wrap gap-x-3 break-all text-xs text-muted-foreground">
+                  {cc ? <span>Cc: {cc}</span> : null}
+                  {bcc ? <span>Bcc: {bcc}</span> : null}
                 </p>
               ) : null}
             </div>
           </header>
           {message.spamAt !== null ? (
             <p className="border-t bg-muted px-4 py-2 text-xs">
-              Spam ·{' '}
               {message.spamReason === 'blacklist_recipient'
-                ? 'Blocked inbound alias'
+                ? 'Blocked mailbox'
                 : message.spamReason === 'blacklist_sender'
                   ? 'Blocked sender address'
                   : message.spamReason === 'blacklist_domain'
@@ -389,9 +402,10 @@ function MessageCard({
               {delivery.notice}
             </p>
           ) : null}
-          {renderHtml && message.rawAvailable ? (
+          {(renderHtml || showHtmlOnce) && message.rawAvailable ? (
             <HtmlMessageBody
               messageId={message.id}
+              oneOff={showHtmlOnce}
               renderFooter={(toggle) => <MessageFooter message={message} displayToggle={toggle} />}
               text={message.textBody || message.preview}
             />
@@ -400,7 +414,19 @@ function MessageCard({
               <div className="whitespace-pre-wrap p-4 text-sm leading-6">
                 {message.textBody || message.preview}
               </div>
-              <MessageFooter message={message} />
+              <MessageFooter
+                message={message}
+                displayToggle={
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    title="Preview HTML for this message only; remote images may load"
+                    onClick={() => setShowHtmlOnce(true)}
+                  >
+                    Show HTML
+                  </Button>
+                }
+              />
             </>
           )}
         </div>

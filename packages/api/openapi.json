@@ -3311,11 +3311,20 @@
             "required": true,
             "name": "messageId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["1"]
+            },
+            "required": false,
+            "name": "preview",
+            "in": "query"
           }
         ],
         "responses": {
           "200": {
-            "description": "An isolated HTML preview. Requires the mailbox HTML display setting; never embed without a sandbox.",
+            "description": "An isolated HTML preview. Requires the mailbox HTML display setting or preview=1 for a single-message opt-in; never embed without a sandbox.",
             "content": {
               "text/html": {
                 "schema": {

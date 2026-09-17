@@ -149,7 +149,11 @@ export function visibleRecipients(message: Message, kind: 'to' | 'cc' | 'bcc'): 
   return message.recipients
     .filter((recipient) => recipient.kind === kind)
     .sort((left, right) => left.position - right.position)
-    .map((recipient) => recipient.displayName ?? recipient.address)
+    .map((recipient) =>
+      recipient.displayName && recipient.displayName !== recipient.address
+        ? `${recipient.displayName} <${recipient.address}>`
+        : recipient.address,
+    )
     .join(', ')
 }
 

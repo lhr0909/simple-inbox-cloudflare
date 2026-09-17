@@ -2,6 +2,7 @@ import { MagicLinkAcceptedResponseSchema } from '@cloudflare-inbox/contracts/aut
 import { MailboxSettingsSchema } from '@cloudflare-inbox/contracts/mailboxes'
 import type { PatchMailboxRequest } from '@cloudflare-inbox/contracts/mailboxes'
 import { SendResponseSchema } from '@cloudflare-inbox/contracts/send'
+import type { CreateSpamRule } from '@cloudflare-inbox/contracts/spam'
 import {
   ThreadDetailResponseSchema,
   ThreadListResponseSchema,
@@ -89,6 +90,22 @@ export function updateMailboxSettings(mailboxId: string, patch: PatchMailboxRequ
 
 export function signOut() {
   return requestEmpty('/api/v1/auth/logout', { method: 'POST' })
+}
+
+export async function blacklistAndMoveToSpam(threadId: string, rule: CreateSpamRule) {
+  await requestEmpty('/api/v1/spam-rules', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(rule),
+  })
+  try {
+    await patchThreadState(threadId, { location: 'spam' })
+  } catch (cause) {
+    throw new ApiRequestError(
+      cause instanceof ApiRequestError ? cause.status : 0,
+      'The blacklist was saved, but this conversation could not be moved to Spam. Retry to finish.',
+    )
+  }
 }
 
 export function listThreadPage(query: InboxQuery, cursor: string, signal?: AbortSignal) {

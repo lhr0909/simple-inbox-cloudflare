@@ -53,7 +53,7 @@ export function AliasDialog({
       >
         <h2 className="text-base font-semibold">New inbox</h2>
         <p className="text-sm text-muted-foreground">
-          Create an alias on your routed domain, or promote one that has already received mail.
+          Create a mailbox on your routed domain, or promote one that has already received mail.
         </p>
         <label className="block space-y-2 text-sm">
           Email address

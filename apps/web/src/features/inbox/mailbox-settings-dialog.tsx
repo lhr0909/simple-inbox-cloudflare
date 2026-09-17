@@ -1,9 +1,6 @@
-import { SpamSettings } from './spam-settings'
 import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import LogOutIcon from 'lucide-react/dist/esm/icons/log-out.mjs'
 import XIcon from 'lucide-react/dist/esm/icons/x.mjs'
-import { useTheme } from 'fumadocs-ui/provider/base'
 
 import type { PatchMailboxRequest } from '@cloudflare-inbox/contracts/mailboxes'
 
@@ -20,14 +17,12 @@ export function MailboxSettingsDialog({
   mailbox,
   open,
   onOpenChange,
-  onSignOut,
   onUpdateMailbox,
 }: Readonly<{
   busy: boolean
   mailbox: InboxData['mailboxes'][number] | null
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSignOut?: InboxShellProps['onSignOut']
   onUpdateMailbox?: InboxShellProps['onUpdateMailbox']
 }>) {
   const dialog = useRef<HTMLDialogElement>(null)
@@ -41,8 +36,6 @@ export function MailboxSettingsDialog({
   const [renderHtml, setRenderHtml] = useState(mailbox?.renderHtml ?? false)
   const [forwardToEdited, setForwardToEdited] = useState(false)
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-  const { setTheme, theme } = useTheme()
-  const selectedTheme = theme === 'light' || theme === 'dark' ? theme : 'system'
 
   useEffect(() => {
     const element = dialog.current
@@ -294,41 +287,12 @@ export function MailboxSettingsDialog({
           </label>
         </fieldset>
 
-        <SpamSettings open={open} />
-
-        <Field className="mt-4">
-          <FieldLabel htmlFor={`${id}-theme`}>Color theme</FieldLabel>
-          <select
-            className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            id={`${id}-theme`}
-            onChange={(event) => setTheme(event.currentTarget.value)}
-            value={selectedTheme}
-          >
-            <option value="system">Use system setting</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-          </select>
-          <p className="text-xs text-muted-foreground">
-            Your preference is kept in this browser for the inbox and documentation.
-          </p>
-        </Field>
-
         <div className="mt-6 flex flex-wrap items-center gap-2 border-t pt-4">
           <Button disabled={busy || mailbox === null || status === 'saving'} type="submit">
             {status === 'saving' ? 'Saving…' : 'Save settings'}
           </Button>
           <Button onClick={() => onOpenChange(false)} type="button" variant="ghost">
             Cancel
-          </Button>
-          <Button
-            className="ml-auto"
-            disabled={busy}
-            onClick={() => void onSignOut?.()}
-            type="button"
-            variant="ghost"
-          >
-            <LogOutIcon aria-hidden="true" className="size-4" />
-            Sign out
           </Button>
           <span aria-live="polite" role="status" className="w-full text-xs text-muted-foreground">
             {status === 'saved' ? 'Settings saved.' : null}

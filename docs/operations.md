@@ -243,7 +243,7 @@ become available. Ordinary application operation no longer reads the plaintext s
 
 ## Mailbox HTML settings
 
-Open **Settings** for the selected mailbox:
+Open **Mailbox settings** beside the mailbox selector:
 
 - **Forward full HTML** preserves original formatting and inline images in future forwarded mail.
   Existing forwarded copies are unaffected. The receiving email client controls remote-image loading.
@@ -251,6 +251,11 @@ Open **Settings** for the selected mailbox:
   Remote images may reveal opens. Email scripts and forms remain blocked; **Show plain text** is
   available on each message. If original mail has expired or HTML exceeds the preview limit, text
   remains available while its application record is retained.
+
+**Show HTML** beside **Raw email** previews just that message for the current conversation view,
+without changing the mailbox preference. **Show plain text** switches back; reopening the
+conversation uses the mailbox default. One-off previews use the same sanitizer and sandbox and can
+load remote images.
 
 Full HTML forwarding defaults on; inbox HTML display defaults off. Both are independent of the
 forwarding destination. The mailbox PATCH API
@@ -401,14 +406,20 @@ the active mail target remain in its D1/R2 and are not merged into a legacy stor
 
 The mailbox dropdown offers **Other inbound** and **+ New inbox…**. Create an alias with a full email
 address and choose whether future mail should forward to the owner. In Other inbound, opening a
-conversation offers **Create inbox for this alias**, enabling the inbox and future owner forwarding.
-Mailbox settings can turn **Show as an inbox** off to hide an existing alias and stop its forwarding.
+conversation offers **Create inbox for this mailbox**, enabling the inbox and future owner forwarding.
+**Mailbox settings** can turn **Show as an inbox** off to hide an existing alias and stop its forwarding.
 No action creates Cloudflare routing rules; the existing catch-all must already route that domain.
 
-Settings also contains the installation owner's **Spam blacklist**. Add an inbound alias, sender
+**General settings** contains appearance preferences and the installation owner's shared **Spam blacklist**. Add a receiving mailbox address, sender
 address, or sender domain. Domain rules include subdomains. Matching future mail is stored in Spam,
 never forwarded. Rules match addresses, not display names, and do not authenticate a sender.
-Removing a rule affects future mail; use **Not spam** to restore existing messages separately.
+The conversation **Spam** action asks whether to block the sender address or the entire sender domain
+before moving the conversation to Spam. For multiple incoming senders, choose which sender to block.
+**Block mailbox** above a conversation adds its actual receiving mailbox to the blacklist in one
+click and moves that conversation to Spam. It works for both regular inboxes and Other inbound.
+Other existing conversations are unchanged; future mail to that mailbox goes to Spam.
+Cancel in the sender confirmation leaves the conversation and blacklist unchanged. **Not spam** restores messages but leaves
+blacklist rules intact; remove a rule separately in **General settings** to allow future mail.
 
 Migrations 0004–0006 preserve existing inbox visibility/forwarding, backfill message inbox membership
 from direction and archive state, and create the blacklist table. Newly discovered aliases start
