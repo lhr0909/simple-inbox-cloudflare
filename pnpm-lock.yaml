@@ -275,8 +275,8 @@ catalogs:
       specifier: 16.14.0
       version: 16.14.0
     hono:
-      specifier: 4.12.34
-      version: 4.12.34
+      specifier: 4.13.5
+      version: 4.13.5
     lucide-react:
       specifier: 1.27.0
       version: 1.27.0
@@ -324,7 +324,7 @@ catalogs:
       version: 4.4.3
 
 overrides:
-  js-yaml: 4.3.1
+  js-yaml: 4.3.2
   nanoid: 3.3.18
   vite: npm:@voidzero-dev/vite-plus-core@0.2.7
   vitest: 4.1.10
@@ -507,10 +507,10 @@ importers:
         version: link:../mail-core
       '@hono/zod-openapi':
         specifier: 'catalog:'
-        version: 1.5.1(hono@4.12.34)(zod@4.4.3)
+        version: 1.5.1(hono@4.13.5)(zod@4.4.3)
       hono:
         specifier: 'catalog:'
-        version: 4.12.34
+        version: 4.13.5
       parse5:
         specifier: 'catalog:'
         version: 7.3.0
@@ -547,10 +547,10 @@ importers:
     dependencies:
       '@hono/zod-openapi':
         specifier: 'catalog:'
-        version: 1.5.1(hono@4.12.34)(zod@4.4.3)
+        version: 1.5.1(hono@4.13.5)(zod@4.4.3)
       hono:
         specifier: 'catalog:'
-        version: 4.12.34
+        version: 4.13.5
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -609,7 +609,7 @@ importers:
         version: 0.45.2(@cloudflare/workers-types@5.20260801.1)
       hono:
         specifier: 'catalog:'
-        version: 4.12.34
+        version: 4.13.5
       postal-mime:
         specifier: 'catalog:'
         version: 2.7.5
@@ -4072,6 +4072,10 @@ packages:
     resolution: {integrity: sha512-GqXJqY/xJkJmuloTrnV1ZEXG3fqte+VjkUqoRNZXcrUidiUOP4fMSIHHY4tsqZBK++kVyWmt/AAfSUuy57/eSA==}
     engines: {node: '>=16.9.0'}
 
+  hono@4.13.5:
+    resolution: {integrity: sha512-O6+/eCYRkzzzy0rPWwKLiGBR1nFuUPZynnwjxN1MBA62NNqbT0wQEzQyK2gSO5yDIDB336sXQleAhOHrzlYyKw==}
+    engines: {node: '>=16.9.0'}
+
   html-void-elements@3.0.0:
     resolution: {integrity: sha512-bEqo66MRXsUGxWHV5IP0PUiAWwoEjba4VCzg0LjFJBpchPaTfyfCKTG6bc5F8ucKec3q5y6qOdGyYTSBEvhCrg==}
 
@@ -4242,8 +4246,8 @@ packages:
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
-  js-yaml@4.3.1:
-    resolution: {integrity: sha512-CY6crGq313MX8GkwvB7tzgp99vjQxY1++5y10/BKN/GUfHqWaOGQMNZkBvqSzsZKWk/ijwHlWzzkLulsGHhjWQ==}
+  js-yaml@4.3.2:
+    resolution: {integrity: sha512-SFNOvSJ+Dgf/9An904Yx+CgSlIPCkIpao4qo51lpee25TIRejdH3rhR4EZMGoNx3/TP3O+wzWuiTFl4sqbltzA==}
     hasBin: true
 
   jsesc@3.1.0:
@@ -6264,17 +6268,17 @@ snapshots:
     dependencies:
       hono: 4.12.34
 
-  '@hono/zod-openapi@1.5.1(hono@4.12.34)(zod@4.4.3)':
+  '@hono/zod-openapi@1.5.1(hono@4.13.5)(zod@4.4.3)':
     dependencies:
       '@asteasolutions/zod-to-openapi': 8.5.0(zod@4.4.3)
-      '@hono/zod-validator': 0.9.0(hono@4.12.34)(zod@4.4.3)
-      hono: 4.12.34
+      '@hono/zod-validator': 0.9.0(hono@4.13.5)(zod@4.4.3)
+      hono: 4.13.5
       openapi3-ts: 4.6.1
       zod: 4.4.3
 
-  '@hono/zod-validator@0.9.0(hono@4.12.34)(zod@4.4.3)':
+  '@hono/zod-validator@0.9.0(hono@4.13.5)(zod@4.4.3)':
     dependencies:
-      hono: 4.12.34
+      hono: 4.13.5
       zod: 4.4.3
 
   '@img/colour@1.1.0': {}
@@ -7917,7 +7921,7 @@ snapshots:
     dependencies:
       env-paths: 2.2.1
       import-fresh: 3.3.1
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       parse-json: 5.2.0
     optionalDependencies:
       typescript: 7.0.2
@@ -8654,6 +8658,8 @@ snapshots:
 
   hono@4.12.34: {}
 
+  hono@4.13.5: {}
+
   html-void-elements@3.0.0: {}
 
   htmlparser2@10.1.0:
@@ -8776,7 +8782,7 @@ snapshots:
 
   js-tokens@4.0.0: {}
 
-  js-yaml@4.3.1:
+  js-yaml@4.3.2:
     dependencies:
       argparse: 2.0.1
 
@@ -10501,7 +10507,7 @@ snapshots:
       '@oozcitak/dom': 2.0.2
       '@oozcitak/infra': 2.0.2
       '@oozcitak/util': 10.0.0
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
 
   y18n@5.0.8: {}
 
