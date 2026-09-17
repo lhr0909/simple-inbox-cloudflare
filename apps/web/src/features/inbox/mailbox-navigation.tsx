@@ -10,6 +10,7 @@ import TrashIcon from 'lucide-react/dist/esm/icons/trash-2.mjs'
 import ShieldIcon from 'lucide-react/dist/esm/icons/shield-alert.mjs'
 import SendIcon from 'lucide-react/dist/esm/icons/send.mjs'
 import SettingsIcon from 'lucide-react/dist/esm/icons/settings.mjs'
+import MailboxSettingsIcon from 'lucide-react/dist/esm/icons/sliders-horizontal.mjs'
 
 import type { ThreadFolder } from '@cloudflare-inbox/contracts/folders'
 
@@ -80,6 +81,7 @@ export function MailboxSidebar({
   query,
   onCollapse,
   onOpenSettings,
+  onOpenMailboxSettings,
   onQueryChange,
   onSignOut,
 }: Readonly<{
@@ -89,6 +91,7 @@ export function MailboxSidebar({
   query: InboxQuery
   onCollapse: () => void
   onOpenSettings: () => void
+  onOpenMailboxSettings: () => void
   onQueryChange?: InboxShellProps['onQueryChange']
   onSignOut?: InboxShellProps['onSignOut']
 }>) {
@@ -125,7 +128,19 @@ export function MailboxSidebar({
       {collapsed ? null : (
         <div className="p-3">
           <div className="rounded-xl border bg-background p-3 shadow-xs">
-            <p className="text-xs font-medium text-muted-foreground">Mailbox</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium text-muted-foreground">Mailbox</p>
+              <Button
+                aria-label="Mailbox settings"
+                title="Mailbox settings"
+                size="icon-xs"
+                variant="ghost"
+                onClick={onOpenMailboxSettings}
+                disabled={query.mailboxId === 'other' || !query.mailboxId}
+              >
+                <MailboxSettingsIcon aria-hidden="true" className="size-4" />
+              </Button>
+            </div>
             <MailboxSelect
               className="mt-2 w-full"
               mailboxes={mailboxes}
@@ -163,14 +178,14 @@ export function MailboxSidebar({
           {collapsed ? null : 'Documentation'}
         </a>
         <Button
-          aria-label={collapsed ? 'Mailbox settings' : undefined}
+          aria-label="General settings"
           className={cn('w-full', collapsed ? 'px-0' : 'justify-start')}
           onClick={onOpenSettings}
-          title={collapsed ? 'Mailbox settings' : undefined}
+          title="General settings"
           variant="ghost"
         >
           <SettingsIcon aria-hidden="true" className="size-4" />
-          {collapsed ? null : 'Settings'}
+          {collapsed ? null : 'General settings'}
         </Button>
         <Button
           aria-label={collapsed ? 'Sign out' : undefined}
@@ -237,12 +252,14 @@ export function CompactHeader({
   mailboxes,
   query,
   onOpenSettings,
+  onOpenMailboxSettings,
   onQueryChange,
 }: Readonly<{
   className?: string
   mailboxes: InboxData['mailboxes']
   query: InboxQuery
   onOpenSettings: () => void
+  onOpenMailboxSettings: () => void
   onQueryChange?: InboxShellProps['onQueryChange']
 }>) {
   return (
@@ -262,9 +279,19 @@ export function CompactHeader({
       </a>
       <Button
         aria-label="Mailbox settings"
+        title="Mailbox settings"
+        size="icon-sm"
+        variant="ghost"
+        onClick={onOpenMailboxSettings}
+        disabled={query.mailboxId === 'other' || !query.mailboxId}
+      >
+        <MailboxSettingsIcon aria-hidden="true" className="size-4" />
+      </Button>
+      <Button
+        aria-label="General settings"
+        title="General settings"
         onClick={onOpenSettings}
         size="icon-sm"
-        title="Mailbox settings"
         variant="ghost"
       >
         <SettingsIcon aria-hidden="true" className="size-4" />

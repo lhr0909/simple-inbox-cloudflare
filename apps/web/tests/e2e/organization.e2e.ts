@@ -116,8 +116,8 @@ test('promotes catch-all aliases, preserves Sent conversations, and manages blac
   await conversation.getByRole('button', { name: 'Restore from trash' }).click()
   await expect(conversation.getByRole('button', { name: 'Trash', exact: true })).toBeVisible()
   if (mobile) await page.getByRole('button', { name: 'Back to conversations' }).click()
-  await page.getByRole('button', { name: /^(Mailbox settings|Settings)$/ }).click()
-  const settings = page.getByRole('dialog', { name: 'Mailbox settings' })
+  await page.getByRole('button', { name: 'General settings', exact: true }).click()
+  const settings = page.getByRole('dialog', { name: 'General settings', exact: true })
   await settings.getByLabel('Blacklist type').selectOption('recipient')
   await settings.getByLabel('Blacklist value').fill('unused@example.test')
   await settings.getByRole('button', { name: 'Add to blacklist' }).click()
@@ -156,9 +156,7 @@ test('promotes catch-all aliases, preserves Sent conversations, and manages blac
     fullPage: false,
   })
   await conversation.getByRole('button', { name: 'Not spam', exact: true }).click()
-  await expect(conversation.getByText('Spam · Blocked inbound alias', { exact: true })).toHaveCount(
-    0,
-  )
+  await expect(conversation.getByText('Blocked inbound alias', { exact: true })).toHaveCount(0)
   if (mobile) await page.getByRole('button', { name: 'Back to conversations' }).click()
   await mailbox.selectOption('create')
   const create = page.getByRole('dialog', { name: 'New inbox', exact: true })
@@ -169,3 +167,105 @@ test('promotes catch-all aliases, preserves Sent conversations, and manages blac
   await expect(mailbox.locator('option:checked')).toHaveText('quick@example.test')
   expect(errors).toEqual([])
 })
+
+for (const kind of ['sender', 'domain'] as const) {
+  test(`Spam confirmation blocks the selected ${kind} and future matching mail`, async ({
+    page,
+    organizationHarness: harness,
+  }, info) => {
+    const sender = 'sender@senders.example.test'
+    const recipient = 'inbox@example.test'
+    const incoming = (id: string, subject: string, from = sender, headers: string[] = []) =>
+      mail(recipient, id, subject, headers).replace(
+        'From: sender@example.test',
+        `From: Named sender <${from}>`,
+      )
+    await harness.worker.email({
+      from: sender,
+      to: recipient,
+      raw: incoming('spam-dialog', 'Spam confirmation review'),
+    })
+    if (kind === 'sender') {
+      await harness.worker.email({
+        from: 'colleague@colleagues.example.test',
+        to: recipient,
+        raw: incoming(
+          'spam-colleague',
+          'Re: Spam confirmation review',
+          'colleague@colleagues.example.test',
+          ['In-Reply-To: <spam-dialog@example.test>', 'References: <spam-dialog@example.test>'],
+        ),
+      })
+    }
+    await page.goto(`/auth/verify?token=${TEST_MAGIC_TOKEN}`)
+    await page
+      .getByTestId('thread-list')
+      .getByRole('button', { name: /Spam confirmation review/ })
+      .click()
+    const conversation = page.getByTestId('conversation-pane')
+    // A later sent reply must never select our own address as the sender to block.
+    await conversation.getByRole('button', { name: 'Reply', exact: true }).click()
+    const reply = page
+      .locator('form')
+      .filter({ has: page.getByRole('heading', { name: 'Reply', exact: true }) })
+    await reply.getByLabel('Message', { exact: true }).fill('Synthetic reply before blocking.')
+    await reply.getByRole('button', { name: 'Send reply' }).click()
+    await expect(reply).toContainText('Reply sent.')
+    await reply.getByRole('button', { name: 'Cancel', exact: true }).click()
+    const threadId = new URL(page.url()).searchParams.get('thread')!
+    await conversation.getByRole('button', { name: 'Spam', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'Move to Spam and block sender' })
+    await expect(dialog.getByRole('radio', { name: /This email address/ })).toBeChecked()
+    if (kind === 'sender') {
+      await expect(dialog.getByLabel('Sender to block')).toHaveValue(
+        'colleague@colleagues.example.test',
+      )
+      await dialog.getByLabel('Sender to block').selectOption(sender)
+    }
+    await expect(dialog).toContainText(sender)
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(dialog).not.toBeVisible()
+    expect((await (await page.request.get('/api/v1/spam-rules')).json()).rules).toEqual([])
+    expect(
+      (await (await page.request.get(`/api/v1/threads/${threadId}`)).json()).thread.hasSpam,
+    ).toBe(false)
+    await conversation.getByRole('button', { name: 'Spam', exact: true }).click()
+    if (kind === 'sender') await dialog.getByLabel('Sender to block').selectOption(sender)
+    if (kind === 'domain') await dialog.getByRole('radio', { name: /Entire email domain/ }).check()
+    await mkdir('/tmp/simple-inbox-qa', { recursive: true })
+    await page.screenshot({ path: `/tmp/simple-inbox-qa/block-${kind}-${info.project.name}.png` })
+    await dialog.getByRole('button', { name: 'Block and move to Spam' }).click()
+    await expect(dialog).not.toBeVisible()
+    await expect(conversation.getByRole('button', { name: 'Not spam', exact: true })).toBeVisible()
+    await expect(conversation.getByText('Marked as spam', { exact: true }).first()).toBeVisible()
+    await expect(conversation.getByText('Spam · Marked as spam', { exact: true })).toHaveCount(0)
+    const rules = (await (await page.request.get('/api/v1/spam-rules')).json()).rules
+    expect(rules).toHaveLength(1)
+    expect(rules[0]).toMatchObject({
+      kind,
+      value: kind === 'sender' ? sender : 'senders.example.test',
+    })
+    const laterSender = kind === 'domain' ? 'different@sub.senders.example.test' : sender
+    await harness.worker.email({
+      from: laterSender,
+      to: recipient,
+      raw: incoming('blocked-later', 'Future blocked mail', laterSender),
+    })
+    const mailboxId = new URL(page.url()).searchParams.get('mailbox')!
+    const spam = await (
+      await page.request.get(`/api/v1/threads?mailboxId=${mailboxId}&folder=spam`)
+    ).json()
+    const blocked = spam.items.find(
+      (thread: { subject: string }) => thread.subject === 'Future blocked mail',
+    )
+    expect(blocked).toBeTruthy()
+    const detail = await (await page.request.get(`/api/v1/threads/${blocked.id}`)).json()
+    expect(detail.messages[0]).toMatchObject({
+      forwardState: 'not_applicable',
+      spamReason: `blacklist_${kind}`,
+    })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
+      true,
+    )
+  })
+}

@@ -1,5 +1,6 @@
 import type { MailboxSettings, PatchMailboxRequest } from '@cloudflare-inbox/contracts/mailboxes'
 import type { SendResponse } from '@cloudflare-inbox/contracts/send'
+import type { CreateSpamRule } from '@cloudflare-inbox/contracts/spam'
 
 import type { InboxData, InboxQuery, NewMessageDraft, ReplyDraft } from './inbox-types'
 
@@ -28,6 +29,7 @@ export type InboxShellProps = Readonly<{
     patch: import('@cloudflare-inbox/contracts/threads').PatchMessageState,
   ) => Promise<void>
   onArchiveThread?: (threadId: string, archived: boolean) => Promise<void> | void
+  onSpam?: (threadId: string, rule: CreateSpamRule) => Promise<void>
   onReply?: (threadId: string, draft: ReplyDraft) => Promise<SendResponse>
   onCompose?: (mailboxId: string, draft: NewMessageDraft) => Promise<SendResponse>
   onSignOut?: () => Promise<void> | void

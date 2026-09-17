@@ -31,6 +31,7 @@ import type { InboxData } from './inbox-types'
 
 import { HydratedTime } from './inbox-primitives'
 import { ReplyComposer } from './reply-composer'
+import { SpamDialog } from './spam-dialog'
 import type { InboxShellProps } from './inbox-shell-types'
 
 export function ConversationPane({
@@ -44,6 +45,7 @@ export function ConversationPane({
   onBack,
   onArchiveThread,
   onMessageState,
+  onSpam,
   onReply,
   aliasNotice,
 }: Readonly<{
@@ -57,11 +59,13 @@ export function ConversationPane({
   onBack?: InboxShellProps['onBack']
   onArchiveThread?: InboxShellProps['onArchiveThread']
   onMessageState?: InboxShellProps['onMessageState']
+  onSpam?: InboxShellProps['onSpam']
   onReply?: InboxShellProps['onReply']
   aliasNotice?: ReactNode
 }>) {
   const [expandAll, setExpandAll] = useState<boolean | null>(null)
   const [composerOpen, setComposerOpen] = useState(false)
+  const [spamOpen, setSpamOpen] = useState(false)
   const scrollPane = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -189,12 +193,13 @@ export function ConversationPane({
         <Button
           size="sm"
           variant="ghost"
-          disabled={busy}
-          onClick={() =>
-            void onMessageState?.(detail.thread.id, {
-              location: detail.thread.hasSpam ? 'not_spam' : 'spam',
-            })
-          }
+          disabled={busy || (!detail.thread.hasSpam && !canReply)}
+          title={!detail.thread.hasSpam && !canReply ? 'No inbound sender to block' : undefined}
+          onClick={() => {
+            if (detail.thread.hasSpam)
+              void onMessageState?.(detail.thread.id, { location: 'not_spam' })
+            else setSpamOpen(true)
+          }}
         >
           <ShieldIcon className="size-4" />
           {detail.thread.hasSpam ? 'Not spam' : 'Spam'}
@@ -208,6 +213,13 @@ export function ConversationPane({
           {expandAll === true ? 'Collapse all' : 'Expand all'}
         </Button>
       </div>
+      {spamOpen ? (
+        <SpamDialog
+          messages={detail.messages}
+          onClose={() => setSpamOpen(false)}
+          onConfirm={onSpam ? (rule) => onSpam(detail.thread.id, rule) : undefined}
+        />
+      ) : null}
       {aliasNotice}
       <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5" ref={scrollPane}>
         <div className="mx-auto max-w-3xl space-y-3">
@@ -364,7 +376,6 @@ function MessageCard({
           </header>
           {message.spamAt !== null ? (
             <p className="border-t bg-muted px-4 py-2 text-xs">
-              Spam ·{' '}
               {message.spamReason === 'blacklist_recipient'
                 ? 'Blocked inbound alias'
                 : message.spamReason === 'blacklist_sender'

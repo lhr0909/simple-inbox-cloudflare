@@ -7,6 +7,7 @@ import type { SendResponse } from '@cloudflare-inbox/contracts/send'
 
 import {
   ApiRequestError,
+  blacklistAndMoveToSpam,
   createMailbox,
   listThreadPage,
   patchThreadState,
@@ -431,6 +432,18 @@ function Inbox() {
         }
       }}
       onArchiveThread={archiveThread}
+      onSpam={async (threadId, rule) => {
+        beginOperation()
+        try {
+          await blacklistAndMoveToSpam(threadId, rule)
+          await fetchSnapshot(search, false)
+        } catch (cause) {
+          redirectIfAnonymous(cause)
+          throw cause
+        } finally {
+          finishOperation()
+        }
+      }}
       onBack={() => changeQuery({ threadId: null }, { replace: true })}
       onCompose={compose}
       onLoadMore={loadMore}

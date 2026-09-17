@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { sendNewMessage } from './inbox-api'
+import { blacklistAndMoveToSpam, sendNewMessage } from './inbox-api'
 
 const MAILBOX_ID = '019b08e0-1000-7000-8000-000000000001'
 const THREAD_ID = '019b08e0-2000-7000-8000-000000000001'
@@ -47,5 +47,32 @@ describe('inbox mutation client', () => {
     })
 
     expect(fetchMock).toHaveBeenCalledOnce()
+  })
+})
+
+describe('spam blacklist action', () => {
+  it('does not move mail when saving the blacklist fails', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response(null, { status: 503 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(
+      blacklistAndMoveToSpam(THREAD_ID, { kind: 'sender', value: 'sender@example.test' }),
+    ).rejects.toThrow('The update could not be saved.')
+    expect(fetchMock).toHaveBeenCalledOnce()
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/v1/spam-rules')
+  })
+
+  it('reports a saved rule when the conversation update fails so the user can retry', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(
+      blacklistAndMoveToSpam(THREAD_ID, { kind: 'domain', value: 'example.test' }),
+    ).rejects.toThrow(
+      'The blacklist was saved, but this conversation could not be moved to Spam. Retry to finish.',
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(`/api/v1/threads/${THREAD_ID}/state`)
   })
 })

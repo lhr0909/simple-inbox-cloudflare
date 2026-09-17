@@ -11,6 +11,7 @@ import { NewMessageDialog } from './new-message-dialog'
 import { AliasDialog } from './alias-dialog'
 import { Button } from '#/components/ui/button'
 import { MailboxSettingsDialog } from './mailbox-settings-dialog'
+import { GeneralSettingsDialog } from './general-settings-dialog'
 import type { InboxShellProps } from './inbox-shell-types'
 
 export function InboxShell({
@@ -30,6 +31,7 @@ export function InboxShell({
   onLoadMore,
   onArchiveThread,
   onMessageState,
+  onSpam,
   onReply,
   onCompose,
   onSignOut,
@@ -41,6 +43,7 @@ export function InboxShell({
   const [navigationWidth, setNavigationWidth] = useState(248)
   const [threadListWidth, setThreadListWidth] = useState(390)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [mailboxSettingsOpen, setMailboxSettingsOpen] = useState(false)
   const [composeOpen, setComposeOpen] = useState(false)
   const [aliasOpen, setAliasOpen] = useState(false)
   const mailbox = data.mailboxes.find((item) => item.id === query.mailboxId) ?? null
@@ -94,6 +97,7 @@ export function InboxShell({
             query={query}
             onCollapse={() => setNavigationCollapsed((current) => !current)}
             onOpenSettings={() => setSettingsOpen(true)}
+            onOpenMailboxSettings={() => setMailboxSettingsOpen(true)}
             onQueryChange={navigateMailbox}
             onSignOut={onSignOut}
           />
@@ -115,6 +119,7 @@ export function InboxShell({
             mailboxes={data.mailboxes}
             query={query}
             onOpenSettings={() => setSettingsOpen(true)}
+            onOpenMailboxSettings={() => setMailboxSettingsOpen(true)}
             onQueryChange={navigateMailbox}
           />
           <MobileFolders
@@ -172,6 +177,7 @@ export function InboxShell({
             onRetry={onRetryThread}
             onArchiveThread={onArchiveThread}
             onMessageState={onMessageState}
+            onSpam={onSpam}
             onBack={onBack}
             onReply={onReply}
             aliasNotice={
@@ -217,10 +223,14 @@ export function InboxShell({
         <MailboxSettingsDialog
           busy={busy}
           mailbox={mailbox}
+          open={mailboxSettingsOpen}
+          onOpenChange={setMailboxSettingsOpen}
+          onUpdateMailbox={onUpdateMailbox}
+        />
+        <GeneralSettingsDialog
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
           onSignOut={onSignOut}
-          onUpdateMailbox={onUpdateMailbox}
         />
         <NewMessageDialog
           mailbox={mailbox}

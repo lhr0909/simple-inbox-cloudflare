@@ -83,7 +83,7 @@ test('persists independent HTML preferences and safely renders retained mail on 
   const mobile = (page.viewportSize()?.width ?? 0) < 768
   const openSettings = async () => {
     if (mobile) await page.getByRole('button', { name: 'Back to conversations' }).click()
-    await page.getByRole('button', { name: /^(Mailbox settings|Settings)$/u }).click()
+    await page.getByRole('button', { name: 'Mailbox settings', exact: true }).click()
   }
   await openSettings()
   const dialog = page.getByRole('dialog', { name: 'Mailbox settings' })
@@ -96,7 +96,7 @@ test('persists independent HTML preferences and safely renders retained mail on 
   await expect(dialog.getByRole('status')).toContainText('Settings saved')
   await dialog.getByRole('button', { name: 'Close settings' }).click()
   await page.reload()
-  await page.getByRole('button', { name: /^(Mailbox settings|Settings)$/u }).click()
+  await page.getByRole('button', { name: 'Mailbox settings', exact: true }).click()
   await expect(forward).not.toBeChecked()
   await expect(render).not.toBeChecked()
   await forward.check()
