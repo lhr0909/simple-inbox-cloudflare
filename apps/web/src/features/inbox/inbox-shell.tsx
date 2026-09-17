@@ -112,7 +112,6 @@ export function InboxShell({
               'col-start-1 row-start-1 md:col-span-2 xl:hidden',
               mobileDetailVisible && 'hidden md:flex',
             )}
-            mailbox={navigationMailbox}
             mailboxes={data.mailboxes}
             query={query}
             onOpenSettings={() => setSettingsOpen(true)}

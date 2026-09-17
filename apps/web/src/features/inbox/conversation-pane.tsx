@@ -282,6 +282,8 @@ function MessageCard({
     void onMessageState?.(message.threadId, { read: true, messageIds: [message.id] })
   }, [expanded, message.direction, message.id, message.readAt, message.threadId, onMessageState])
   const sender = message.from.displayName ?? message.from.address
+  const cc = visibleRecipients(message, 'cc')
+  const bcc = message.direction === 'outbound' ? visibleRecipients(message, 'bcc') : ''
   const delivery = messageDeliveryPresentation(message)
   return (
     <article className="content-auto rounded-xl border bg-background shadow-xs">
@@ -335,7 +337,7 @@ function MessageCard({
             </Avatar>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <p className="text-sm font-semibold">{sender}</p>
+                <p className="min-w-0 break-all text-sm font-semibold">{sender}</p>
                 {delivery ? <Badge variant={delivery.variant}>{delivery.label}</Badge> : null}
                 {message.readAt === null && message.direction === 'inbound' ? (
                   <Badge variant="secondary">New</Badge>
@@ -346,17 +348,16 @@ function MessageCard({
                   value={message.sentAt}
                 />
               </div>
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              <p className="mt-0.5 break-all text-xs text-muted-foreground">
+                From: {message.from.address}
+              </p>
+              <p className="mt-0.5 break-all text-xs text-muted-foreground">
                 To: {visibleRecipients(message, 'to') || 'Undisclosed recipient'}
               </p>
-              {visibleRecipients(message, 'cc') ? (
-                <p className="truncate text-xs text-muted-foreground">
-                  Cc: {visibleRecipients(message, 'cc')}
-                </p>
-              ) : null}
-              {message.direction === 'outbound' && visibleRecipients(message, 'bcc') ? (
-                <p className="truncate text-xs text-muted-foreground">
-                  Bcc: {visibleRecipients(message, 'bcc')}
+              {cc || bcc ? (
+                <p className="mt-0.5 flex flex-wrap gap-x-3 break-all text-xs text-muted-foreground">
+                  {cc ? <span>Cc: {cc}</span> : null}
+                  {bcc ? <span>Bcc: {bcc}</span> : null}
                 </p>
               ) : null}
             </div>

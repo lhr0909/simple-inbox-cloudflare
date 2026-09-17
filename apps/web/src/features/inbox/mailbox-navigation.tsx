@@ -100,7 +100,7 @@ export function MailboxSidebar({
           collapsed ? 'justify-center' : 'gap-3',
         )}
       >
-        <BrandMark />
+        {collapsed ? null : <BrandMark />}
         {collapsed ? null : (
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold">Simple Inbox</p>
@@ -234,14 +234,12 @@ function FolderNavigation({
 
 export function CompactHeader({
   className,
-  mailbox,
   mailboxes,
   query,
   onOpenSettings,
   onQueryChange,
 }: Readonly<{
   className?: string
-  mailbox: InboxData['mailboxes'][number] | null
   mailboxes: InboxData['mailboxes']
   query: InboxQuery
   onOpenSettings: () => void
@@ -259,9 +257,6 @@ export function CompactHeader({
           onQueryChange={onQueryChange}
         />
       </div>
-      <span className="hidden max-w-40 truncate text-xs text-muted-foreground sm:block">
-        {mailbox?.senderAlias ?? 'Default sender'}
-      </span>
       <a className={buttonVariants({ size: 'sm', variant: 'ghost' })} href="/docs">
         Docs
       </a>
