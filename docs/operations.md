@@ -405,8 +405,8 @@ the active mail target remain in its D1/R2 and are not merged into a legacy stor
 ## Alias and spam management
 
 The mailbox dropdown offers **Other inbound** and **+ New inbox…**. Create an alias with a full email
-address and choose whether future mail should forward to the owner. In Other inbound, opening a
-conversation offers **Create inbox for this mailbox**, enabling the inbox and future owner forwarding.
+address and set a forwarding destination, or leave it empty to disable forwarding. In Other inbound, opening a
+conversation offers **Create inbox for this mailbox**, opening the creation form with its address filled in.
 **Mailbox settings** can turn **Show as an inbox** off to hide an existing alias and stop its forwarding.
 No action creates Cloudflare routing rules; the existing catch-all must already route that domain.
 
@@ -415,9 +415,9 @@ address, or sender domain. Domain rules include subdomains. Matching future mail
 never forwarded. Rules match addresses, not display names, and do not authenticate a sender.
 The conversation **Spam** action asks whether to block the sender address or the entire sender domain
 before moving the conversation to Spam. For multiple incoming senders, choose which sender to block.
-**Block mailbox** above a conversation adds its actual receiving mailbox to the blacklist in one
-click and moves that conversation to Spam. It works for both regular inboxes and Other inbound.
-Other existing conversations are unchanged; future mail to that mailbox goes to Spam.
+**Block mailbox** in **Mailbox settings** adds that receiving address to the blacklist in one click.
+It hides the mailbox from the dropdown and groups its mail under Other inbound. Existing messages, including the open conversation, remain unchanged; future mail goes to Spam without forwarding.
+For an address in Other inbound, open its conversation and choose **Mailbox settings**. Removing the rule restores its prior dropdown visibility.
 Cancel in the sender confirmation leaves the conversation and blacklist unchanged. **Not spam** restores messages but leaves
 blacklist rules intact; remove a rule separately in **General settings** to allow future mail.
 
