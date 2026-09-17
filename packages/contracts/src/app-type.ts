@@ -185,8 +185,8 @@ export type PublicApiSchema = {
   }
   '/v1/messages/:messageId/html': {
     $get: WithStandardErrors<
-      { param: { messageId: MessageId } },
-      BinaryEndpoint<{ param: { messageId: MessageId } }, 200>
+      { param: { messageId: MessageId }; query?: { preview?: '1' } },
+      BinaryEndpoint<{ param: { messageId: MessageId }; query?: { preview?: '1' } }, 200>
     >
   }
   '/v1/messages/:messageId/raw': {

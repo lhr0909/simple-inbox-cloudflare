@@ -278,6 +278,7 @@ function MessageCard({
   onMessageState?: InboxShellProps['onMessageState']
 }>) {
   const [expanded, setExpanded] = useState(initiallyOpen)
+  const [showHtmlOnce, setShowHtmlOnce] = useState(false)
   const readAttempted = useRef(false)
   useEffect(() => {
     if (expandAll !== null) setExpanded(expandAll)
@@ -377,7 +378,7 @@ function MessageCard({
           {message.spamAt !== null ? (
             <p className="border-t bg-muted px-4 py-2 text-xs">
               {message.spamReason === 'blacklist_recipient'
-                ? 'Blocked inbound alias'
+                ? 'Blocked mailbox'
                 : message.spamReason === 'blacklist_sender'
                   ? 'Blocked sender address'
                   : message.spamReason === 'blacklist_domain'
@@ -401,9 +402,10 @@ function MessageCard({
               {delivery.notice}
             </p>
           ) : null}
-          {renderHtml && message.rawAvailable ? (
+          {(renderHtml || showHtmlOnce) && message.rawAvailable ? (
             <HtmlMessageBody
               messageId={message.id}
+              oneOff={showHtmlOnce}
               renderFooter={(toggle) => <MessageFooter message={message} displayToggle={toggle} />}
               text={message.textBody || message.preview}
             />
@@ -412,7 +414,19 @@ function MessageCard({
               <div className="whitespace-pre-wrap p-4 text-sm leading-6">
                 {message.textBody || message.preview}
               </div>
-              <MessageFooter message={message} />
+              <MessageFooter
+                message={message}
+                displayToggle={
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    title="Preview HTML for this message only; remote images may load"
+                    onClick={() => setShowHtmlOnce(true)}
+                  >
+                    Show HTML
+                  </Button>
+                }
+              />
             </>
           )}
         </div>

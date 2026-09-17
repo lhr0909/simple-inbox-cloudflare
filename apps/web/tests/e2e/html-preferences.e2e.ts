@@ -1,3 +1,4 @@
+import { mkdir } from 'node:fs/promises'
 import { expect, test as base } from '@playwright/test'
 import {
   injectSyntheticInbound,
@@ -28,7 +29,7 @@ const PNG =
 test('persists independent HTML preferences and safely renders retained mail on every viewport', async ({
   page,
   htmlHarness,
-}) => {
+}, info) => {
   await injectSyntheticInbound(
     htmlHarness,
     [
@@ -79,6 +80,27 @@ test('persists independent HTML preferences and safely renders retained mail on 
   await expect(page.getByTestId('conversation-pane')).toContainText('Formatted greeting')
   await expect(page.getByTitle('HTML email')).toHaveCount(0)
   expect(remoteImages).toBe(0)
+  const footer = page.getByTestId('conversation-pane').locator('article footer')
+  await expect(footer.getByRole('link', { name: 'Raw email', exact: true })).toBeVisible()
+  await footer.getByRole('button', { name: 'Show HTML', exact: true }).click()
+  await expect(page.getByTitle('HTML email')).toHaveAttribute('src', /\?preview=1$/)
+  await expect(
+    page
+      .frameLocator('iframe[title="HTML email"]')
+      .getByRole('heading', { name: 'Formatted greeting' }),
+  ).toBeVisible()
+  const unchanged = await (await page.request.get('/api/v1/mailboxes')).json()
+  expect(
+    unchanged.mailboxes.find((mailbox: { id: string }) => mailbox.id === TEST_IDS.mailbox)
+      .renderHtml,
+  ).toBe(false)
+  await mkdir('/tmp/simple-inbox-qa', { recursive: true })
+  await page.screenshot({ path: `/tmp/simple-inbox-qa/html-once-${info.project.name}.png` })
+  await footer.getByRole('button', { name: 'Show plain text', exact: true }).click()
+  await expect(page.getByTitle('HTML email')).toHaveCount(0)
+  await page.reload()
+  await expect(page.getByTestId('conversation-pane')).toContainText('Formatted greeting')
+  await expect(page.getByTitle('HTML email')).toHaveCount(0)
 
   const mobile = (page.viewportSize()?.width ?? 0) < 768
   const openSettings = async () => {

@@ -223,3 +223,7 @@ whole conversation. These mutations require `settings` scope and same-origin pro
 `{ "kind": "recipient", "value": "unused@example.test" }`, or kind `sender` / `domain`.
 `DELETE /spam-rules/{ruleId}` removes an owned rule idempotently. Domain values include subdomains.
 Rule creation and deletion affect future mail only. These endpoints require `settings` scope.
+
+For an explicit single-message HTML preview while mailbox HTML display is off, request
+`GET /messages/{messageId}/html?preview=1`. This does not update mailbox settings. Authentication,
+mailbox access, raw retention, sanitization, and sandbox requirements still apply.

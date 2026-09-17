@@ -61,7 +61,8 @@ original HTML only when `forwardHtml` is enabled; sender identity, reply aliases
 and provider-size fallbacks continue to apply. Changes affect future forwarding, not copies already sent.
 
 When `renderHtml` is enabled, visible messages load `/api/v1/messages/{messageId}/html` in lazy iframes.
-The endpoint rechecks authentication, mailbox membership, the setting, and raw retention before
+The endpoint rechecks authentication, mailbox membership, the setting (or explicit `preview=1`
+for a one-off message preview), and raw retention before
 reading R2. Existing retained messages work without backfilling D1. Previews are capped at 4 MB;
 missing, oversized, or unavailable HTML falls back to the existing plain-text projection.
 
@@ -173,7 +174,8 @@ and the persisted decision is part of the inbound D1 transaction before forwardi
 path rechecks current rules before claiming delivery; the claim also requires a whitelisted mailbox,
 a destination, and a message outside Spam/Trash. Issued owner reply aliases resolve before ordinary
 recipient filtering. The Spam confirmation first saves an explicit sender/domain rule, then moves the conversation;
-a failed second step reports that the rule was saved and allows an idempotent retry. Manual Not spam
+a failed second step reports that the rule was saved and allows an idempotent retry. The one-click Block mailbox action uses the same sequence with the actual receiving mailbox as
+the recipient rule. Manual Not spam
 restores a message without deleting its blacklist rule or forwarding historical mail. General settings
 owns the shared blacklist and browser theme; mailbox settings owns alias and forwarding preferences. There are no keyword rules, AI calls, or new Cloudflare resources.
 

@@ -59,7 +59,7 @@ test('promotes catch-all aliases, preserves Sent conversations, and manages blac
     .getByRole('button', { name: /Alias conversation/ })
     .click()
   await expect(page.getByTestId('conversation-pane')).toContainText(`Received at ${alias}`)
-  await page.getByRole('button', { name: 'Create inbox for this alias' }).click()
+  await page.getByRole('button', { name: 'Create inbox for this mailbox' }).click()
   await expect.poll(() => new URL(page.url()).searchParams.get('mailbox')).not.toBe('other')
   await page
     .getByTestId('thread-list')
@@ -146,7 +146,7 @@ test('promotes catch-all aliases, preserves Sent conversations, and manages blac
     .getByTestId('thread-list')
     .getByRole('button', { name: /Blacklisted alias mail/ })
     .click()
-  await expect(conversation).toContainText('Blocked inbound alias')
+  await expect(conversation).toContainText('Blocked mailbox')
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
     true,
   )
@@ -156,7 +156,7 @@ test('promotes catch-all aliases, preserves Sent conversations, and manages blac
     fullPage: false,
   })
   await conversation.getByRole('button', { name: 'Not spam', exact: true }).click()
-  await expect(conversation.getByText('Blocked inbound alias', { exact: true })).toHaveCount(0)
+  await expect(conversation.getByText('Blocked mailbox', { exact: true })).toHaveCount(0)
   if (mobile) await page.getByRole('button', { name: 'Back to conversations' }).click()
   await mailbox.selectOption('create')
   const create = page.getByRole('dialog', { name: 'New inbox', exact: true })
@@ -267,5 +267,72 @@ for (const kind of ['sender', 'domain'] as const) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
       true,
     )
+  })
+}
+
+for (const scope of ['inbox', 'other'] as const) {
+  test(`blocks a receiving mailbox in one click from ${scope}`, async ({
+    page,
+    organizationHarness: harness,
+  }, info) => {
+    const recipient = scope === 'other' ? 'unused@example.test' : 'inbox@example.test'
+    await harness.worker.email({
+      from: 'sender@example.test',
+      to: recipient,
+      raw: mail('inbox@example.test', 'mailbox-block', 'Block receiving mailbox'),
+    })
+    await page.goto(`/auth/verify?token=${TEST_MAGIC_TOKEN}`)
+    if (scope === 'other') {
+      await page
+        .getByRole('combobox', { name: 'Mailbox', exact: true })
+        .filter({ visible: true })
+        .selectOption('other')
+      await expect(page).toHaveURL((url) => url.searchParams.get('mailbox') === 'other')
+    }
+    await page
+      .getByTestId('thread-list')
+      .getByRole('button', { name: /Block receiving mailbox/ })
+      .click()
+    const pane = page.getByTestId('conversation-pane')
+    await expect(pane).toContainText(`Received at ${recipient}`)
+    await pane.getByRole('button', { name: 'Block mailbox', exact: true }).click()
+    await expect(pane.getByRole('button', { name: 'Not spam', exact: true })).toBeVisible()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    const rules = (await (await page.request.get('/api/v1/spam-rules')).json()).rules
+    expect(rules).toHaveLength(1)
+    expect(rules[0]).toMatchObject({ kind: 'recipient', value: recipient })
+    await harness.worker.email({
+      from: 'different@example.test',
+      to: recipient,
+      raw: mail(recipient, 'mailbox-later', 'Future mailbox spam').replace(
+        'From: sender@example.test',
+        'From: different@example.test',
+      ),
+    })
+    const mailboxScope = new URL(page.url()).searchParams.get('mailbox')!
+    const spam = await (
+      await page.request.get(`/api/v1/threads?mailboxId=${mailboxScope}&folder=spam`)
+    ).json()
+    const future = spam.items.find(
+      (thread: { subject: string }) => thread.subject === 'Future mailbox spam',
+    )
+    expect(future).toBeTruthy()
+    const detail = await (await page.request.get(`/api/v1/threads/${future.id}`)).json()
+    expect(detail.messages[0]).toMatchObject({
+      spamReason: 'blacklist_recipient',
+      forwardState: 'not_applicable',
+    })
+    if ((page.viewportSize()?.width ?? 0) < 768)
+      await page.getByRole('button', { name: 'Back to conversations' }).click()
+    await page.getByRole('button', { name: 'General settings', exact: true }).click()
+    const settings = page.getByRole('dialog', { name: 'General settings', exact: true })
+    await expect(settings.getByRole('listitem').filter({ hasText: recipient })).toContainText(
+      'Mailbox',
+    )
+    await expect(settings.getByRole('option', { name: 'Mailbox', exact: true })).toHaveCount(1)
+    await mkdir('/tmp/simple-inbox-qa', { recursive: true })
+    await page.screenshot({
+      path: `/tmp/simple-inbox-qa/mailbox-blacklist-${scope}-${info.project.name}.png`,
+    })
   })
 }

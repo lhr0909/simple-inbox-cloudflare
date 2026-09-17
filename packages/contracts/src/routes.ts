@@ -385,12 +385,15 @@ export const getMessageHtmlRoute = createRoute({
   path: '/v1/messages/{messageId}/html',
   operationId: 'getMessageHtml',
   tags: ['Messages'],
-  request: { params: MessagePathSchema },
+  request: {
+    params: MessagePathSchema,
+    query: z.object({ preview: z.literal('1').optional() }).strict(),
+  },
   responses: {
     200: {
       content: { 'text/html': { schema: z.string() } },
       description:
-        'An isolated HTML preview. Requires the mailbox HTML display setting; never embed without a sandbox.',
+        'An isolated HTML preview. Requires the mailbox HTML display setting or preview=1 for a single-message opt-in; never embed without a sandbox.',
     },
     ...standardErrors,
     401: {

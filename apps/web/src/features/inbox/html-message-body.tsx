@@ -6,7 +6,13 @@ export function HtmlMessageBody({
   messageId,
   text,
   renderFooter,
-}: Readonly<{ messageId: string; text: string; renderFooter: (toggle: ReactNode) => ReactNode }>) {
+  oneOff = false,
+}: Readonly<{
+  messageId: string
+  text: string
+  renderFooter: (toggle: ReactNode) => ReactNode
+  oneOff?: boolean
+}>) {
   const frame = useRef<HTMLIFrameElement>(null)
   const [showText, setShowText] = useState(false)
   const [failed, setFailed] = useState(false)
@@ -38,7 +44,7 @@ export function HtmlMessageBody({
           ref={frame}
           referrerPolicy="no-referrer"
           sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
-          src={`/api/v1/messages/${encodeURIComponent(messageId)}/html`}
+          src={`/api/v1/messages/${encodeURIComponent(messageId)}/html${oneOff ? '?preview=1' : ''}`}
           style={{ height }}
           title="HTML email"
         />
