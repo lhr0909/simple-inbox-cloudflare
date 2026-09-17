@@ -6,12 +6,17 @@ export const IsoDateTimeSchema = z
   .openapi({ example: '2026-08-01T05:00:00.000Z' })
 export type IsoDateTime = z.infer<typeof IsoDateTimeSchema>
 
+// Match mail-core's unquoted dot-atom addresses, including routed local parts such as
+// alerts/team. Zod's default email pattern rejects valid mail that we already store.
+const RoutedEmailPattern =
+  /^(?=[^@]{1,64}@)[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/iu
+
 export const EmailAddressSchema = z
   .string()
   .trim()
   .min(3)
-  .max(320)
-  .email()
+  .max(254)
+  .email({ pattern: RoutedEmailPattern })
   .openapi({ example: 'owner@example.test' })
 export type EmailAddress = z.infer<typeof EmailAddressSchema>
 
