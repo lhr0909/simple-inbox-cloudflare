@@ -61,6 +61,12 @@ describe('MailboxScopedRepository', () => {
     insertThread(testDb.sqlite, 'thread_secret', 'mailbox_intruder', NOW + 300)
 
     const repository = new MailboxScopedRepository(testDb.asD1(), { userId: 'user_owner' })
+    for (const [id, time] of [
+      ['thread_older', NOW + 100],
+      ['thread_newer_b', NOW + 200],
+      ['thread_newer_a', NOW + 200],
+    ] as const)
+      insertInboundMessage(testDb.sqlite, 'message_' + id, 'mailbox_owner', id, time)
     const firstPage = await repository.listThreads({ limit: 2 })
     expect(firstPage.items.map(({ id }) => id)).toEqual(['thread_newer_b', 'thread_newer_a'])
     expect(firstPage.items.some(({ id }) => id === 'thread_secret')).toBe(false)
@@ -131,6 +137,7 @@ describe('MailboxScopedRepository', () => {
   it('makes absent and unauthorized mutations indistinguishable', async () => {
     const testDb = setupTwoUsers()
     insertThread(testDb.sqlite, 'thread_owner', 'mailbox_owner')
+    insertInboundMessage(testDb.sqlite, 'message_owner', 'mailbox_owner', 'thread_owner', NOW)
     insertThread(testDb.sqlite, 'thread_secret', 'mailbox_intruder')
     const repository = new MailboxScopedRepository(testDb.asD1(), { userId: 'user_owner' })
 
@@ -142,7 +149,7 @@ describe('MailboxScopedRepository', () => {
     ).toEqual({ archived_at: NOW + 1 })
   })
 
-  it('defines Sent by the latest message direction, not outbound history', async () => {
+  it('keeps Sent conversations after a new inbound reply', async () => {
     const testDb = setupTwoUsers()
     insertThread(testDb.sqlite, 'thread_latest_outbound', 'mailbox_owner', NOW + 200)
     insertThread(testDb.sqlite, 'thread_latest_inbound', 'mailbox_owner', NOW + 100)
@@ -164,7 +171,7 @@ describe('MailboxScopedRepository', () => {
     const page = await repository.listThreads({ folder: 'sent' })
     const [mailbox] = await repository.listMailboxes()
 
-    expect(page.items.map(({ id }) => id)).toEqual(['thread_latest_outbound'])
+    expect(page.items.map(({ id }) => id)).toEqual(['thread_latest_inbound'])
     expect(mailbox?.sentCount).toBe(1)
   })
 })

@@ -35,7 +35,7 @@ function parsedValue<T>(
 export function parseInboxSearch(input: unknown): InboxSearch {
   const record = searchRecord(input)
   const mailbox = parsedValue(MailboxScopeSchema, record['mailbox'])
-  const folder = parsedValue(ThreadFolderSchema, record['folder']) ?? 'all'
+  const folder = parsedValue(ThreadFolderSchema, record['folder']) ?? 'inbox'
   const query = parsedValue(SearchQuerySchema, record['q'])
   const thread = parsedValue(ThreadIdSchema, record['thread'])
 

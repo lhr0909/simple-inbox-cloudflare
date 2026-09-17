@@ -35,7 +35,11 @@ import {
   SendResponseSchema,
 } from './send'
 import { CompleteSetupRequestSchema, SetupStatusResponseSchema } from './setup'
-import { ThreadDetailResponseSchema, ThreadListResponseSchema } from './threads'
+import {
+  PatchMessageStateSchema,
+  ThreadDetailResponseSchema,
+  ThreadListResponseSchema,
+} from './threads'
 import { ThreadListQuerySchema } from './queries'
 
 const json = (schema: z.ZodType) => ({
@@ -270,6 +274,23 @@ export const getThreadRoute = createRoute({
     401: standardErrors[401],
     404: standardErrors[404],
     500: standardErrors[500],
+  },
+})
+
+export const patchThreadStateRoute = createRoute({
+  method: 'patch',
+  path: '/v1/threads/{threadId}/state',
+  operationId: 'patchThreadState',
+  tags: ['Threads'],
+  request: {
+    params: ThreadPathSchema,
+    body: { required: true, content: { 'application/json': { schema: PatchMessageStateSchema } } },
+  },
+  responses: {
+    204: {
+      description: 'Message state updated; messageIds restricts changes to the selected messages.',
+    },
+    ...standardErrors,
   },
 })
 
@@ -538,6 +559,7 @@ export const PUBLIC_API_ROUTES = [
   listThreadsRoute,
   getThreadRoute,
   markThreadReadRoute,
+  patchThreadStateRoute,
   archiveThreadRoute,
   unarchiveThreadRoute,
   sendNewMessageRoute,

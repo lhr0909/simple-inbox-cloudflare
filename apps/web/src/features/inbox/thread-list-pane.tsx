@@ -8,7 +8,6 @@ import SendIcon from 'lucide-react/dist/esm/icons/send.mjs'
 import type { ThreadSummary } from '@cloudflare-inbox/contracts/threads'
 
 import { Avatar, AvatarFallback } from '#/components/ui/avatar'
-import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { cn } from '#/lib/utils'
@@ -216,14 +215,12 @@ function ThreadRow({
           {thread.preview}
         </p>
         <div className="mt-2 flex min-h-5 items-center gap-1.5">
-          {thread.workflowState === 'needs_reply' ? (
-            <Badge variant="secondary">Needs reply</Badge>
-          ) : null}
-          {thread.workflowState === 'waiting' ? <Badge variant="outline">Waiting</Badge> : null}
           {thread.attachmentCount > 0 ? (
-            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <PaperclipIcon aria-hidden="true" className="size-3" />
-              {thread.attachmentCount}
+            <PaperclipIcon className="size-3 text-muted-foreground" aria-label="Has attachments" />
+          ) : null}
+          {thread.hasStarred ? (
+            <span aria-label="Starred" className="text-amber-500">
+              ★
             </span>
           ) : null}
           {thread.unreadCount > 0 ? (

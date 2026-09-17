@@ -254,10 +254,10 @@ export class MailProjectionRepository {
             from_address, from_name, subject, preview, text_body, html_body,
             html_policy, sent_at, received_at, raw_r2_key, raw_size, raw_sha256,
             read_at, send_state, forward_state, provider_error_code, retryability,
-            send_attempted_at, forward_attempted_at, created_at, updated_at
+            send_attempted_at, forward_attempted_at, created_at, updated_at, inbox
           ) VALUES (
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
           )
         `)
         .bind(
@@ -290,6 +290,7 @@ export class MailProjectionRepository {
           message.forwardAttemptedAt,
           message.createdAt,
           message.updatedAt,
+          message.direction === 'inbound' ? 1 : 0,
         ),
     ]
 
@@ -485,23 +486,6 @@ export class MailProjectionRepository {
           input.requestDigest,
         ),
       ...projectionStatements,
-      this.#binding
-        .prepare(`
-          UPDATE messages
-          SET read_at = ?, updated_at = max(updated_at, ?)
-          WHERE mailbox_id = ?
-            AND thread_id = ?
-            AND direction = 'inbound'
-            AND read_at IS NULL
-        `)
-        .bind(input.now, input.now, message.mailboxId, message.threadId),
-      this.#binding
-        .prepare(`
-          UPDATE threads
-          SET unread_count = 0, workflow_state = 'waiting', updated_at = max(updated_at, ?)
-          WHERE id = ? AND mailbox_id = ?
-        `)
-        .bind(input.now, message.threadId, message.mailboxId),
       this.#binding
         .prepare(`
           UPDATE outbound_sends

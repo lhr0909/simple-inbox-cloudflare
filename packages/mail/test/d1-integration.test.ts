@@ -51,7 +51,13 @@ describe('mail module D1 adapter', () => {
       createStore: () => store,
       generateId: () => testUuid(id++),
     })
-    await new AuthRepository(binding).bootstrapOwner({ mailboxAddress: 'support@example.test', mailboxId: testUuid(90), now: NOW, ownerEmail: 'owner@example.test', userId: testUuid(91) })
+    await new AuthRepository(binding).bootstrapOwner({
+      mailboxAddress: 'support@example.test',
+      mailboxId: testUuid(90),
+      now: NOW,
+      ownerEmail: 'owner@example.test',
+      userId: testUuid(91),
+    })
     const raw = new TextEncoder().encode(inboundFixture)
 
     const outcome = await captureInboundEmail(

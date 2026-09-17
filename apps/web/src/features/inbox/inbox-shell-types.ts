@@ -23,6 +23,10 @@ export type InboxShellProps = Readonly<{
   onBack?: () => Promise<void> | void
   onRefresh?: () => Promise<boolean> | boolean
   onLoadMore?: () => Promise<void> | void
+  onMessageState?: (
+    threadId: string,
+    patch: import('@cloudflare-inbox/contracts/threads').PatchMessageState,
+  ) => Promise<void>
   onArchiveThread?: (threadId: string, archived: boolean) => Promise<void> | void
   onReply?: (threadId: string, draft: ReplyDraft) => Promise<SendResponse>
   onCompose?: (mailboxId: string, draft: NewMessageDraft) => Promise<SendResponse>

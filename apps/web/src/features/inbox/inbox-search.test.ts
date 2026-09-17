@@ -18,14 +18,14 @@ describe('inbox URL state', () => {
     expect(
       parseInboxSearch({
         mailbox: MAILBOX_ID,
-        folder: 'needs-reply',
+        folder: 'starred',
         unread: '1',
         q: '  invoice  ',
         thread: THREAD_ID,
       }),
     ).toEqual({
       mailbox: MAILBOX_ID,
-      folder: 'needs-reply',
+      folder: 'starred',
       unread: '1',
       q: 'invoice',
       thread: THREAD_ID,
@@ -36,13 +36,13 @@ describe('inbox URL state', () => {
     expect(
       parseInboxSearch({
         mailbox: 'not-an-id',
-        folder: 'spam',
+        folder: 'invalid',
         unread: 'true',
         q: '   ',
         thread: ['not', 'scalar'],
         token: 'must-not-survive',
       }),
-    ).toEqual({ folder: 'all' })
+    ).toEqual({ folder: 'inbox' })
   })
 
   it('converts route state into the normalized API-facing query model', () => {

@@ -167,3 +167,14 @@ export function createMailbox(address: string, forward = true) {
     body: JSON.stringify({ address, forward }),
   })
 }
+
+export function patchThreadState(
+  threadId: string,
+  patch: import('@cloudflare-inbox/contracts/threads').PatchMessageState,
+) {
+  return requestEmpty(`/api/v1/threads/${encodeURIComponent(threadId)}/state`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(patch),
+  })
+}

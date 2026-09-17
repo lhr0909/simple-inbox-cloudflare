@@ -456,7 +456,16 @@ describe('API module', () => {
     expect(await mailboxes.json()).toMatchObject({
       mailboxes: [
         {
-          counts: { all: 1, archive: 0, needsReply: 1, sent: 0, unread: 1 },
+          counts: {
+            all: 1,
+            archive: 0,
+            inbox: 1,
+            starred: 0,
+            spam: 0,
+            trash: 0,
+            sent: 0,
+            unread: 1,
+          },
           forwardTo: 'owner@example.test',
           id: MAILBOX_ID,
         },
@@ -464,17 +473,17 @@ describe('API module', () => {
     })
 
     const threads = await fixture.app.request(
-      `/v1/threads?mailboxId=${MAILBOX_ID}&folder=needs-reply&unread=1&limit=10`,
+      `/v1/threads?mailboxId=${MAILBOX_ID}&folder=inbox&unread=1&limit=10`,
       { headers: { cookie } },
       fixture.env,
     )
     expect(threads.status).toBe(200)
     expect(await threads.json()).toMatchObject({
-      items: [{ id: THREAD_ID, workflowState: 'needs_reply' }],
+      items: [{ id: THREAD_ID, hasInbox: true }],
       nextCursor: null,
     })
     expect(fixture.inbox.listThreads).toHaveBeenCalledWith(
-      expect.objectContaining({ folder: 'needs_reply', limit: 10, unreadOnly: true }),
+      expect.objectContaining({ folder: 'inbox', limit: 10, unreadOnly: true }),
     )
 
     const detail = await fixture.app.request(
@@ -818,7 +827,10 @@ function createFixture(
     renderHtml,
     whitelisted: true,
     id: MAILBOX_ID,
-    needsReplyCount: 1,
+    inboxCount: 1,
+    starredCount: 0,
+    spamCount: 0,
+    trashCount: 0,
     role: 'owner',
     senderAlias,
     sentCount: 0,
@@ -866,6 +878,12 @@ function createFixture(
     tags: [{ name: 'priority' }],
     unreadCount: 1,
     workflowState: 'needs_reply',
+    hasInbox: true,
+    hasSent: false,
+    hasStarred: false,
+    hasSpam: false,
+    hasTrash: false,
+    hasNormal: true,
   }
   const threadDetail = {
     messages: [
@@ -885,6 +903,11 @@ function createFixture(
         rawAvailable: true,
         rawSize: attachmentRaw.byteLength,
         readAt: null,
+        inbox: true,
+        starredAt: null,
+        trashedAt: null,
+        spamAt: null,
+        spamReason: null,
         receivedAt: NOW,
         recipients: [
           {
@@ -905,6 +928,7 @@ function createFixture(
     thread: threadSummary,
   }
   const inbox = {
+    patchMessageState: vi.fn(async () => true),
     getAttachment: vi.fn(async () => attachmentMetadata),
     getMailboxSettings: vi.fn(async (mailboxId: string) =>
       mailboxId === MAILBOX_ID
@@ -913,7 +937,7 @@ function createFixture(
             forwardTo,
             forwardHtml,
             renderHtml,
-    whitelisted: true,
+            whitelisted: true,
             id: mailbox.id,
             senderAlias,
             updatedAt: NOW,

@@ -1,36 +1,15 @@
 import { describe, expect, it } from 'vitest'
-
-import {
-  folderPredicate,
-  nextWorkflowState,
-  THREAD_FOLDERS,
-  withArchiveState,
-} from '../src/folders'
-
-describe('thread organization', () => {
-  it('keeps archive orthogonal to workflow state', () => {
-    const archived = withArchiveState(
-      { workflowState: 'waiting', archivedAt: null },
-      '2026-08-01T05:00:00.000Z',
-    )
-    const restored = withArchiveState(archived, null)
-
-    expect(archived.workflowState).toBe('waiting')
-    expect(restored).toEqual({ workflowState: 'waiting', archivedAt: null })
+import { ThreadFolderSchema } from '../src/folders'
+import { PatchMessageStateSchema } from '../src/threads'
+describe('message organization contracts', () => {
+  it('accepts standard folders and rejects retired workflow folders', () => {
+    for (const folder of ['inbox', 'starred', 'sent', 'all', 'spam', 'trash'])
+      expect(ThreadFolderSchema.safeParse(folder).success).toBe(true)
+    expect(ThreadFolderSchema.safeParse('needs-reply').success).toBe(false)
   })
-
-  it('maps domain events deterministically', () => {
-    expect(nextWorkflowState('resolved', 'inbound_received')).toBe('needs_reply')
-    expect(nextWorkflowState('needs_reply', 'outbound_sent')).toBe('waiting')
-    expect(nextWorkflowState('waiting', 'mark_resolved')).toBe('resolved')
-  })
-
-  it('defines explicit, non-overloaded folder predicates', () => {
-    expect(THREAD_FOLDERS).toEqual(['all', 'sent', 'needs-reply', 'archive'])
-    expect(folderPredicate('needs-reply')).toEqual({
-      archived: false,
-      workflowState: 'needs_reply',
-    })
-    expect(folderPredicate('archive')).toEqual({ archived: true })
+  it('requires an action and prevents empty message selections', () => {
+    expect(PatchMessageStateSchema.safeParse({}).success).toBe(false)
+    expect(PatchMessageStateSchema.safeParse({ read: true, messageIds: [] }).success).toBe(false)
+    expect(PatchMessageStateSchema.safeParse({ starred: true }).success).toBe(true)
   })
 })

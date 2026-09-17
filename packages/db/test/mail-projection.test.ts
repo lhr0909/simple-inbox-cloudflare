@@ -208,7 +208,7 @@ describe('MailProjectionRepository', () => {
     })
   })
 
-  it('atomically projects an outbound result, updates workflow, and finalizes its claimed send', async () => {
+  it('atomically projects an outbound result, preserves unread messages, and finalizes its claimed send', async () => {
     const testDb = setup()
     const binding = testDb.asD1()
     const projection = new MailProjectionRepository(binding)
@@ -239,12 +239,12 @@ describe('MailProjectionRepository', () => {
       testDb.sqlite
         .prepare('SELECT message_count, unread_count, workflow_state FROM threads')
         .get(),
-    ).toEqual({ message_count: 2, unread_count: 0, workflow_state: 'waiting' })
+    ).toEqual({ message_count: 2, unread_count: 1, workflow_state: 'needs_reply' })
     expect(
       testDb.sqlite
         .prepare("SELECT read_at FROM messages WHERE id = 'message_prior_inbound'")
         .get(),
-    ).toEqual({ read_at: NOW + 3 })
+    ).toEqual({ read_at: null })
   })
 
   it('rolls every outbound completion mutation back when any projection child faults', async () => {

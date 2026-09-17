@@ -29,6 +29,7 @@ export function InboxShell({
   onRefresh,
   onLoadMore,
   onArchiveThread,
+  onMessageState,
   onReply,
   onCompose,
   onSignOut,
@@ -148,6 +149,7 @@ export function InboxShell({
             error={detailError}
             onRetry={onRetryThread}
             onArchiveThread={onArchiveThread}
+            onMessageState={onMessageState}
             onBack={onBack}
             onReply={onReply}
             aliasNotice={

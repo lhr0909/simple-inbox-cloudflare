@@ -7,6 +7,7 @@ import {
   listMailboxesRoute,
   listThreadsRoute,
   markThreadReadRoute,
+  patchThreadStateRoute,
   normalizeThreadListQuery,
   patchMailboxRoute,
   createMailboxRoute,
@@ -139,6 +140,21 @@ export function registerInboxRoutes(app: OpenAPIHono<ApiEnv>, dependencies: ApiD
     if (detail === undefined) throw new ApiFault('thread_not_found')
     const body = ThreadDetailResponseSchema.parse(projectThreadDetail(detail))
     return context.json(body, 200)
+  })
+
+  app.openapi(patchThreadStateRoute, async (context) => {
+    const actor = await requireActor(context.req.raw, context.env, dependencies, 'settings')
+    requireCookieMutationOrigin(context.req.raw, context.env, actor)
+    const repository = dependencies.inboxRepository(context.env, actor.userId)
+    if (
+      !(await repository.patchMessageState(
+        context.req.valid('param').threadId,
+        context.req.valid('json'),
+        dependencies.now(),
+      ))
+    )
+      throw new ApiFault('thread_not_found')
+    return context.body(null, 204)
   })
 
   app.openapi(markThreadReadRoute, async (context) => {

@@ -79,14 +79,20 @@ export function messageDeliveryPresentation(
 
 export function threadMatchesFolder(thread: ThreadSummary, folder: ThreadFolder): boolean {
   switch (folder) {
+    case 'inbox':
+      return thread.hasInbox
     case 'all':
-      return thread.archivedAt === null
+      return thread.hasNormal
     case 'archive':
-      return thread.archivedAt !== null
-    case 'needs-reply':
-      return thread.archivedAt === null && thread.workflowState === 'needs_reply'
+      return thread.hasNormal && !thread.hasInbox
+    case 'starred':
+      return thread.hasStarred
     case 'sent':
-      return thread.archivedAt === null && thread.lastMessageDirection === 'outbound'
+      return thread.hasSent
+    case 'spam':
+      return thread.hasSpam
+    case 'trash':
+      return thread.hasTrash
   }
 }
 
@@ -201,12 +207,21 @@ export function applyOptimisticThreadStates(
       const previousUnread = thread.archivedAt === null ? thread.unreadCount : 0
       const projectedUnread = projected.archivedAt === null ? projected.unreadCount : 0
       counts.unread = Math.max(0, counts.unread + projectedUnread - previousUnread)
-      if ((thread.archivedAt !== null) !== (projected.archivedAt !== null)) {
-        const archiveDelta = projected.archivedAt === null ? -1 : 1
-        counts.archive += archiveDelta
-        counts.all -= archiveDelta
-        if (thread.workflowState === 'needs_reply') counts.needsReply -= archiveDelta
-        if (thread.lastMessageDirection === 'outbound') counts.sent -= archiveDelta
+      for (const folder of [
+        'inbox',
+        'all',
+        'archive',
+        'starred',
+        'sent',
+        'spam',
+        'trash',
+      ] as const) {
+        counts[folder] = Math.max(
+          0,
+          counts[folder] +
+            Number(threadMatchesFolder(projected, folder)) -
+            Number(threadMatchesFolder(thread, folder)),
+        )
       }
     }
 
@@ -246,7 +261,9 @@ function applyThreadState(
   if (update === undefined) return thread
   return {
     ...thread,
-    ...(update.archivedAt === undefined ? {} : { archivedAt: update.archivedAt }),
+    ...(update.archivedAt === undefined
+      ? {}
+      : { archivedAt: update.archivedAt, hasInbox: update.archivedAt === null }),
     ...(update.unreadCount === undefined ? {} : { unreadCount: update.unreadCount }),
   }
 }

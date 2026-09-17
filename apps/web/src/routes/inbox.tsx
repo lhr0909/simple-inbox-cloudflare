@@ -9,7 +9,7 @@ import {
   ApiRequestError,
   createMailbox,
   listThreadPage,
-  markThreadRead,
+  patchThreadState,
   sendNewMessage,
   sendReply,
   setThreadArchived,
@@ -226,30 +226,6 @@ function Inbox() {
     return false
   }
 
-  const attemptedRead = useRef<string | null>(null)
-  const selectedThread = data.selectedThread?.thread ?? null
-
-  useEffect(() => {
-    if (selectedThread === null) {
-      attemptedRead.current = null
-      return
-    }
-    if (selectedThread.unreadCount === 0 || attemptedRead.current === selectedThread.id) return
-
-    const threadId = selectedThread.id
-    const readAt = new Date().toISOString()
-    attemptedRead.current = threadId
-    setThreadOptimistic(threadId, { readAt, unreadCount: 0 })
-    void markThreadRead(threadId)
-      .then(() => commitThreadState(threadId, { readAt, unreadCount: 0 }))
-      .catch((cause: unknown) => {
-        setThreadOptimistic(threadId, null)
-        if (!redirectIfAnonymous(cause)) {
-          setError('The conversation opened, but its read state could not be saved.')
-        }
-      })
-  }, [commitThreadState, selectedThread])
-
   async function selectThread(threadId: string): Promise<void> {
     setError(null)
     try {
@@ -414,6 +390,22 @@ function Inbox() {
       onRetryThread={reloadThread}
       error={error}
       loadingMore={loadingMore}
+      onMessageState={async (threadId, patch) => {
+        beginOperation()
+        try {
+          await patchThreadState(threadId, patch)
+          if (patch.read === false) await changeQuery({ threadId: null })
+          await fetchSnapshot(
+            patch.read === false ? updateInboxSearch(search, { threadId: null }) : search,
+            false,
+          )
+        } catch (cause) {
+          if (!redirectIfAnonymous(cause))
+            setError('The message update could not be saved. Try again.')
+        } finally {
+          finishOperation()
+        }
+      }}
       onArchiveThread={archiveThread}
       onBack={() => changeQuery({ threadId: null }, { replace: true })}
       onCompose={compose}

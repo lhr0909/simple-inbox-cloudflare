@@ -114,6 +114,7 @@ export type InboxRepositoryPort = Pick<
   | 'listMailboxes'
   | 'listThreads'
   | 'markThreadRead'
+  | 'patchMessageState'
   | 'searchThreads'
   | 'setThreadArchived'
   | 'updateMailboxSettings'

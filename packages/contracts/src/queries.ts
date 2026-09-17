@@ -40,7 +40,7 @@ export function normalizeThreadListQuery(input: unknown): NormalizedThreadListQu
   const query = ThreadListQuerySchema.parse(input)
   const common = {
     mailboxId: query.mailboxId,
-    folder: query.folder ?? 'all',
+    folder: query.folder ?? 'inbox',
     unreadOnly: query.unread === '1',
     limit: query.limit === undefined ? DEFAULT_THREAD_PAGE_SIZE : Number.parseInt(query.limit, 10),
   } satisfies Omit<NormalizedThreadListQuery, 'search' | 'cursor'>
