@@ -1,3 +1,5 @@
+import { UploadedFileRepository } from '@cloudflare-inbox/db'
+import { attachmentBucket, uploadedFileResponse } from '../services/uploads'
 import {
   InternalActorSchema,
   MAX_RECIPIENTS_PER_SEND,
@@ -41,6 +43,7 @@ export function registerMessageRoutes(
     const attachments = form.attachments ?? []
     const parsedMessage = NewMessageRequestSchema.safeParse({
       attachments: attachmentDescriptors(attachments),
+      ...(form.linkedAttachmentIds ? { linkedAttachmentIds: form.linkedAttachmentIds } : {}),
       body: form.body,
       cc: recipientInputs(form.cc),
       format: form.format,
@@ -82,6 +85,7 @@ export function registerMessageRoutes(
     }
     const parsedMessage = ReplyMessageRequestSchema.safeParse({
       attachments: attachmentDescriptors(attachments),
+      ...(form.linkedAttachmentIds ? { linkedAttachmentIds: form.linkedAttachmentIds } : {}),
       bcc: recipientInputs(form.bcc),
       body: form.body,
       cc: recipientInputs(form.cc),
@@ -131,6 +135,15 @@ export function registerMessageRoutes(
   app.openapi(downloadAttachmentRoute, async (context) => {
     const actor = await requireActor(context.req.raw, context.env, dependencies, 'read')
     const { attachmentId, messageId } = context.req.valid('param')
+    const linkedFile = context.env.ATTACHMENTS
+      ? await new UploadedFileRepository(context.env.DB).forMessage(
+          attachmentId,
+          messageId,
+          actor.userId,
+        )
+      : null
+    if (linkedFile)
+      return uploadedFileResponse(attachmentBucket(context.env), linkedFile, context.req.raw)
     const metadata = await dependencies
       .inboxRepository(context.env, actor.userId)
       .getAttachment(messageId, attachmentId)

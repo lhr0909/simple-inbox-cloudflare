@@ -1,3 +1,4 @@
+import type { CreateUpload, UploadSession, UploadPartUrl, CompleteUpload } from './uploads'
 import type { Hono } from 'hono'
 
 import type {
@@ -203,6 +204,30 @@ export type PublicApiSchema = {
     $get: WithStandardErrors<
       { param: { messageId: MessageId; attachmentId: AttachmentId } },
       BinaryEndpoint<{ param: { messageId: MessageId; attachmentId: AttachmentId } }, 200>
+    >
+  }
+  '/v1/uploads': {
+    $post: WithStandardErrors<
+      { json: CreateUpload },
+      JsonEndpoint<{ json: CreateUpload }, UploadSession, 201>
+    >
+  }
+  '/v1/uploads/:uploadId/parts/:partNumber': {
+    $post: WithStandardErrors<
+      { param: { uploadId: AttachmentId; partNumber: string } },
+      JsonEndpoint<{ param: { uploadId: AttachmentId; partNumber: string } }, UploadPartUrl, 200>
+    >
+  }
+  '/v1/uploads/:uploadId/complete': {
+    $post: WithStandardErrors<
+      { param: { uploadId: AttachmentId }; json: CompleteUpload },
+      EmptyEndpoint<{ param: { uploadId: AttachmentId }; json: CompleteUpload }, 204>
+    >
+  }
+  '/v1/downloads/:token': {
+    $get: WithStandardErrors<
+      { param: { token: string } },
+      BinaryEndpoint<{ param: { token: string } }, 200 | 206>
     >
   }
   '/v1/capabilities': {

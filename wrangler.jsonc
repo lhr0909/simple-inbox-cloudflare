@@ -14,6 +14,10 @@
   ],
   "r2_buckets": [
     {
+      "binding": "ATTACHMENTS",
+      "bucket_name": "simple-inbox-cf-attachments",
+    },
+    {
       "binding": "RAW_EMAILS",
       "bucket_name": "simple-inbox-cf-raw",
     },
@@ -34,7 +38,7 @@
     },
   ],
   "triggers": {
-    "crons": ["17 3 * * *"],
+    "crons": [],
   },
   "vars": {
     "ENVIRONMENT": "self-hosted",

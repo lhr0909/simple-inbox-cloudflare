@@ -3,7 +3,11 @@ import { access, readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { InstallationRepository, MailboxScopedRepository } from '@cloudflare-inbox/db'
+import {
+  InstallationRepository,
+  MailboxScopedRepository,
+  UploadedFileRepository,
+} from '@cloudflare-inbox/db'
 import { seedSyntheticInbox } from '@cloudflare-inbox/db/testing'
 import {
   createTestHarness,
@@ -37,6 +41,7 @@ export const TEST_ADDRESSES = {
 type HarnessBindings = {
   DB: D1Database
   RAW_EMAILS: R2Bucket
+  ATTACHMENTS: R2Bucket
 }
 
 export type InboxTestHarness = {
@@ -197,4 +202,9 @@ function buildOptions(configPath: string): TestHarnessOptions {
       },
     ],
   }
+}
+
+export async function readHarnessUpload(harness: InboxTestHarness, id: string) {
+  const { DB } = await harness.worker.getEnv()
+  return new UploadedFileRepository(DB).owned(id, TEST_IDS.user)
 }

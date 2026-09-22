@@ -124,7 +124,7 @@ export const MessageSchema = z
     failure: DeliveryFailureSchema.nullable(),
     rawAvailable: z.boolean(),
     rawSize: NonNegativeIntegerSchema.nullable(),
-    attachments: z.array(AttachmentMetadataSchema).max(100),
+    attachments: z.array(AttachmentMetadataSchema),
   })
   .strict()
   .superRefine((message, context) => {

@@ -12,14 +12,15 @@ complete local verification before running either command.
 
 The root `wrangler.jsonc` is the single source deployment config:
 
-| Resource                  | Fixed declaration                    |
-| ------------------------- | ------------------------------------ |
-| Worker                    | `simple-inbox-cf`                    |
-| D1 binding/database       | `DB` / `simple-inbox-cf-db`          |
-| Private R2 binding/bucket | `RAW_EMAILS` / `simple-inbox-cf-raw` |
-| Email Sending binding     | `EMAIL`                              |
-| Rate-limit binding        | `AUTH_RATE_LIMIT`                    |
-| Retention schedule        | `17 3 * * *`                         |
+| Resource                  | Fixed declaration                             |
+| ------------------------- | --------------------------------------------- |
+| Worker                    | `simple-inbox-cf`                             |
+| D1 binding/database       | `DB` / `simple-inbox-cf-db`                   |
+| Private R2 binding/bucket | `RAW_EMAILS` / `simple-inbox-cf-raw`          |
+| Email Sending binding     | `EMAIL`                                       |
+| Rate-limit binding        | `AUTH_RATE_LIMIT`                             |
+| Private attachment bucket | `ATTACHMENTS` / `simple-inbox-cf-attachments` |
+| Retention schedule        | Disabled; no automatic expiration             |
 
 Wrangler provisions the declared D1 database and R2 bucket when the deployment first requires them.
 Do not add account-specific IDs, legacy identifiers, real addresses, routes, or secrets to the
@@ -43,7 +44,7 @@ deploying an additional Simple Inbox instance to that account.
   sync.
 - Two independent secrets of at least 32 random bytes held in a secret manager.
 - An owner-controlled mail domain or subdomain and owner-controlled test destinations.
-- An explicit owner decision for raw-email and application-record retention.
+- Keep R2 object expiration disabled for indefinite mail and attachment storage.
 - A record of any existing/legacy Worker, domain route, and Email Routing target kept outside this
   repository. These records are for human safety and rollback only; repository commands never read
   them.
@@ -214,9 +215,7 @@ Open the chosen HTTPS origin at `/setup`. The wizard asks for:
 2. a normalized owner email, such as `owner@example.test` in a non-live test;
 3. a lowercase mail domain, such as `mail.example.test`;
 4. a primary mailbox on that domain, such as `inbox@mail.example.test`;
-5. raw-email retention from 1 through 3,650 days;
-6. application-record retention from the raw-retention value through 3,650 days;
-7. a retention batch size from 1 through 100.
+5. review the indefinite-storage policy. No retention window is required.
 
 The request must be same-origin and HTTPS (local loopback HTTP is the only exception), is protected
 by the Cloudflare rate limiter, and compares the setup token by digest. The token is never written to
@@ -294,14 +293,57 @@ deployment alone does not prove Email Sending authorization.
 
 ### Private R2 lifecycle
 
-Keep `simple-inbox-cf-raw` private. Add a bucket lifecycle rule that expires objects after the
-approved raw-email retention period plus a short grace, such as two days. The scheduled application
-retention job is authoritative and should delete first; the lifecycle rule is a delayed backstop for
-an orphan left between the R2-first write and its D1 projection.
+Keep `simple-inbox-cf-raw` and `simple-inbox-cf-attachments` private. Do not configure object
+expiration rules. Mail and completed attachments are kept indefinitely, including Spam/Trash.
+Old installation retention values and pending deletion tombstones are ignored by the new Worker.
 
-Review the lifecycle whenever the setup retention policy changes. Never configure a lifecycle
-shorter than the approved raw-retention window, and never expect Worker rollback to restore expired
-objects.
+**Upgrade action:** remove any existing object-expiration lifecycle rule from the replacement raw
+bucket before relying on indefinite storage. This is a separate owner-controlled Cloudflare action;
+a code deployment cannot prevent an existing bucket lifecycle rule from deleting objects. Do not
+roll back to an older Worker with the automatic retention implementation while a cron is enabled.
+Deleted bytes cannot be recovered by a Worker rollback.
+
+### Attachment uploads
+
+Deployment declares the new private bucket `simple-inbox-cf-attachments`. Before production
+uploads, configure these Worker secrets through the Dashboard or interactive Wrangler prompts:
+
+- `R2_ACCOUNT_ID`: the account containing the replacement attachment bucket.
+- `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`: R2 S3 credentials with Object Read & Write access
+  scoped only to `simple-inbox-cf-attachments`. Never expose these to the browser or commit them.
+
+Configure this bucket's CORS policy, substituting the exact installation origin:
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://inbox.example.test"],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": ["Content-Type"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+The upload workflow creates multipart sessions via the R2 binding and signs each part's PUT URL
+for 15 minutes. Completed objects cannot be replaced using these part URLs. No public R2 hostname
+or custom domain is needed. New credentials/CORS/bucket provisioning require explicit owner
+authorization; repository code does not create credentials or change CORS. Missing credentials
+produce a storage-not-configured message in webmail, while normal sending continues to work.
+
+Local HTTP loopback installations use an authenticated streaming adapter to local R2 and require
+no S3 credentials or CORS changes. This adapter refuses production origins.
+
+Every uploaded webmail attachment is sent as an HTML/plain-text link. Anyone possessing the link
+can download without sign-in; forwarding the email grants the same access. Public links do not
+expire. Moving mail to Spam/Trash does not revoke or delete files. Draft removal only detaches a
+file; completed unused uploads remain stored. No automatic orphan-object deletion runs. An R2
+incomplete-multipart abort rule affects only unfinished uploads, never completed attachments.
+
+Webmail has no application-defined size/count limits; R2 service limits and the email link-body
+budget remain. Raw MIME attachment API requests retain their existing safety bounds for backwards
+compatibility. They are separate from webmail's direct uploads.
 
 ### Email Routing activation
 
@@ -354,28 +396,17 @@ browser and Cloudflare Dashboard.
 
 ## Retention, export, and recovery
 
-The daily cron advances a durable, bounded workflow:
+Mail, raw source, and completed attachments are stored indefinitely. Scheduled deletion is disabled,
+including queued work from previous versions. Spam and Trash are reversible message states and do
+not start expiration timers. Automatic Spam/Trash purging and a permanent-delete UI are not enabled.
 
-1. enqueue eligible messages using trusted local creation time and snapshot both policy deadlines;
-2. delete the private R2 raw object first (already missing counts as success);
-3. transactionally remove the message's D1 children and projection;
-4. repair the thread aggregates or delete the empty thread;
-5. retain a content-free tombstone as operational evidence.
+The old setup API accepts retention fields only for client/schema compatibility; those values have
+no deletion effect. The setup wizard no longer asks for them. Existing data already deleted by old
+retention jobs or lifecycle rules cannot be restored by this change.
 
-Failed work remains retryable after its lease expires. The job never calls Email Sending and is not
-a delivery retry mechanism.
-
-Retention deletion is irreversible at the application layer. Before shortening a window or applying
-a destructive/contract migration:
-
-- export required raw messages and attachments through owner-authorized endpoints to encrypted
-  storage with its own lifecycle;
-- create a D1 backup and prove restoration to an isolated test deployment;
-- record only content-free counts, digests, request IDs, version IDs, and timestamps;
-- use expand/backfill/contract migrations and do not race deployments.
-
-There is no bulk export command. Search/list/detail bodies are bounded projections and may be
-truncated; authorized raw messages are the fidelity source only until raw retention expires.
+Owners control storage and backups. Before explicitly deleting data or applying destructive
+migrations, export required raw mail/attachments and test D1 restoration in an isolated environment.
+There is no bulk export command. Worker rollback does not restore deleted D1/R2 data.
 
 ## Observability and privacy
 
@@ -424,6 +455,6 @@ blacklist rules intact; remove a rule separately in **General settings** to allo
 Migrations 0004–0006 preserve existing inbox visibility/forwarding, backfill message inbox membership
 from direction and archive state, and create the blacklist table. Newly discovered aliases start
 quiet. Existing read state and mail remain intact. Review existing aliases in Settings to hide those
-that should become Other inbound. Spam and Trash use existing installation retention; a Worker
-rollback cannot recover expired mail. The migrations are additive and keep legacy workflow columns
+that should become Other inbound. Spam and Trash have no automatic expiration; a Worker
+rollback cannot recover deleted mail. The migrations are additive and keep legacy workflow columns
 for compatibility, but the UI and public API no longer expose workflow statuses.

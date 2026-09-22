@@ -23,6 +23,7 @@ export type MailBindings = {
   MAGIC_LINK_FROM_EMAIL?: string
   MAIL_DOMAIN: string
   OWNER_EMAIL: string
+  ATTACHMENTS?: R2Bucket
   RAW_EMAILS: R2Bucket
   RAW_EMAIL_RETENTION_DAYS: string
   RETENTION_BATCH_SIZE: string

@@ -147,6 +147,9 @@ test('exercises the authenticated inbox parity flow responsively', async ({ page
   await expect(
     conversation.getByRole('link', { name: 'reply-note.txt', exact: true }),
   ).toBeVisible()
+  const downloadStarted = page.waitForEvent('download')
+  await conversation.getByRole('link', { name: 'reply-note.txt', exact: true }).click()
+  expect((await downloadStarted).suggestedFilename()).toBe('reply-note.txt')
   await replyForm.getByRole('button', { name: 'Cancel', exact: true }).click()
   await expect(replyForm).toBeHidden()
 
@@ -180,6 +183,11 @@ test('exercises the authenticated inbox parity flow responsively', async ({ page
     'compose-note.txt',
   )
   await expect(composeDialog.getByRole('button', { name: 'Send message' })).toBeEnabled()
+  await expect(composeDialog.getByText('Ready to send', { exact: true })).toBeVisible()
+  await mkdir('/tmp/simple-inbox-qa', { recursive: true })
+  await page.screenshot({
+    path: `/tmp/simple-inbox-qa/linked-attachments-${testInfo.project.name}.png`,
+  })
   await composeDialog.getByRole('button', { name: 'Remove compose-note.txt' }).click()
   await expect(composeDialog.getByRole('list', { name: 'Attachments' })).toHaveCount(0)
   await composeDialog.getByRole('button', { name: 'Close new message' }).click()

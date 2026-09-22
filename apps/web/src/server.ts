@@ -15,7 +15,7 @@ import type { RootBindings } from '#/internal-services.server'
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "base-uri 'self'",
-  "connect-src 'self'",
+  "connect-src 'self' https://*.r2.cloudflarestorage.com",
   "font-src 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
@@ -183,7 +183,7 @@ function logRequest(request: Request, requestId: string, status: number, started
     requestId,
     event: 'app.request.completed',
     method: request.method,
-    path: new URL(request.url).pathname,
+    path: new URL(request.url).pathname.replace(/(\/downloads\/)[^/]+/u, '$1[redacted]'),
     durationMs: Math.max(0, Date.now() - startedAt),
     outcome: status >= 500 ? 'server_error' : status >= 400 ? 'client_error' : 'success',
     status,

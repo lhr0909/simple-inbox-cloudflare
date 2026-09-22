@@ -78,13 +78,17 @@ The application performs no AI inference and sends no mailbox content or metadat
 
 ## Retention and recovery
 
-Raw retention must not exceed application-record retention. The scheduled handler deletes private
-R2 bytes first, then transactionally removes expired D1 projections and repairs threads. A durable
-content-free tombstone holds retry state and safe failure codes.
+Mail and completed attachments have no automatic expiration. Historical retention settings and
+queued deletion work are ignored, including for Spam/Trash. Keep R2 object expiration disabled;
+remove old replacement-bucket lifecycle rules separately when upgrading.
 
-Deletion is irreversible at the application layer. Before shortening a policy or applying a
-destructive migration, export required owner-authorized raw/attachment data to encrypted storage and
-test D1 restoration. Worker rollback cannot undo migrations or restore deleted D1/R2 data.
+Attachment download links are bearer capabilities: anyone holding a link can download the file
+without signing in. They remain valid indefinitely and forwarding an email shares access. Uploads
+require authenticated send permission, same-origin checks, and server verification of completed
+objects. Download tokens are redacted from logs; file responses force download and prohibit caching.
+
+Explicit deletion is irreversible. Export required data and test D1 restoration before deleting
+stored data. Worker rollback cannot recover deleted objects or reverse migrations.
 
 ## Operational safeguards
 

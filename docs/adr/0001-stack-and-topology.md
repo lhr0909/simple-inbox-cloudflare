@@ -146,3 +146,10 @@ first-run transaction is simpler and auditable.
 Rejected. Legacy resources and data remain external and read-only. Data migration, custom-domain
 changes, and Email Routing changes require separate owner decisions and are not repository
 automation.
+
+## Retention and attachment update
+
+The original age-based retention decision is superseded: mail and completed attachments are kept
+indefinitely, cron is disabled, and old queued deletion work is ignored. Linked webmail attachments
+use the additional private `simple-inbox-cf-attachments` bucket. See the current architecture and
+operations guides for upload credentials, CORS, and removal of old object-expiration rules.

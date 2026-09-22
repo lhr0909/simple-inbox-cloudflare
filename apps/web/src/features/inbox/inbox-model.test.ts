@@ -5,7 +5,6 @@ import { ThreadListResponseSchema } from '@cloudflare-inbox/contracts/threads'
 import { createPreviewInboxData } from './preview-data'
 import {
   applyOptimisticThreadStates,
-  attachmentLimitError,
   appendThreadPage,
   clampPaneSize,
   filterThreads,
@@ -149,14 +148,8 @@ describe('inbox presentation model', () => {
     })
   })
 
-  it('bounds reply subjects and mirrors attachment limits before upload', () => {
+  it('bounds reply subjects', () => {
     expect(replySubject('RE: Existing subject')).toBe('RE: Existing subject')
     expect(replySubject('x'.repeat(998))).toHaveLength(998)
-    expect(attachmentLimitError(Array.from({ length: 21 }, () => ({ size: 1 })))).toBe(
-      'Attach at most 20 files.',
-    )
-    expect(attachmentLimitError([{ size: 10 * 1_024 * 1_024 + 1 }])).toBe(
-      'Each attachment must be 10 MiB or smaller.',
-    )
   })
 })

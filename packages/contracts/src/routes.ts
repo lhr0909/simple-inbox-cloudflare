@@ -1,3 +1,9 @@
+import {
+  CreateUploadSchema,
+  UploadSessionSchema,
+  UploadPartUrlSchema,
+  CompleteUploadSchema,
+} from './uploads'
 import { createRoute, z } from '@hono/zod-openapi'
 
 import {
@@ -582,7 +588,57 @@ export const deleteSpamRuleRoute = createRoute({
   },
 })
 
+const UploadPathSchema = z.object({ uploadId: AttachmentIdSchema })
+const UploadPartPathSchema = UploadPathSchema.extend({
+  partNumber: z.coerce.number().int().min(1).max(10_000),
+})
+export const createUploadRoute = createRoute({
+  method: 'post',
+  path: '/v1/uploads',
+  operationId: 'createUpload',
+  tags: ['Attachments'],
+  request: {
+    body: { required: true, content: { 'application/json': { schema: CreateUploadSchema } } },
+  },
+  responses: { 201: json(UploadSessionSchema), ...standardErrors },
+})
+export const signUploadPartRoute = createRoute({
+  method: 'post',
+  path: '/v1/uploads/{uploadId}/parts/{partNumber}',
+  operationId: 'signUploadPart',
+  tags: ['Attachments'],
+  request: { params: UploadPartPathSchema },
+  responses: { 200: json(UploadPartUrlSchema), ...standardErrors },
+})
+export const completeUploadRoute = createRoute({
+  method: 'post',
+  path: '/v1/uploads/{uploadId}/complete',
+  operationId: 'completeUpload',
+  tags: ['Attachments'],
+  request: {
+    params: UploadPathSchema,
+    body: { required: true, content: { 'application/json': { schema: CompleteUploadSchema } } },
+  },
+  responses: { 204: { description: 'Upload verified and ready to send' }, ...standardErrors },
+})
+export const downloadSharedFileRoute = createRoute({
+  method: 'get',
+  path: '/v1/downloads/{token}',
+  operationId: 'downloadSharedFile',
+  tags: ['Attachments'],
+  request: { params: z.object({ token: z.string().regex(/^[a-f0-9]{64}$/u) }) },
+  responses: {
+    200: { description: 'Attachment download' },
+    206: { description: 'Partial attachment download' },
+    ...standardErrors,
+  },
+})
+
 export const PUBLIC_API_ROUTES = [
+  createUploadRoute,
+  signUploadPartRoute,
+  completeUploadRoute,
+  downloadSharedFileRoute,
   listSpamRulesRoute,
   createSpamRuleRoute,
   deleteSpamRuleRoute,

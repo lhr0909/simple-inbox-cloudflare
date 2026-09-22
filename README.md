@@ -5,14 +5,14 @@ Simple Inbox is a clean-room, self-hosted mail workspace deployed as one Cloudfl
 
 - `fetch()` serves the TanStack Start UI, public documentation, and the versioned Hono API;
 - `email()` receives messages from Cloudflare Email Routing;
-- `scheduled()` runs the bounded daily retention job.
+- `scheduled()` is a compatibility no-op; there is no automatic mail expiration.
 
 D1 is the source of truth for queryable state. A private R2 bucket stores canonical RFC 822 `.eml`
-objects. The browser never receives a D1 or R2 binding or a public R2 object URL.
+objects. The browser never receives a storage binding. Attachments upload directly to a separate private R2 bucket using narrowly scoped presigned PUT URLs.
 
 This repository is independent from every legacy Cloudflare Inbox repository and deployment. Its
-automation creates or updates only `simple-inbox-cf`, `simple-inbox-cf-db`, and
-`simple-inbox-cf-raw`. It contains no legacy resource identifiers and never changes DNS, custom
+automation creates or updates only `simple-inbox-cf`, `simple-inbox-cf-db`,
+`simple-inbox-cf-raw`, and `simple-inbox-cf-attachments`. It contains no legacy resource identifiers and never changes DNS, custom
 domains, or Email Routing rules.
 
 ## Architecture
@@ -121,7 +121,7 @@ atomically creates the owner, primary mailbox, owner membership, application ori
 and retention settings in D1. Until setup completes, inbound email is rejected, retention is idle,
 and protected API routes fail closed.
 
-Email Sending domain verification, the private R2 lifecycle backstop, and activation of an Email
+Email Sending domain verification, attachment upload configuration, and activation of an Email
 Routing rule remain explicit Cloudflare Dashboard owner actions. Deploying code never switches an
 existing route or touches a legacy Worker or data store.
 
@@ -148,11 +148,22 @@ Magic links and sessions are opaque random values; D1 stores only keyed digests.
 use a Secure, HttpOnly, SameSite=Lax `__Host-` cookie. Cookie-authenticated mutations require a
 same-origin request, and every mailbox/thread/message lookup is scoped to the authenticated owner.
 
-Raw mail is sensitive. Keep R2 private, invocation logs and automatic traces disabled, and message
-content, addresses, tokens, object keys, and attachment bytes out of logs. The setup wizard requires
-an explicit retention decision: raw retention must not exceed application-record retention, both
-must be 1–3,650 days, and each scheduled batch is capped at 100. Export required data and test D1
-restoration before shortening a policy; Worker rollback cannot restore deleted D1/R2 data.
+Raw mail is sensitive. Keep both R2 buckets private, invocation logs and automatic traces disabled,
+and message content, addresses, tokens, object keys, and attachment bytes out of logs.
+Mail and completed attachments are retained indefinitely, including Spam and Trash. No automatic
+expiration runs, and historical retention settings no longer trigger deletion. Keep R2 object
+expiration rules disabled; existing bucket rules must be removed by the owner separately.
+
+## Linked attachments
+
+Compose and reply upload files to `simple-inbox-cf-attachments` before sending. Emails contain
+HTML attachment cards and plain-text download links rather than file bytes. Anyone with a link
+can download immediately without signing in. Links have no expiration, and forwarding an email
+shares access. Webmail imposes no file-size or file-count quota; Cloudflare service and email-body
+limits still apply. Upload progress, retries, and removal from a draft are supported.
+
+See [attachment setup](docs/operations.md#attachment-uploads) for the bucket-scoped R2 credentials
+and browser CORS configuration. Local development and tests use local R2 and need no credentials.
 
 The application performs no AI inference and sends mailbox content to no AI service. Report
 vulnerabilities through [SECURITY.md](SECURITY.md).

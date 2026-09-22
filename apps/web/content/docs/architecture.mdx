@@ -52,7 +52,8 @@ The browser calls same-origin `/api/v1/*`. The root Worker forwards only reviewe
 API app and regenerates a request ID. The API authenticates the caller, enforces the required scope
 and mailbox membership, validates the contract, and invokes a repository or private mail adapter.
 
-Every raw-message or attachment response authorizes against D1 metadata before reading R2. Private
+Raw-message and private attachment responses require mailbox authorization. Shared attachment
+responses authorize an unguessable download capability against D1 before reading R2. Private
 responses use no-store caching, and object keys never appear in browser DTOs.
 
 ## Inbound and outbound mail
@@ -67,14 +68,18 @@ R2 remains outside D1 transactions and has a separate repair/lifecycle path.
 
 ## Retention
 
-The daily `scheduled()` handler advances at most the configured batch size. It deletes raw R2 bytes
-first, then transactionally removes expired D1 message data and repairs/deletes threads. Durable
-content-free tombstones retain retry state. Retention never invokes Email Sending, and Worker
-rollback cannot restore deleted data.
+Mail and completed attachments are stored indefinitely, including Spam and Trash. Scheduled
+retention is disabled and the compatibility handler does not resume old deletion tombstones.
+Existing R2 expiration rules must be removed separately by the owner.
+
+Webmail uploads multipart file parts directly to private R2 using presigned PUT URLs. The server
+verifies completion and ownership, then includes HTML and plain-text links in outgoing mail.
+Completed files cannot be replaced through old upload URLs. Downloads stream through a public,
+unguessable capability link without login or time-based expiration. Links are redacted from logs.
 
 ## Deployment boundary
 
-The root Wrangler config declares one Worker, D1, R2, Email Sending, rate limiting, and cron.
+The root Wrangler config declares one Worker, D1, R2, Email Sending, rate limiting; no retention cron is enabled.
 Wrangler provisions D1/R2 and the root deploy task builds, migrates, and uploads the generated
 Worker config. Email domain verification, R2 lifecycle, custom domains, and Email Routing remain
 manual Cloudflare Dashboard owner actions.
@@ -95,8 +100,7 @@ expanded incoming messages. Reading a forwarded copy in another mail client does
 General settings provides appearance preferences and explicit spam blacklists for inbound aliases, sender addresses, and sender domains
 (including subdomains). The Spam action asks whether to block a sender address or its entire domain
 before moving the conversation. Matching future mail is retained in Spam without forwarding. Not spam
-restores existing mail without removing the rule. Spam/Trash follow the configured installation
-retention; no separate 30-day deletion policy is applied. No keyword or AI classifier is enabled.
+restores existing mail without removing the rule. Spam/Trash have no automatic expiration. No keyword or AI classifier is enabled.
 
 Mailbox settings beside the inbox selector contains sender identity, forwarding, alias visibility,
 and HTML preferences for the selected mailbox. General settings applies across inboxes.

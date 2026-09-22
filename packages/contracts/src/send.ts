@@ -1,6 +1,7 @@
 import { z } from '@hono/zod-openapi'
 
 import {
+  AttachmentIdSchema,
   IdempotencyKeySchema,
   MailboxIdSchema,
   MessageIdSchema,
@@ -48,7 +49,12 @@ export const AttachmentUploadDescriptorSchema = z
   .openapi('AttachmentUploadDescriptor')
 export type AttachmentUploadDescriptor = z.infer<typeof AttachmentUploadDescriptorSchema>
 
+const LinkedAttachmentIdsSchema = z
+  .array(AttachmentIdSchema)
+  .refine((ids) => new Set(ids).size === ids.length, 'Duplicate attachment IDs')
+
 const ComposeFieldsShape = {
+  linkedAttachmentIds: LinkedAttachmentIdsSchema.optional(),
   to: RecipientListSchema.min(1),
   cc: RecipientListSchema.optional(),
   bcc: RecipientListSchema.optional(),
@@ -89,6 +95,10 @@ export const MultipartAttachmentListSchema = z
   .transform((value) => (Array.isArray(value) ? value : [value]))
 
 const MultipartComposeFieldsShape = {
+  linkedAttachmentIds: z
+    .union([AttachmentIdSchema, LinkedAttachmentIdsSchema])
+    .transform((value) => (typeof value === 'string' ? [value] : value))
+    .optional(),
   to: RecipientFormListSchema,
   cc: RecipientFormListSchema.optional(),
   bcc: RecipientFormListSchema.optional(),

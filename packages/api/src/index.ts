@@ -1,3 +1,4 @@
+import { registerUploadRoutes } from './routes/uploads'
 import { MAX_TOTAL_ATTACHMENT_BYTES, RequestIdSchema } from '@cloudflare-inbox/contracts'
 import { OpenAPIHono } from '@hono/zod-openapi'
 import type { Context } from 'hono'
@@ -74,11 +75,14 @@ export function createApiApp(overrides: Partial<ApiDependencies> = {}) {
   app.use('/v1/messages', sendLimit)
   app.use('/v1/threads/:threadId/messages', sendLimit)
   app.use('/v1/setup', smallLimit)
+  app.use('/v1/uploads', smallLimit)
+  app.use('/v1/uploads/:uploadId/complete', sendLimit)
 
   registerSetupRoutes(app, dependencies)
   registerAuthRoutes(app, dependencies)
   registerInboxRoutes(app, dependencies)
   registerMessageRoutes(app, dependencies)
+  registerUploadRoutes(app, dependencies)
   registerSystemRoutes(app)
 
   app.notFound((context) => errorResponse(context, 'not_found'))
@@ -90,7 +94,7 @@ export function createApiApp(overrides: Partial<ApiDependencies> = {}) {
       environment: context.env.ENVIRONMENT,
       method: context.req.method,
       outcome: 'failed',
-      path: new URL(context.req.url).pathname,
+      path: new URL(context.req.url).pathname.replace(/(\/downloads\/)[^/]+/u, '$1[redacted]'),
       requestId: context.get('requestId'),
       status: fault.status,
     })
@@ -109,7 +113,7 @@ function logRequestCompletion(context: Context<ApiEnv>, status: number, startedA
     environment: context.env.ENVIRONMENT,
     method: context.req.method,
     outcome: status >= 500 ? 'server_error' : status >= 400 ? 'client_error' : 'success',
-    path: new URL(context.req.url).pathname,
+    path: new URL(context.req.url).pathname.replace(/(\/downloads\/)[^/]+/u, '$1[redacted]'),
     requestId: context.get('requestId'),
     status,
   }
@@ -156,7 +160,7 @@ function hasContentType(header: string | undefined, expected: string): boolean {
 }
 
 function isPrivatePath(path: string): boolean {
-  return /^\/v1\/(?:setup|auth|mailboxes|messages|threads)(?:\/|$)/u.test(path)
+  return /^\/v1\/(?:setup|auth|mailboxes|messages|threads|uploads|downloads)(?:\/|$)/u.test(path)
 }
 
 export const app = createApiApp()
