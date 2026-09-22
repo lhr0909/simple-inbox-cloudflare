@@ -26,7 +26,7 @@ import { completeSetup } from './setup-api'
 const STEPS = [
   { description: 'Authorize this first run', icon: ShieldCheckIcon, label: 'Installation' },
   { description: 'Choose the owner and address', icon: MailIcon, label: 'Mailbox' },
-  { description: 'Set data lifetimes', icon: DatabaseIcon, label: 'Retention' },
+  { description: 'Keep your data', icon: DatabaseIcon, label: 'Retention' },
   { description: 'Confirm and activate', icon: CheckCircleIcon, label: 'Finish' },
 ] as const
 
@@ -38,9 +38,6 @@ export function SetupWizard() {
   const [ownerEmail, setOwnerEmail] = useState('')
   const [mailDomain, setMailDomain] = useState('')
   const [mailboxAddress, setMailboxAddress] = useState('')
-  const [rawRetention, setRawRetention] = useState('30')
-  const [applicationRetention, setApplicationRetention] = useState('90')
-  const [retentionBatchSize, setRetentionBatchSize] = useState('100')
   const [errors, setErrors] = useState<FieldErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const [complete, setComplete] = useState(false)
@@ -83,25 +80,6 @@ export function SetupWizard() {
       }
       return next
     }
-    if (targetStep === 2) {
-      const raw = Number(rawRetention)
-      const application = Number(applicationRetention)
-      const batch = Number(retentionBatchSize)
-      const next: FieldErrors = {}
-      if (!Number.isSafeInteger(raw) || raw < 1 || raw > 3_650) {
-        next.rawEmailRetentionDays = 'Choose a whole number from 1 to 3,650 days.'
-      }
-      if (!Number.isSafeInteger(application) || application < 1 || application > 3_650) {
-        next.applicationRecordRetentionDays = 'Choose a whole number from 1 to 3,650 days.'
-      } else if (Number.isSafeInteger(raw) && application < raw) {
-        next.applicationRecordRetentionDays =
-          'Inbox records must be retained at least as long as raw email.'
-      }
-      if (!Number.isSafeInteger(batch) || batch < 1 || batch > 100) {
-        next.retentionBatchSize = 'Choose a whole number from 1 to 100.'
-      }
-      return next
-    }
     return {}
   }
 
@@ -113,12 +91,9 @@ export function SetupWizard() {
     }
 
     const input = CompleteSetupRequestSchema.safeParse({
-      applicationRecordRetentionDays: Number(applicationRetention),
       mailDomain: normalizedDomain,
       mailboxAddress: normalizedMailbox,
       ownerEmail: normalizedOwner,
-      rawEmailRetentionDays: Number(rawRetention),
-      retentionBatchSize: Number(retentionBatchSize),
       setupToken,
     })
     if (!input.success) {
@@ -208,24 +183,12 @@ export function SetupWizard() {
                     setOwnerEmail={setOwnerEmail}
                   />
                 ) : null}
-                {step === 2 ? (
-                  <RetentionStep
-                    applicationRetention={applicationRetention}
-                    errors={errors}
-                    rawRetention={rawRetention}
-                    retentionBatchSize={retentionBatchSize}
-                    setApplicationRetention={setApplicationRetention}
-                    setRawRetention={setRawRetention}
-                    setRetentionBatchSize={setRetentionBatchSize}
-                  />
-                ) : null}
+                {step === 2 ? <RetentionStep /> : null}
                 {step === 3 ? (
                   <ReviewStep
-                    applicationRetention={applicationRetention}
                     mailDomain={normalizedDomain}
                     mailboxAddress={normalizedMailbox}
                     ownerEmail={normalizedOwner}
-                    rawRetention={rawRetention}
                   />
                 ) : null}
                 {errors.form ? <FieldError className="mt-5">{errors.form}</FieldError> : null}
@@ -380,118 +343,35 @@ function MailboxStep({
   )
 }
 
-function RetentionStep({
-  applicationRetention,
-  errors,
-  rawRetention,
-  retentionBatchSize,
-  setApplicationRetention,
-  setRawRetention,
-  setRetentionBatchSize,
-}: {
-  applicationRetention: string
-  errors: FieldErrors
-  rawRetention: string
-  retentionBatchSize: string
-  setApplicationRetention: (value: string) => void
-  setRawRetention: (value: string) => void
-  setRetentionBatchSize: (value: string) => void
-}) {
+function RetentionStep() {
   return (
-    <div className="max-w-2xl">
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field data-invalid={errors.rawEmailRetentionDays ? true : undefined}>
-          <FieldLabel htmlFor="raw-retention">Raw email</FieldLabel>
-          <div className="relative">
-            <Input
-              aria-invalid={errors.rawEmailRetentionDays ? true : undefined}
-              className="pr-14"
-              id="raw-retention"
-              max="3650"
-              min="1"
-              onChange={(event) => setRawRetention(event.currentTarget.value)}
-              required
-              type="number"
-              value={rawRetention}
-            />
-            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
-              days
-            </span>
-          </div>
-          <FieldDescription>
-            Original RFC 822 source in private R2. Default: 30 days.
-          </FieldDescription>
-          {errors.rawEmailRetentionDays ? (
-            <FieldError>{errors.rawEmailRetentionDays}</FieldError>
-          ) : null}
-        </Field>
-        <Field data-invalid={errors.applicationRecordRetentionDays ? true : undefined}>
-          <FieldLabel htmlFor="record-retention">Inbox records</FieldLabel>
-          <div className="relative">
-            <Input
-              aria-invalid={errors.applicationRecordRetentionDays ? true : undefined}
-              className="pr-14"
-              id="record-retention"
-              max="3650"
-              min="1"
-              onChange={(event) => setApplicationRetention(event.currentTarget.value)}
-              required
-              type="number"
-              value={applicationRetention}
-            />
-            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
-              days
-            </span>
-          </div>
-          <FieldDescription>
-            Searchable messages and metadata in D1. Default: 90 days.
-          </FieldDescription>
-          {errors.applicationRecordRetentionDays ? (
-            <FieldError>{errors.applicationRecordRetentionDays}</FieldError>
-          ) : null}
-        </Field>
-      </div>
-      <Field className="mt-6 max-w-xs" data-invalid={errors.retentionBatchSize ? true : undefined}>
-        <FieldLabel htmlFor="retention-batch">Cleanup batch size</FieldLabel>
-        <Input
-          aria-invalid={errors.retentionBatchSize ? true : undefined}
-          id="retention-batch"
-          max="100"
-          min="1"
-          onChange={(event) => setRetentionBatchSize(event.currentTarget.value)}
-          required
-          type="number"
-          value={retentionBatchSize}
-        />
-        <FieldDescription>Maximum records deleted by each scheduled cleanup pass.</FieldDescription>
-        {errors.retentionBatchSize ? <FieldError>{errors.retentionBatchSize}</FieldError> : null}
-      </Field>
-      <div className="mt-7 rounded-xl border border-dashed p-4 text-sm leading-6 text-muted-foreground">
-        Cloudflare R2 lifecycle expiry is configured separately. Match it to raw email retention
-        plus a short grace period so this Worker removes database records first.
-      </div>
+    <div className="max-w-2xl space-y-4 text-sm leading-6">
+      <p>Mail and attachments are kept indefinitely. There is no automatic expiration.</p>
+      <p className="text-muted-foreground">
+        Moving mail to Spam or Trash does not permanently delete it. You control when stored data is
+        removed.
+      </p>
+      <p className="text-muted-foreground">
+        Keep R2 object expiration rules disabled so Cloudflare does not delete retained files.
+      </p>
     </div>
   )
 }
 
 function ReviewStep({
-  applicationRetention,
   mailDomain,
   mailboxAddress,
   ownerEmail,
-  rawRetention,
 }: {
-  applicationRetention: string
   mailDomain: string
   mailboxAddress: string
   ownerEmail: string
-  rawRetention: string
 }) {
   const rows = [
     ['Owner', ownerEmail],
     ['Inbox', mailboxAddress],
     ['Mail domain', mailDomain],
-    ['Retention', `${rawRetention} days raw · ${applicationRetention} days searchable`],
+    ['Retention', 'Keep indefinitely — no automatic expiration'],
   ]
   return (
     <div className="max-w-2xl">
@@ -632,7 +512,7 @@ function stepTitle(step: number): string {
     [
       'Secure this installation',
       'Create your first mailbox',
-      'Choose retention windows',
+      'Your data stays yours',
       'Review your setup',
     ][step] ?? 'Set up Simple Inbox'
   )
@@ -643,7 +523,7 @@ function stepDescription(step: number): string {
     [
       'Confirm that you are the person who deployed this Worker before any account data is created.',
       'These details become the single source of truth for sign-in, forwarding, and inbound routing.',
-      'Keep raw source briefly while retaining searchable inbox records for as long as you need.',
+      'Mail and attachments stay available until you choose to remove them.',
       'Finishing is atomic and can only happen once. Cloudflare email activation remains an explicit owner step.',
     ][step] ?? ''
   )

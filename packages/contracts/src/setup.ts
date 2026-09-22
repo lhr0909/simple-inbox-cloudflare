@@ -19,12 +19,13 @@ export const MailDomainSchema = z
 
 export const CompleteSetupRequestSchema = z
   .object({
-    applicationRecordRetentionDays: z.number().int().min(1).max(3_650),
+    // Deprecated compatibility fields; no longer schedule deletion.
+    applicationRecordRetentionDays: z.number().int().min(1).max(3_650).default(3_650),
     mailDomain: MailDomainSchema,
     mailboxAddress: EmailAddressSchema,
     ownerEmail: EmailAddressSchema,
-    rawEmailRetentionDays: z.number().int().min(1).max(3_650),
-    retentionBatchSize: z.number().int().min(1).max(100),
+    rawEmailRetentionDays: z.number().int().min(1).max(3_650).default(3_650),
+    retentionBatchSize: z.number().int().min(1).max(100).default(100),
     setupToken: SetupTokenSchema,
   })
   .strict()
