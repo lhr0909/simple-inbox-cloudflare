@@ -231,3 +231,26 @@ mailbox access, raw retention, sanitization, and sandbox requirements still appl
 Mailbox creation accepts `forwardTo` as an email address or `null` to disable forwarding.
 It takes precedence over the legacy `forward` boolean. Mailbox summaries and settings include
 `blocked`, derived from matching recipient blacklist rules. Blocking does not modify existing messages.
+
+## Linked webmail attachments
+
+Webmail uploads file parts through the authenticated Worker API to private R2 and submits `linkedAttachmentIds` in compose or
+reply form data. Binary `attachments` fields remain available for existing API clients under their
+original MIME safety bounds.
+
+1. `POST /api/v1/uploads` with JSON `filename`, `mediaType`, and `size` creates an authenticated
+   upload session and returns `id`, `partSize`, and `complete` (true for empty files).
+2. `PUT /api/v1/uploads/{id}/parts/{partNumber}` streams a binary `application/octet-stream` body
+   into R2 and returns its receipt in the `ETag` response header. Retain that ETag for completion.
+   Parts are numbered from 1. Each PUT requires authentication and ownership; cookie sessions also
+   require the same-origin mutation headers. Retrying the same part replaces it before completion.
+3. `POST /api/v1/uploads/{id}/complete` with ordered `parts: [{partNumber, etag}]` verifies the
+   completed object. Send may reference only completed files owned by the caller.
+4. Include each ID as a `linkedAttachmentIds` form value when sending. A file belongs to one
+   outbound send; unchanged retries must reuse the same idempotency key and IDs.
+
+The email contains HTML and plain-text links to `/api/v1/downloads/{token}`. These capability
+links require no session, stream the file with attachment disposition, support byte ranges, and
+never expire by age. Completed files and raw mail remain retained, including in Spam and Trash.
+No product file-size or count quota applies to linked uploads; Cloudflare service limits and
+message-body limits remain. The public OpenAPI document contains the upload contracts.

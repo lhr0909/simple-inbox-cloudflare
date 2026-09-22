@@ -2,11 +2,6 @@ import type { Message } from '@cloudflare-inbox/contracts/messages'
 import type { ThreadFolder } from '@cloudflare-inbox/contracts/folders'
 import type { ThreadSummary } from '@cloudflare-inbox/contracts/threads'
 import type { ThreadListResponse } from '@cloudflare-inbox/contracts/threads'
-import {
-  MAX_ATTACHMENTS_PER_SEND,
-  MAX_ATTACHMENT_BYTES,
-  MAX_TOTAL_ATTACHMENT_BYTES,
-} from '@cloudflare-inbox/contracts/send'
 
 import type { InboxData, InboxQuery, OptimisticThreadState } from './inbox-types'
 
@@ -169,20 +164,6 @@ export function inboundReplyTargets(messages: readonly Message[]): Message[] {
 export function replySubject(subject: string): string {
   if (/^\s*re:/iu.test(subject)) return subject.slice(0, MAX_SUBJECT_LENGTH)
   return `Re: ${subject}`.slice(0, MAX_SUBJECT_LENGTH)
-}
-
-export function attachmentLimitError(
-  attachments: readonly Readonly<{ size: number }>[],
-): string | null {
-  if (attachments.length > MAX_ATTACHMENTS_PER_SEND) {
-    return `Attach at most ${MAX_ATTACHMENTS_PER_SEND} files.`
-  }
-  if (attachments.some((attachment) => attachment.size > MAX_ATTACHMENT_BYTES)) {
-    return 'Each attachment must be 10 MiB or smaller.'
-  }
-  const total = attachments.reduce((sum, attachment) => sum + attachment.size, 0)
-  if (total > MAX_TOTAL_ATTACHMENT_BYTES) return 'Attachments must total 20 MiB or less.'
-  return null
 }
 
 export function applyOptimisticThreadStates(

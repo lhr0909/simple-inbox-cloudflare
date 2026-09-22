@@ -21,6 +21,7 @@
     "./routes": "./src/routes.ts",
     "./send": "./src/send.ts",
     "./threads": "./src/threads.ts",
+    "./uploads": "./src/uploads.ts",
     "./spam": "./src/spam.ts"
   },
   "scripts": {

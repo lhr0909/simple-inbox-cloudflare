@@ -645,9 +645,6 @@ function validateProjection(input: InsertMessageProjectionInput): void {
   if (input.references.length > 100) {
     throw new TypeError('Message projections may contain at most 100 references.')
   }
-  if (input.attachments.length > 100) {
-    throw new TypeError('Message projections may contain at most 100 attachments.')
-  }
   if (
     new Set(input.recipients.map(({ kind, position }) => `${kind}:${position}`)).size !==
     input.recipients.length

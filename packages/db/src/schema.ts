@@ -834,3 +834,20 @@ export const spamRules = sqliteTable(
     ),
   }),
 )
+
+/** Files uploaded by an owner. Completed objects have no expiration deadline. */
+export const uploadedFiles = sqliteTable('uploaded_files', {
+  id: text('id').primaryKey().notNull(),
+  ownerUserId: text('owner_user_id')
+    .notNull()
+    .references(() => users.id),
+  filename: text('filename').notNull(),
+  mediaType: text('media_type').notNull(),
+  size: integer('size').notNull(),
+  objectKey: text('object_key').notNull().unique(),
+  multipartId: text('multipart_id').notNull(),
+  downloadToken: text('download_token').notNull().unique(),
+  etag: text('etag'),
+  outboundSendId: text('outbound_send_id').references(() => outboundSends.id),
+  createdAt: integer('created_at').notNull(),
+})

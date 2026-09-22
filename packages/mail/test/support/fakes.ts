@@ -399,7 +399,7 @@ export function createFakeEnvironment(
     MAIL_DOMAIN: 'example.test',
     OWNER_EMAIL: 'owner@example.test',
     RAW_EMAIL_RETENTION_DAYS: '365',
-    RAW_EMAILS: bucket,
+    STORAGE: bucket,
     RETENTION_BATCH_SIZE: '100',
   }
   return { env, events, objects, sent }

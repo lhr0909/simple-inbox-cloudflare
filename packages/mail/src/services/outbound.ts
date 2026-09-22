@@ -1,3 +1,5 @@
+import { UploadedFileRepository } from '@cloudflare-inbox/db'
+import { resolveLinkedAttachments, appendLinkedAttachments } from './linked-attachments'
 import {
   InternalMagicLinkDeliverySchema,
   InternalSendRequestSchema,
@@ -136,6 +138,13 @@ export async function submitInternalSend(
   } catch {
     throw new MailFault('validation_failed', 400)
   }
+  const linkedFiles = await resolveLinkedAttachments(
+    command.message.linkedAttachmentIds ?? [],
+    request.actor.userId,
+    env,
+  )
+  const projectedContent = rendered
+  rendered = appendLinkedAttachments(rendered, linkedFiles, env.APP_ORIGIN)
   const limits = checkProviderLimits('user-send', {
     attachments: uploadedAttachments.map((attachment) => ({
       contentType: attachment.mediaType,
@@ -206,6 +215,16 @@ export async function submitInternalSend(
     return responseForRecord(current)
   }
 
+  // Bind capabilities before contacting the provider. An ambiguous send must
+  // retain downloadable files and must not permit another delivery to claim them.
+  for (const file of linkedFiles) {
+    await new UploadedFileRepository(env.DB).attach(
+      file.id,
+      request.actor.userId,
+      reservation.send.id,
+    )
+  }
+
   const inReplyTo = messageIdentifier(selectedTarget)
   const references = appendReference(selectedTarget?.references, inReplyTo)
   let providerMessageId: string | null = null
@@ -271,7 +290,7 @@ export async function submitInternalSend(
       to: recipients.to.map((recipient) => formatAddress(recipient)),
     })
     rawKey = buildOutboundRawKey(now, providerMessageId ?? sendId)
-    const stored = await putRawMessage(env.RAW_EMAILS, rawKey, canonical, 'outbound')
+    const stored = await putRawMessage(env.STORAGE, rawKey, canonical, 'outbound')
     rawSha256 = stored.sha256
     rawSize = stored.size
   } catch (error) {
@@ -302,16 +321,28 @@ export async function submitInternalSend(
   }
 
   const projection: InsertMessageProjectionInput = {
-    attachments: uploadedAttachments.map((attachment, mimeOrdinal) => ({
-      contentId: null,
-      createdAt: now,
-      displayFilename: attachment.filename,
-      disposition: 'attachment',
-      id: dependencies.generateId(now),
-      mediaType: attachment.mediaType,
-      mimeOrdinal,
-      size: attachment.bytes.byteLength,
-    })),
+    attachments: [
+      ...uploadedAttachments.map((attachment, mimeOrdinal) => ({
+        contentId: null,
+        createdAt: now,
+        displayFilename: attachment.filename,
+        disposition: 'attachment' as const,
+        id: dependencies.generateId(now),
+        mediaType: attachment.mediaType,
+        mimeOrdinal,
+        size: attachment.bytes.byteLength,
+      })),
+      ...linkedFiles.map((file, index) => ({
+        id: file.id,
+        contentId: null,
+        createdAt: now,
+        displayFilename: file.filename,
+        disposition: 'attachment' as const,
+        mediaType: file.mediaType,
+        mimeOrdinal: uploadedAttachments.length + index,
+        size: file.size,
+      })),
+    ],
     message: {
       createdAt: now,
       direction: 'outbound',
@@ -319,14 +350,14 @@ export async function submitInternalSend(
       forwardState: 'not_applicable',
       fromAddress: context.mailbox.address,
       fromName: context.mailbox.senderAlias,
-      htmlBody: rendered.html,
+      htmlBody: projectedContent.html,
       htmlPolicy: 'sanitized',
       id: messageId,
       inReplyTo,
       ingestDigest: null,
       internetMessageId: normalizeMessageId(providerMessageId),
       mailboxId: context.mailbox.id,
-      preview: previewText(rendered.text, subject),
+      preview: previewText(projectedContent.text, subject),
       providerErrorCode: safeErrorCode,
       providerMessageId,
       rawR2Key: rawKey,
@@ -338,7 +369,7 @@ export async function submitInternalSend(
       sendState: state,
       sentAt: now,
       subject,
-      textBody: rendered.text,
+      textBody: projectedContent.text,
       threadId: proposedThreadId,
       updatedAt: now,
     },

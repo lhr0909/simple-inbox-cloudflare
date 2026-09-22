@@ -23,6 +23,7 @@ export type ReplyDraft = Readonly<{
   bcc: string
   subject: string
   body: string
+  linkedAttachmentIds?: readonly string[]
   attachments: readonly File[]
   idempotencyKey: string
   targetMessageId: string | null
@@ -34,6 +35,7 @@ export type NewMessageDraft = Readonly<{
   bcc: string
   subject: string
   body: string
+  linkedAttachmentIds?: readonly string[]
   attachments: readonly File[]
   idempotencyKey: string
 }>

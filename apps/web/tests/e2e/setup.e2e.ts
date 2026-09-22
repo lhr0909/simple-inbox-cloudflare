@@ -22,11 +22,8 @@ test('completes the four-step fresh-install setup flow', async ({ page }) => {
   await page.getByLabel('Inbox address').fill(TEST_ADDRESSES.mailbox)
   await page.getByRole('button', { name: 'Continue', exact: true }).click()
 
-  await expect(page.getByRole('heading', { name: 'Choose retention windows' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Your data stays yours' })).toBeVisible()
   await expect(page.getByText('Step 3 of 4', { exact: true })).toBeVisible()
-  await page.getByLabel('Raw email').fill('30')
-  await page.getByLabel('Inbox records').fill('90')
-  await page.getByLabel('Cleanup batch size').fill('100')
   await page.getByRole('button', { name: 'Continue', exact: true }).click()
 
   await expect(page.getByRole('heading', { name: 'Review your setup' })).toBeVisible()
@@ -34,7 +31,9 @@ test('completes the four-step fresh-install setup flow', async ({ page }) => {
   await expect(page.getByText(TEST_ADDRESSES.owner, { exact: true })).toBeVisible()
   await expect(page.getByText(TEST_ADDRESSES.mailbox, { exact: true })).toBeVisible()
   await expect(page.getByText('example.test', { exact: true })).toBeVisible()
-  await expect(page.getByText('30 days raw · 90 days searchable', { exact: true })).toBeVisible()
+  await expect(
+    page.getByText('Keep indefinitely — no automatic expiration', { exact: true }),
+  ).toBeVisible()
   await expect(
     page.getByText('Verify your sending domain in Cloudflare Email Sending.', { exact: true }),
   ).toBeVisible()

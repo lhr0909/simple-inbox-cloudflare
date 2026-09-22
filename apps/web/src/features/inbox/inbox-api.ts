@@ -142,7 +142,9 @@ export function sendReply(threadId: string, draft: ReplyDraft) {
   form.set('body', draft.body)
   form.set('format', 'markdown')
   if (draft.targetMessageId !== null) form.set('targetMessageId', draft.targetMessageId)
-  for (const file of draft.attachments) form.append('attachments', file)
+  if (draft.attachments.length !== (draft.linkedAttachmentIds?.length ?? 0))
+    throw new Error('Wait for attachments to finish uploading.')
+  for (const id of draft.linkedAttachmentIds ?? []) form.append('linkedAttachmentIds', id)
 
   return requestJson(
     `/api/v1/threads/${encodeURIComponent(threadId)}/messages`,
@@ -164,7 +166,9 @@ export function sendNewMessage(mailboxId: string, draft: NewMessageDraft) {
   form.set('subject', draft.subject)
   form.set('body', draft.body)
   form.set('format', 'markdown')
-  for (const file of draft.attachments) form.append('attachments', file)
+  if (draft.attachments.length !== (draft.linkedAttachmentIds?.length ?? 0))
+    throw new Error('Wait for attachments to finish uploading.')
+  for (const id of draft.linkedAttachmentIds ?? []) form.append('linkedAttachmentIds', id)
 
   return requestJson('/api/v1/messages', SendResponseSchema, {
     method: 'POST',

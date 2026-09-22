@@ -5,7 +5,7 @@ description: A private, self-hosted inbox on one Cloudflare Worker.
 
 Simple Inbox is a clean-room mail workspace that runs as one Cloudflare Worker named
 `simple-inbox-cf`. One deployment serves the web app and API, receives Email Routing events, and
-runs scheduled retention.
+keeps mail indefinitely.
 
 ```text
 browser ---- fetch() ----> simple-inbox-cf ----> D1
@@ -14,7 +14,7 @@ Cloudflare Cron -- scheduled() ----------------> Email Sending
 ```
 
 D1 holds queryable mailbox state. A private R2 bucket holds canonical raw `.eml` objects. The
-browser reaches both only through authenticated API routes.
+browser uses authenticated APIs, including streamed attachment uploads through the Worker’s R2 binding.
 
 ## What is included
 
@@ -23,14 +23,14 @@ browser reaches both only through authenticated API routes.
 - Canonical raw-message and attachment download after mailbox authorization.
 - Inbound capture, owner forwarding, opaque reply aliases, and outbound Email Sending.
 - Durable send idempotency and explicit `unknown` delivery state.
-- Bounded daily retention across private R2 and D1.
+- Indefinite storage with no automatic expiration.
+- Direct R2 attachment uploads with permanent download links in outgoing mail.
 - A first-run `/setup` wizard for owner, mailbox, origin, mail domain, and retention settings.
 - Embedded OpenAPI and operator/security documentation.
 
 ## First deployment
 
-The root Wrangler config declares one Worker plus D1, R2, Email Sending, rate limiting, and a daily
-cron. Wrangler provisions D1/R2, and the root deploy task builds, migrates, and deploys:
+The root Wrangler config declares one Worker plus D1, R2, Email Sending, rate limiting, and private attachment storage. Wrangler provisions D1/R2, and the root deploy task builds, migrates, and deploys:
 
 ```sh
 vp run deploy
@@ -50,7 +50,7 @@ such as `owner@example.test`, `mail.example.test`, and `inbox@mail.example.test`
 installation records atomically; until it succeeds, protected APIs fail closed, inbound mail is
 rejected, and retention stays idle.
 
-Email Sending domain verification, a private R2 lifecycle rule, and Email Routing activation remain
+Email Sending domain verification, bucket lifecycle changes, and Email Routing activation remain
 explicit Cloudflare Dashboard owner steps.
 
 ## One-click deployment

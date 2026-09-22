@@ -121,7 +121,8 @@
           "applicationRecordRetentionDays": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 3650
+            "maximum": 3650,
+            "default": 3650
           },
           "mailDomain": {
             "type": "string",
@@ -146,12 +147,14 @@
           "rawEmailRetentionDays": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 3650
+            "maximum": 3650,
+            "default": 3650
           },
           "retentionBatchSize": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 100
+            "maximum": 100,
+            "default": 100
           },
           "setupToken": {
             "type": "string",
@@ -160,15 +163,7 @@
             "example": "replace-with-a-random-one-time-setup-secret"
           }
         },
-        "required": [
-          "applicationRecordRetentionDays",
-          "mailDomain",
-          "mailboxAddress",
-          "ownerEmail",
-          "rawEmailRetentionDays",
-          "retentionBatchSize",
-          "setupToken"
-        ],
+        "required": ["mailDomain", "mailboxAddress", "ownerEmail", "setupToken"],
         "additionalProperties": false
       },
       "MagicLinkAcceptedResponse": {
@@ -932,8 +927,7 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/AttachmentMetadata"
-            },
-            "maxItems": 100
+            }
           }
         },
         "required": [
@@ -1165,6 +1159,23 @@
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
             "example": "01996f7a-7bcd-7abc-8def-1123456789ab"
           },
+          "linkedAttachmentIds": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                "example": "01996f7a-7bcd-7abc-8def-4123456789ab"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "example": "01996f7a-7bcd-7abc-8def-4123456789ab"
+                }
+              }
+            ]
+          },
           "to": {
             "anyOf": [
               {
@@ -1259,6 +1270,23 @@
       "ReplyMessageForm": {
         "type": "object",
         "properties": {
+          "linkedAttachmentIds": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                "example": "01996f7a-7bcd-7abc-8def-4123456789ab"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "example": "01996f7a-7bcd-7abc-8def-4123456789ab"
+                }
+              }
+            ]
+          },
           "to": {
             "anyOf": [
               {
@@ -1353,6 +1381,74 @@
           }
         },
         "required": ["to", "subject", "body", "format"],
+        "additionalProperties": false
+      },
+      "UploadSession": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01996f7a-7bcd-7abc-8def-4123456789ab"
+          },
+          "partSize": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "complete": {
+            "type": "boolean"
+          }
+        },
+        "required": ["id", "partSize", "complete"],
+        "additionalProperties": false
+      },
+      "CreateUpload": {
+        "type": "object",
+        "properties": {
+          "filename": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "mediaType": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 255,
+            "pattern": "^[!#$%&'*+.^_`|~0-9A-Za-z-]+\\/[!#$%&'*+.^_`|~0-9A-Za-z-]+(?:\\s*;.*)?$"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": ["filename", "mediaType", "size"],
+        "additionalProperties": false
+      },
+      "CompleteUpload": {
+        "type": "object",
+        "properties": {
+          "parts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "partNumber": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000
+                },
+                "etag": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                }
+              },
+              "required": ["partNumber", "etag"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["parts"],
         "additionalProperties": false
       },
       "HealthResponse": {
@@ -3582,6 +3678,584 @@
           },
           "500": {
             "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/uploads": {
+      "post": {
+        "operationId": "createUpload",
+        "tags": ["Attachments"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUpload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request was not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The operation is not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was absent or unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with existing state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is too large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request content type is not supported.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The request was rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The upstream mail provider failed or returned an unknown result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required service is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/uploads/{uploadId}/parts/{partNumber}": {
+      "put": {
+        "operationId": "uploadPart",
+        "tags": ["Attachments"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "example": "01996f7a-7bcd-7abc-8def-4123456789ab"
+            },
+            "required": true,
+            "name": "uploadId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            },
+            "required": true,
+            "name": "partNumber",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Part stored; use the ETag response header to complete the upload",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "R2 part receipt"
+              }
+            }
+          },
+          "400": {
+            "description": "The request was not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The operation is not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was absent or unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with existing state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is too large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request content type is not supported.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The request was rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The upstream mail provider failed or returned an unknown result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required service is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/uploads/{uploadId}/complete": {
+      "post": {
+        "operationId": "completeUpload",
+        "tags": ["Attachments"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "example": "01996f7a-7bcd-7abc-8def-4123456789ab"
+            },
+            "required": true,
+            "name": "uploadId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteUpload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Upload verified and ready to send"
+          },
+          "400": {
+            "description": "The request was not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The operation is not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was absent or unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with existing state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is too large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request content type is not supported.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The request was rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The upstream mail provider failed or returned an unknown result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required service is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/downloads/{token}": {
+      "get": {
+        "operationId": "downloadSharedFile",
+        "tags": ["Attachments"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$/u"
+            },
+            "required": true,
+            "name": "token",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attachment download"
+          },
+          "206": {
+            "description": "Partial attachment download"
+          },
+          "400": {
+            "description": "The request was not valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The operation is not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was absent or unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with existing state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is too large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request content type is not supported.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The request was rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The upstream mail provider failed or returned an unknown result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required service is unavailable.",
             "content": {
               "application/json": {
                 "schema": {

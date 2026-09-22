@@ -1,7 +1,7 @@
+import { AttachmentPicker, useAttachmentUploads } from './attachment-picker'
 import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import CheckCircleIcon from 'lucide-react/dist/esm/icons/circle-check.mjs'
-import PaperclipIcon from 'lucide-react/dist/esm/icons/paperclip.mjs'
 import SendIcon from 'lucide-react/dist/esm/icons/send.mjs'
 import XIcon from 'lucide-react/dist/esm/icons/x.mjs'
 
@@ -12,7 +12,6 @@ import { Field, FieldGroup, FieldLabel } from '#/components/ui/field'
 import { Input } from '#/components/ui/input'
 import { Textarea } from '#/components/ui/textarea'
 
-import { attachmentLimitError } from './inbox-model'
 import type { InboxData } from './inbox-types'
 
 import type { InboxShellProps } from './inbox-shell-types'
@@ -35,8 +34,7 @@ export function NewMessageDialog({
   const [bcc, setBcc] = useState('')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
-  const [attachments, setAttachments] = useState<readonly File[]>([])
-  const [attachmentError, setAttachmentError] = useState('')
+  const uploads = useAttachmentUploads()
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID())
   const [status, setStatus] = useState<ComposeStatus>('idle')
   const [statusMessage, setStatusMessage] = useState('')
@@ -64,7 +62,7 @@ export function NewMessageDialog({
       mailbox === null ||
       onCompose === undefined ||
       locked ||
-      attachmentError ||
+      uploads.blocked ||
       !to.trim() ||
       !body.trim()
     ) {
@@ -80,7 +78,8 @@ export function NewMessageDialog({
         bcc,
         subject,
         body,
-        attachments,
+        attachments: uploads.files,
+        linkedAttachmentIds: uploads.ids,
         idempotencyKey,
       })
       if (result.state === 'unknown') {
@@ -106,8 +105,7 @@ export function NewMessageDialog({
       setBcc('')
       setSubject('')
       setBody('')
-      setAttachments([])
-      setAttachmentError('')
+      uploads.clear()
       setIdempotencyKey(crypto.randomUUID())
     } catch {
       setStatus('error')
@@ -232,69 +230,12 @@ export function NewMessageDialog({
               value={body}
             />
           </Field>
-          <Field>
-            <FieldLabel className="sr-only" htmlFor={`${id}-attachments`}>
-              Add attachments
-            </FieldLabel>
-            <Input
-              disabled={locked}
-              id={`${id}-attachments`}
-              multiple
-              onChange={(event) => {
-                const files = Array.from(event.currentTarget.files ?? [])
-                if (files.length > 0) {
-                  const next = [...attachments, ...files]
-                  const limitError = attachmentLimitError(next)
-                  if (limitError === null) {
-                    setAttachments(next)
-                    setAttachmentError('')
-                    draftChanged()
-                  } else {
-                    setAttachmentError(limitError)
-                  }
-                }
-                event.currentTarget.value = ''
-              }}
-              type="file"
-            />
-          </Field>
+          <AttachmentPicker uploads={uploads} disabled={locked} onChange={draftChanged} />
         </FieldGroup>
-
-        {attachments.length > 0 ? (
-          <ul aria-label="Attachments" className="mt-3 space-y-1">
-            {attachments.map((file, index) => (
-              <li
-                className="flex items-center gap-2 rounded-lg border px-2 py-1.5 text-xs"
-                key={`${file.name}-${file.size}-${index}`}
-              >
-                <PaperclipIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate">{file.name}</span>
-                <Button
-                  aria-label={`Remove ${file.name}`}
-                  disabled={locked}
-                  onClick={() => {
-                    setAttachments((current) =>
-                      current.filter((_, itemIndex) => itemIndex !== index),
-                    )
-                    setAttachmentError('')
-                    draftChanged()
-                  }}
-                  size="icon-xs"
-                  type="button"
-                  variant="ghost"
-                >
-                  <XIcon aria-hidden="true" className="size-3" />
-                </Button>
-              </li>
-            ))}
-          </ul>
-        ) : null}
 
         <div className="mt-5 flex flex-wrap items-center gap-2 border-t pt-4">
           <Button
-            disabled={
-              mailbox === null || locked || Boolean(attachmentError) || !to.trim() || !body.trim()
-            }
+            disabled={mailbox === null || locked || uploads.blocked || !to.trim() || !body.trim()}
             type="submit"
           >
             <SendIcon aria-hidden="true" className="size-4" />
@@ -315,7 +256,7 @@ export function NewMessageDialog({
             {status === 'accepted' ? (
               <CheckCircleIcon aria-hidden="true" className="size-3.5 shrink-0" />
             ) : null}
-            {attachmentError || statusMessage}
+            {statusMessage}
           </span>
         </div>
       </form>

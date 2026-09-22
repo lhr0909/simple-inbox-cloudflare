@@ -8,7 +8,7 @@ stores queryable state and a private R2 bucket stores canonical raw messages.
                        +-------------------------------+
 browser ---- fetch() ->|                               |----> D1
 Email Routing email() ->      simple-inbox-cf          |----> private R2
-Cloudflare Cron -------->                               |----> Email Sending
+Compatibility cron ---->                               |----> Email Sending
                        +-------------------------------+
                           web -> API -> mail modules
                                (in process)
@@ -179,8 +179,8 @@ Mailbox summaries and settings derive `blocked` from the actor’s recipient rul
 restores a message without deleting its blacklist rule or forwarding historical mail. General settings
 owns the shared blacklist and browser theme; mailbox settings owns alias and forwarding preferences. There are no keyword rules, AI calls, or new Cloudflare resources.
 
-Spam and Trash remain recoverable until the installation's configured retention deadlines; this
-iteration does not shorten existing retention or introduce a separate 30-day deletion timer.
+Mail and attachments have no automatic expiration. Spam and Trash remain recoverable until an
+owner explicitly removes stored data; moving a message there does not start a deletion timer.
 
 Each forwarded message uses the assigned mailbox as its sender and an opaque, same-domain reply
 alias as `Reply-To`. A reply from the configured owner resolves that alias in D1, is sent from the
@@ -194,14 +194,43 @@ blindly retried: interruption or an ambiguous provider result remains `unknown` 
 confirmation. D1 batches make projections and idempotency finalization all-or-nothing; R2 writes
 remain outside SQL transactions and retain their own repair and lifecycle path.
 
-The daily `scheduled()` handler advances bounded retention work. It deletes raw R2 bytes first,
-treats an already-missing object as success, then transactionally removes expired D1 projections and
-repairs or deletes their threads. The retention handler never invokes Email Sending.
+The `scheduled()` handler is a no-op even if an old cron is invoked. Historical retention fields
+and tombstones remain for compatibility but never schedule or resume deletion. Existing R2 object
+expiration rules must be disabled separately by the owner; code cannot override bucket lifecycle.
+
+## Linked attachments
+
+Authenticated senders initiate multipart uploads in the private `simple-inbox-cf-storage`
+bucket. D1 owns filenames, expected sizes, object keys, multipart IDs, completion ETags, random
+256-bit download capabilities, and the outbound send association. Each part streams through a same-origin
+Worker PUT endpoint into the R2 binding. Every part requires send authorization, ownership, and
+same-origin checks for cookie sessions. Production and local tests share this path; no R2 S3
+credentials, browser-to-R2 requests, or bucket CORS policy are needed.
+
+The completion endpoint checks ordered parts and actual object size, then stores the immutable
+completed object's ETag. Completed uploads reject further parts, and R2 closes the multipart session. A lost completion
+response can be retried by inspecting the final object. Send checks owner, readiness, size, and ETag,
+then appends escaped filenames, sizes, and stable application links to HTML and plain text. Linked
+bytes never pass through Email Sending or become MIME attachments in canonical outbound mail.
+
+Upload IDs participate in the existing idempotency digest. Each completed file belongs to one
+outbound send; binding occurs after claiming delivery and before contacting the provider. Sent
+and ambiguous deliveries retain their links. Attachment metadata appears in Sent and downloads
+stream from R2, including byte ranges. The normal authenticated attachment route still enforces
+ownership; the public download route checks an unguessable capability without requiring a session.
+Download tokens are redacted from request logs; responses use attachment disposition, no-store,
+no-referrer, and nosniff. Links have no time limit. Removing a file from a draft only detaches it;
+completed orphan uploads and unfinished multipart uploads are retained for owner-controlled cleanup.
+Disable all R2 lifecycle rules, including the default incomplete-multipart abort rule. No application
+path automatically deletes duplicate or unprojected raw objects or aborts stored multipart sessions.
+
+There are no product file-size/count quotas. Multipart part sizing respects R2's 10,000-part
+constraint; each chunk is also subject to Cloudflare's per-request upload limit. Provider message-body and D1 projection limits still apply to generated link text.
 
 ## Deployment topology
 
 The root `wrangler.jsonc` declares `simple-inbox-cf`, `simple-inbox-cf-db`,
-`simple-inbox-cf-raw`, `EMAIL`, `AUTH_RATE_LIMIT`, and the `17 3 * * *` cron. Wrangler provisions
+`simple-inbox-cf-storage`, `EMAIL`, and `AUTH_RATE_LIMIT`; cron is disabled. Wrangler provisions
 the declared D1 database and R2 bucket when needed; no account-specific resource IDs are committed.
 
 `vp run deploy` builds the TanStack Start Worker, applies checked-in remote D1 migrations, and

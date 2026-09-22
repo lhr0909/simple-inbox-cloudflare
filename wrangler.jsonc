@@ -14,8 +14,8 @@
   ],
   "r2_buckets": [
     {
-      "binding": "RAW_EMAILS",
-      "bucket_name": "simple-inbox-cf-raw",
+      "binding": "STORAGE",
+      "bucket_name": "simple-inbox-cf-storage",
     },
   ],
   "send_email": [
@@ -34,7 +34,7 @@
     },
   ],
   "triggers": {
-    "crons": ["17 3 * * *"],
+    "crons": [],
   },
   "vars": {
     "ENVIRONMENT": "self-hosted",

@@ -1,9 +1,8 @@
+import { AttachmentPicker, useAttachmentUploads } from './attachment-picker'
 import { useContext, useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import CheckCircleIcon from 'lucide-react/dist/esm/icons/circle-check.mjs'
-import PaperclipIcon from 'lucide-react/dist/esm/icons/paperclip.mjs'
 import SendIcon from 'lucide-react/dist/esm/icons/send.mjs'
-import XIcon from 'lucide-react/dist/esm/icons/x.mjs'
 
 import { HydratedTimeContext, formatTime } from './inbox-primitives'
 
@@ -12,12 +11,7 @@ import { Field, FieldGroup, FieldLabel } from '#/components/ui/field'
 import { Input } from '#/components/ui/input'
 import { Textarea } from '#/components/ui/textarea'
 
-import {
-  attachmentLimitError,
-  defaultReplyRecipients,
-  inboundReplyTargets,
-  replySubject,
-} from './inbox-model'
+import { defaultReplyRecipients, inboundReplyTargets, replySubject } from './inbox-model'
 import type { InboxData } from './inbox-types'
 
 import type { InboxShellProps } from './inbox-shell-types'
@@ -43,8 +37,7 @@ export function ReplyComposer({
   const [bcc, setBcc] = useState('')
   const [showCopies, setShowCopies] = useState(false)
   const [body, setBody] = useState('')
-  const [attachments, setAttachments] = useState<readonly File[]>([])
-  const [attachmentError, setAttachmentError] = useState('')
+  const uploads = useAttachmentUploads()
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID())
   const [status, setStatus] = useState<ComposeStatus>('idle')
   const [statusMessage, setStatusMessage] = useState('')
@@ -68,7 +61,7 @@ export function ReplyComposer({
 
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
-    if (locked || attachmentError || !body.trim() || !to.trim() || onReply === undefined) return
+    if (locked || uploads.blocked || !body.trim() || !to.trim() || onReply === undefined) return
     setStatus('sending')
     setStatusMessage('Sending your reply…')
     try {
@@ -78,7 +71,8 @@ export function ReplyComposer({
         bcc,
         subject: replySubject(detail.thread.subject),
         body,
-        attachments,
+        attachments: uploads.files,
+        linkedAttachmentIds: uploads.ids,
         idempotencyKey,
         targetMessageId: targetMessageId || null,
       })
@@ -101,8 +95,7 @@ export function ReplyComposer({
         result.state === 'sent' ? 'Reply sent.' : 'Reply accepted and still processing.',
       )
       setBody('')
-      setAttachments([])
-      setAttachmentError('')
+      uploads.clear()
       setIdempotencyKey(crypto.randomUUID())
     } catch {
       setStatus('error')
@@ -221,65 +214,11 @@ export function ReplyComposer({
             value={body}
           />
         </Field>
-        <Field>
-          <FieldLabel className="sr-only" htmlFor={`${id}-attachments`}>
-            Add attachments
-          </FieldLabel>
-          <Input
-            disabled={locked}
-            id={`${id}-attachments`}
-            multiple
-            onChange={(event) => {
-              const files = Array.from(event.currentTarget.files ?? [])
-              if (files.length > 0) {
-                const next = [...attachments, ...files]
-                const limitError = attachmentLimitError(next)
-                if (limitError === null) {
-                  setAttachments(next)
-                  setAttachmentError('')
-                  draftChanged()
-                } else {
-                  setAttachmentError(limitError)
-                }
-              }
-              event.currentTarget.value = ''
-            }}
-            type="file"
-          />
-        </Field>
+        <AttachmentPicker uploads={uploads} disabled={locked} onChange={draftChanged} />
       </FieldGroup>
-      {attachments.length > 0 ? (
-        <ul aria-label="Attachments" className="mt-3 space-y-1">
-          {attachments.map((file, index) => (
-            <li
-              className="flex items-center gap-2 rounded-lg border px-2 py-1.5 text-xs"
-              key={`${file.name}-${file.size}-${index}`}
-            >
-              <PaperclipIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">{file.name}</span>
-              <Button
-                aria-label={`Remove ${file.name}`}
-                disabled={locked}
-                onClick={() => {
-                  setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))
-                  setAttachmentError('')
-                  draftChanged()
-                }}
-                size="icon-xs"
-                type="button"
-                variant="ghost"
-              >
-                <XIcon aria-hidden="true" className="size-3" />
-              </Button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <Button
-          disabled={locked || Boolean(attachmentError) || !body.trim() || !to.trim()}
-          type="submit"
-        >
+        <Button disabled={locked || uploads.blocked || !body.trim() || !to.trim()} type="submit">
           <SendIcon aria-hidden="true" className="size-4" />
           {status === 'sending' ? 'Sending…' : 'Send reply'}
         </Button>
@@ -293,7 +232,7 @@ export function ReplyComposer({
           {status === 'accepted' ? (
             <CheckCircleIcon aria-hidden="true" className="size-3.5 shrink-0" />
           ) : null}
-          {attachmentError || statusMessage}
+          {statusMessage}
         </span>
       </div>
     </form>
