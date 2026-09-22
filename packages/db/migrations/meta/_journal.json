@@ -57,6 +57,13 @@
       "when": 1790052210990,
       "tag": "0007_linked_attachments",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1790076466395,
+      "tag": "0008_copy_sent_mail",
+      "breakpoints": true
     }
   ]
 }

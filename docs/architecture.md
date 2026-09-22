@@ -75,6 +75,25 @@ messages only from that exact iframe window and its opaque origin. The web bridg
 restricted policy for the HTML endpoint; the privileged app keeps its original CSP and frame denial.
 Remote images may disclose opens, and the setting explains this before opt-in.
 
+## Sent-mail copies and external threading
+
+`mailboxes.forward_sent` / `forwardSent` defaults true. The mailbox settings API and UI expose it
+independently of HTML forwarding. Migration `0008_copy_sent_mail.sql` enables the preference on
+existing mailboxes without changing forwarding destinations, visibility, or retained messages.
+
+Compose/reply deliveries add the effective forwarding destination as Bcc when enabled, unless it
+is already a recipient or equals the sending mailbox. Hidden mailboxes have no effective forwarding
+destination. The private copy shares the same provider call, body, attachment links, Message-ID,
+and durable delivery claim. Recipient limits include the copy. A provider exception remains
+ambiguous for the whole send and is never automatically retried. D1 records the effective Bcc
+recipient; canonical MIME omits Bcc headers. Reply-alias relays and authentication mail are unaffected.
+
+Inbound forwards now carry bounded `In-Reply-To` and `References` headers. Webmail replies keep the
+customer's original parent ID and include the owner's forwarded-copy ID in References when copying
+is enabled, connecting both histories despite Cloudflare generating a new ID for each forward.
+References are capped at Cloudflare's 2,048-byte header limit. Grouping remains the receiving email
+client's decision; stored messages and already delivered copies are not rewritten.
+
 ## Test ownership
 
 `apps/web/tests/e2e` owns responsive Playwright flows; `apps/web/tests/integration` owns isolated

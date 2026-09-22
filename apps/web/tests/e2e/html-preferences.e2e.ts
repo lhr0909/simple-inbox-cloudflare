@@ -109,6 +109,12 @@ test('persists independent HTML preferences and safely renders retained mail on 
   }
   await openSettings()
   const dialog = page.getByRole('dialog', { name: 'Mailbox settings' })
+  const sentCopy = dialog.getByRole('checkbox', {
+    name: 'Copy sent mail to forwarding address',
+    exact: true,
+  })
+  await expect(sentCopy).toBeChecked()
+  await sentCopy.uncheck()
   const forward = dialog.getByRole('checkbox', { name: 'Forward full HTML', exact: true })
   const render = dialog.getByRole('checkbox', { name: 'Display full HTML in inbox', exact: true })
   await expect(forward).toBeChecked()
@@ -119,8 +125,10 @@ test('persists independent HTML preferences and safely renders retained mail on 
   await dialog.getByRole('button', { name: 'Close settings' }).click()
   await page.reload()
   await page.getByRole('button', { name: 'Mailbox settings', exact: true }).click()
+  await expect(sentCopy).not.toBeChecked()
   await expect(forward).not.toBeChecked()
   await expect(render).not.toBeChecked()
+  await sentCopy.check()
   await forward.check()
   await render.check()
   await dialog.getByRole('button', { name: 'Save settings' }).click()

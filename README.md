@@ -134,6 +134,14 @@ Deploy this public repository using Cloudflare's one-click flow:
 Cloudflare's deploy button requires a public GitHub or GitLab repository. See Cloudflare's
 [Deploy to Cloudflare button documentation](https://developers.cloudflare.com/workers/platform/deploy-buttons/).
 
+## Sent-mail copies
+
+Mailbox settings includes **Copy sent mail to forwarding address**, enabled by default for existing
+and new mailboxes. Compose and reply add that destination privately as Bcc, including the same
+attachment links. No extra copy is added if the destination is already in To, Cc, or Bcc. Hidden
+mailboxes or mailboxes without a forwarding destination do not receive automatic copies.
+The setting affects future sends only; it does not resend past mail or owner reply-alias messages.
+
 ## HTML email preferences
 
 Each mailbox's **Settings** has independent **Forward full HTML** and **Display full HTML in inbox**

@@ -84,6 +84,7 @@ export interface MailboxSummary {
   archiveCount: number
   createdAt: number
   forwardHtml: boolean
+  forwardSent: boolean
   renderHtml: boolean
   whitelisted: boolean
   blocked: boolean
@@ -103,6 +104,7 @@ export interface MailboxSummary {
 export interface MailboxSettings {
   address: string
   forwardHtml: boolean
+  forwardSent: boolean
   renderHtml: boolean
   whitelisted: boolean
   blocked: boolean
@@ -237,6 +239,7 @@ export class MailboxScopedRepository {
         createdAt: mailboxes.createdAt,
         forwardTo: mailboxes.forwardTo,
         forwardHtml: mailboxes.forwardHtml,
+        forwardSent: mailboxes.forwardSent,
         renderHtml: mailboxes.renderHtml,
         whitelisted: mailboxes.whitelisted,
         blocked: this.#blockedMailbox(),
@@ -266,6 +269,7 @@ export class MailboxScopedRepository {
         mailboxes.senderAlias,
         mailboxes.forwardTo,
         mailboxes.forwardHtml,
+        mailboxes.forwardSent,
         mailboxes.renderHtml,
         mailboxes.whitelisted,
         mailboxes.createdAt,
@@ -382,6 +386,7 @@ export class MailboxScopedRepository {
         address: mailboxes.address,
         forwardTo: mailboxes.forwardTo,
         forwardHtml: mailboxes.forwardHtml,
+        forwardSent: mailboxes.forwardSent,
         renderHtml: mailboxes.renderHtml,
         whitelisted: mailboxes.whitelisted,
         blocked: this.#blockedMailbox(),
@@ -817,6 +822,7 @@ export class MailboxScopedRepository {
       forwardTo?: string | null
       senderAlias?: string | null
       forwardHtml?: boolean
+      forwardSent?: boolean
       renderHtml?: boolean
       whitelisted?: boolean
     },
@@ -834,6 +840,7 @@ export class MailboxScopedRepository {
           forward_to = CASE WHEN ? = 1 THEN ? ELSE forward_to END,
           sender_alias = CASE WHEN ? = 1 THEN ? ELSE sender_alias END,
           forward_html = CASE WHEN ? = 1 THEN ? ELSE forward_html END,
+          forward_sent = CASE WHEN ? = 1 THEN ? ELSE forward_sent END,
           render_html = CASE WHEN ? = 1 THEN ? ELSE render_html END,
           updated_at = max(updated_at, ?)
         WHERE id = ?
@@ -853,6 +860,8 @@ export class MailboxScopedRepository {
         values.senderAlias ?? null,
         values.forwardHtml === undefined ? 0 : 1,
         values.forwardHtml ? 1 : 0,
+        values.forwardSent === undefined ? 0 : 1,
+        values.forwardSent ? 1 : 0,
         values.renderHtml === undefined ? 0 : 1,
         values.renderHtml ? 1 : 0,
         now,

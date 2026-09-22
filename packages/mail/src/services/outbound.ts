@@ -143,6 +143,16 @@ export async function submitInternalSend(
     request.actor.userId,
     env,
   )
+  const copyDestination = context.mailbox.forwardSent ? context.mailbox.forwardTo : null
+  if (
+    copyDestination !== null &&
+    copyDestination !== context.mailbox.address &&
+    ![...recipients.to, ...recipients.cc, ...recipients.bcc].some(
+      (recipient) => recipient.address === copyDestination,
+    )
+  ) {
+    recipients.bcc.push({ address: copyDestination })
+  }
   const projectedContent = rendered
   rendered = appendLinkedAttachments(rendered, linkedFiles, env.APP_ORIGIN)
   const limits = checkProviderLimits('user-send', {
@@ -226,7 +236,14 @@ export async function submitInternalSend(
   }
 
   const inReplyTo = messageIdentifier(selectedTarget)
-  const references = appendReference(selectedTarget?.references, inReplyTo)
+  // The owner received a forward with its own provider ID. Refer to that copy as
+  // well as the customer's original so the Bcc reply can join the owner's thread.
+  const ownerCopyId = copyDestination === null ? null : selectedTarget?.providerMessageId
+  const references = appendReference(
+    appendReference(selectedTarget?.references, ownerCopyId),
+    inReplyTo,
+    { maxBytes: 2048 },
+  )
   let providerMessageId: string | null = null
   let safeErrorCode: string | null = null
   let state: 'sent' | 'unknown'

@@ -56,6 +56,7 @@ describe('internal outbound submission', () => {
     expect(runtime.sent[0]).toMatchObject({
       from: { email: 'support@example.test', name: 'Example Support' },
       replyTo: 'support@example.test',
+      bcc: ['auditor@example.test', 'owner@example.test'],
     })
     expect(store.projects).toHaveLength(1)
     expect(events.indexOf('db:reserve-send')).toBeLessThan(events.indexOf('email:send'))
@@ -89,6 +90,35 @@ describe('internal outbound submission', () => {
     expect(serialized).not.toContain('Synthetic outbound subject')
     expect(serialized).not.toContain('A synthetic outbound body')
   })
+
+  it.each(['disabled', 'no-destination', 'self-destination'])(
+    'does not copy sends with %s forwarding',
+    async (mode) => {
+      const store = new FakeMailStore()
+      if (mode === 'disabled') store.context.mailbox.forwardSent = false
+      if (mode === 'no-destination') store.context.mailbox.forwardTo = null
+      if (mode === 'self-destination')
+        store.context.mailbox.forwardTo = store.context.mailbox.address
+      const runtime = createFakeEnvironment()
+      await submitInternalSend(await newMessage(), runtime.env, createDependencies(store))
+      expect(runtime.sent).toHaveLength(1)
+      expect(runtime.sent[0]).not.toHaveProperty('bcc')
+    },
+  )
+
+  it.each(['to', 'cc', 'bcc'] as const)(
+    'does not duplicate the forwarding address already in %s',
+    async (kind) => {
+      const store = new FakeMailStore()
+      const runtime = createFakeEnvironment()
+      const prepared = await newMessage({ [kind]: [{ address: 'OWNER@example.test' }] })
+      await submitInternalSend(prepared, runtime.env, createDependencies(store))
+      const copy = runtime.sent[0]!
+      const recipients = [copy.to, copy.cc ?? [], copy.bcc ?? []].flat()
+      expect(recipients.filter((value) => value === 'owner@example.test')).toHaveLength(1)
+      if (kind !== 'bcc') expect(copy).not.toHaveProperty('bcc')
+    },
+  )
 
   it('rejects a conflicting reuse without a second provider call', async () => {
     const store = new FakeMailStore()
@@ -257,7 +287,7 @@ describe('internal outbound submission', () => {
           id: INBOUND_MESSAGE_ID,
           inReplyTo: null,
           internetMessageId: '<target@sender.example.test>',
-          providerMessageId: null,
+          providerMessageId: '<owner-forward@example.test>',
           references: ['<root@sender.example.test>'],
           replyTo: ['alice-replies@sender.example.test'],
           sentAt: NOW - 1_000,
@@ -274,12 +304,18 @@ describe('internal outbound submission', () => {
     expect(runtime.sent[0]).toMatchObject({
       headers: {
         'In-Reply-To': '<target@sender.example.test>',
-        References: '<root@sender.example.test> <target@sender.example.test>',
+        References:
+          '<root@sender.example.test> <owner-forward@example.test> <target@sender.example.test>',
       },
+      bcc: ['owner@example.test'],
       subject: 'Re: Synthetic support request',
     })
     expect(store.projects[0]?.references.map(({ internetMessageId }) => internetMessageId)).toEqual(
-      ['<root@sender.example.test>', '<target@sender.example.test>'],
+      [
+        '<root@sender.example.test>',
+        '<owner-forward@example.test>',
+        '<target@sender.example.test>',
+      ],
     )
   })
 

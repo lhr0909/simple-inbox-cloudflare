@@ -437,6 +437,9 @@
           "forwardHtml": {
             "type": "boolean"
           },
+          "forwardSent": {
+            "type": "boolean"
+          },
           "renderHtml": {
             "type": "boolean"
           },
@@ -466,6 +469,7 @@
           "senderAlias",
           "forwardTo",
           "forwardHtml",
+          "forwardSent",
           "renderHtml",
           "whitelisted",
           "blocked",
@@ -544,6 +548,9 @@
           "forwardHtml": {
             "type": "boolean"
           },
+          "forwardSent": {
+            "type": "boolean"
+          },
           "renderHtml": {
             "type": "boolean"
           },
@@ -565,6 +572,7 @@
           "senderAlias",
           "forwardTo",
           "forwardHtml",
+          "forwardSent",
           "renderHtml",
           "whitelisted",
           "blocked",
@@ -613,6 +621,9 @@
             "example": "owner@example.test"
           },
           "forwardHtml": {
+            "type": "boolean"
+          },
+          "forwardSent": {
             "type": "boolean"
           },
           "renderHtml": {

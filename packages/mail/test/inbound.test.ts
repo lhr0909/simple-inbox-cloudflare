@@ -33,6 +33,31 @@ describe('inbound email capture', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
   })
 
+  it('preserves customer reply headers in the owner forward', async () => {
+    const store = new FakeMailStore()
+    const runtime = createFakeEnvironment()
+    const raw = encode(
+      inboundFixture.replace(
+        'MIME-Version:',
+        'In-Reply-To: <webmail-send@example.test>\nReferences: <root@example.test> <webmail-send@example.test>\nMIME-Version:',
+      ),
+    )
+    const { message } = createForwardableMessage(raw)
+    await captureInboundEmail(
+      message,
+      runtime.env,
+      createDependencies(store),
+      'sent-copy-threading',
+    )
+    expect(runtime.sent[0]).toMatchObject({
+      to: 'owner@example.test',
+      headers: {
+        'In-Reply-To': '<webmail-send@example.test>',
+        References: '<root@example.test> <webmail-send@example.test>',
+      },
+    })
+  })
+
   it.each([false, true])(
     'forwards original HTML only when enabled (%s), preserving inline images and safe storage',
     async (enabled) => {
