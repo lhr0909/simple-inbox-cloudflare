@@ -22,7 +22,7 @@ export function registerUploadRoutes(
     const input = context.req.valid('json')
     const bucket = attachmentBucket(context.env)
     const id = dependencies.generateId(dependencies.now())
-    const objectKey = `files/${id}`
+    const objectKey = `attachments/${id}`
     const filename = sanitizeFilename(input.filename)
     const mediaType = safeAttachmentContentType(input.mediaType)
     const upload =
@@ -35,28 +35,23 @@ export function registerUploadRoutes(
       byte.toString(16).padStart(2, '0'),
     ).join('')
     const repository = new UploadedFileRepository(context.env.DB)
-    try {
-      await repository.create({
-        ...input,
-        id,
-        filename,
-        mediaType,
-        objectKey,
-        multipartId: upload?.uploadId ?? '',
-        downloadToken: token,
-        ownerUserId: actor.userId,
-        etag: null,
-        outboundSendId: null,
-        createdAt: dependencies.now(),
-      })
-      if (!upload) {
-        const object = await bucket.put(objectKey, new Uint8Array())
-        if (!object) throw new ApiFault('internal_error')
-        await repository.complete(id, actor.userId, object.etag)
-      }
-    } catch (error) {
-      await upload?.abort()
-      throw error
+    await repository.create({
+      ...input,
+      id,
+      filename,
+      mediaType,
+      objectKey,
+      multipartId: upload?.uploadId ?? '',
+      downloadToken: token,
+      ownerUserId: actor.userId,
+      etag: null,
+      outboundSendId: null,
+      createdAt: dependencies.now(),
+    })
+    if (!upload) {
+      const object = await bucket.put(objectKey, new Uint8Array())
+      if (!object) throw new ApiFault('internal_error')
+      await repository.complete(id, actor.userId, object.etag)
     }
     return context.json(
       { id, partSize: uploadPartSize(input.size), complete: input.size === 0 },

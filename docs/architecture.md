@@ -200,7 +200,7 @@ expiration rules must be disabled separately by the owner; code cannot override 
 
 ## Linked attachments
 
-Authenticated senders initiate multipart uploads in the private `simple-inbox-cf-attachments`
+Authenticated senders initiate multipart uploads in the private `simple-inbox-cf-storage`
 bucket. D1 owns filenames, expected sizes, object keys, multipart IDs, completion ETags, random
 256-bit download capabilities, and the outbound send association. Each part streams through a same-origin
 Worker PUT endpoint into the R2 binding. Every part requires send authorization, ownership, and
@@ -220,8 +220,9 @@ stream from R2, including byte ranges. The normal authenticated attachment route
 ownership; the public download route checks an unguessable capability without requiring a session.
 Download tokens are redacted from request logs; responses use attachment disposition, no-store,
 no-referrer, and nosniff. Links have no time limit. Removing a file from a draft only detaches it;
-completed orphan uploads are retained for owner-controlled cleanup. R2 may abort unfinished
-multipart sessions under its own incomplete-upload policy; this does not expire completed files.
+completed orphan uploads and unfinished multipart uploads are retained for owner-controlled cleanup.
+Disable all R2 lifecycle rules, including the default incomplete-multipart abort rule. No application
+path automatically deletes duplicate or unprojected raw objects or aborts stored multipart sessions.
 
 There are no product file-size/count quotas. Multipart part sizing respects R2's 10,000-part
 constraint; each chunk is also subject to Cloudflare's per-request upload limit. Provider message-body and D1 projection limits still apply to generated link text.
@@ -229,7 +230,7 @@ constraint; each chunk is also subject to Cloudflare's per-request upload limit.
 ## Deployment topology
 
 The root `wrangler.jsonc` declares `simple-inbox-cf`, `simple-inbox-cf-db`,
-`simple-inbox-cf-raw`, `simple-inbox-cf-attachments`, `EMAIL`, and `AUTH_RATE_LIMIT`; cron is disabled. Wrangler provisions
+`simple-inbox-cf-storage`, `EMAIL`, and `AUTH_RATE_LIMIT`; cron is disabled. Wrangler provisions
 the declared D1 database and R2 bucket when needed; no account-specific resource IDs are committed.
 
 `vp run deploy` builds the TanStack Start Worker, applies checked-in remote D1 migrations, and

@@ -14,12 +14,8 @@
   ],
   "r2_buckets": [
     {
-      "binding": "ATTACHMENTS",
-      "bucket_name": "simple-inbox-cf-attachments",
-    },
-    {
-      "binding": "RAW_EMAILS",
-      "bucket_name": "simple-inbox-cf-raw",
+      "binding": "STORAGE",
+      "bucket_name": "simple-inbox-cf-storage",
     },
   ],
   "send_email": [

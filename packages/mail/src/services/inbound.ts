@@ -105,7 +105,7 @@ export async function captureInboundEmail(
   const rawSha256 = await sha256Hex(raw)
   const rawKey = buildInboundRawKey(receivedAt, rawSha256)
   // This is deliberately the first external write after bounded buffering.
-  await putInboundRaw(env.RAW_EMAILS, rawKey, raw, rawSha256)
+  await putInboundRaw(env.STORAGE, rawKey, raw, rawSha256)
 
   if (authorizedAlias !== null) {
     if (envelopeFrom === null) throw new Error('Authorized alias sender unexpectedly missing.')
@@ -132,7 +132,7 @@ export async function captureInboundEmail(
   const duplicate = await store.findInboundByDigest(ingestDigest)
   if (duplicate !== undefined) {
     if (duplicate.rawR2Key !== rawKey) {
-      await deleteUnprojectedRaw(env, rawKey, requestId, 'duplicate_raw_key')
+      await retainUnprojectedRaw(env, rawKey, requestId, 'duplicate_raw_key')
     }
     await resumePendingOwnerForward({
       dependencies,
@@ -263,11 +263,10 @@ export async function captureInboundEmail(
     try {
       const concurrentProjection = await store.findInboundByDigest(ingestDigest)
       if (concurrentProjection?.rawR2Key !== rawKey) {
-        await deleteUnprojectedRaw(env, rawKey, requestId, 'inbound_projection_failed')
+        await retainUnprojectedRaw(env, rawKey, requestId, 'inbound_projection_failed')
       }
     } catch {
-      // When ownership cannot be proven, retain the object for the configured
-      // lifecycle backstop rather than risk deleting a concurrent winner's raw.
+      // Keep raw objects indefinitely even when projection ownership is unknown.
       logEvent(
         'warn',
         'mail.inbound.cleanup_failed',
@@ -635,7 +634,7 @@ async function relayReplyAlias(input: {
     threadId: input.alias.threadId,
   })
   if (context?.thread === undefined) {
-    await deleteUnprojectedRaw(
+    await retainUnprojectedRaw(
       input.env,
       input.rawKey,
       input.requestId,
@@ -680,7 +679,7 @@ async function relayReplyAlias(input: {
     threadId: input.alias.threadId,
   })
   if (reservation.kind === 'conflict') {
-    await deleteUnprojectedRaw(
+    await retainUnprojectedRaw(
       input.env,
       input.rawKey,
       input.requestId,
@@ -695,7 +694,7 @@ async function relayReplyAlias(input: {
   const sendId = reservation.send.id
   if (reservation.send.state !== 'queued') {
     if (reservation.send.state === 'failed' && reservation.send.messageId === null) {
-      await deleteUnprojectedRaw(
+      await retainUnprojectedRaw(
         input.env,
         input.rawKey,
         input.requestId,
@@ -758,7 +757,7 @@ async function relayReplyAlias(input: {
       { environment: input.env.ENVIRONMENT, outcome: 'failed', requestId: input.requestId },
       { code: definiteFailureCode, sendId, threadId: input.alias.threadId },
     )
-    await deleteUnprojectedRaw(
+    await retainUnprojectedRaw(
       input.env,
       input.rawKey,
       input.requestId,
@@ -915,28 +914,20 @@ function relayReplayOutcome(
   return { kind: 'relay_unknown', sendId: send.id, threadId }
 }
 
-async function deleteUnprojectedRaw(
+async function retainUnprojectedRaw(
   env: MailBindings,
   rawKey: string,
   requestId: string,
   reason: string,
 ): Promise<void> {
-  try {
-    await env.RAW_EMAILS.delete(rawKey)
-    logEvent(
-      'info',
-      'mail.inbound.raw_cleanup',
-      { environment: env.ENVIRONMENT, outcome: 'completed', requestId },
-      { reason },
-    )
-  } catch {
-    logEvent(
-      'warn',
-      'mail.inbound.raw_cleanup',
-      { environment: env.ENVIRONMENT, outcome: 'failed', requestId },
-      { reason },
-    )
-  }
+  // Even unprojected and duplicate objects remain owner-controlled.
+  void rawKey
+  logEvent(
+    'info',
+    'mail.inbound.raw_retained',
+    { environment: env.ENVIRONMENT, outcome: 'retained', requestId },
+    { reason },
+  )
 }
 
 function fallbackParsedMessage(

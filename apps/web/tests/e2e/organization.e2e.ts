@@ -115,7 +115,7 @@ test('promotes catch-all aliases, preserves Sent conversations, and manages blac
   await expect(newestCard.locator('time')).toHaveCount(1)
   // Client-local date formatting runs after the time element first mounts.
   await expect(newestCard.locator('time')).not.toHaveText('')
-  const fullDate = await newestCard.locator('time').innerText()
+  const fullDate = (await newestCard.locator('time').textContent())!
   await newestCard.locator('button[aria-expanded]').click()
   await expect(newestCard.locator('time')).toHaveCount(1)
   await expect(newestCard.locator('time')).not.toHaveText(fullDate)

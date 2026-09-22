@@ -18,7 +18,7 @@ export async function resolveLinkedAttachments(
   for (const id of ids) {
     const file = await repository.owned(id, userId)
     if (!file || !file.etag) throw new MailFault('attachment_not_found', 404)
-    const object = await env.ATTACHMENTS?.head(file.objectKey)
+    const object = await env.STORAGE?.head(file.objectKey)
     if (!object || object.etag !== file.etag || object.size !== file.size)
       throw new MailFault('attachment_not_found', 404)
     files.push(file)

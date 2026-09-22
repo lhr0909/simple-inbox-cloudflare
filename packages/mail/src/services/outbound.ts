@@ -290,7 +290,7 @@ export async function submitInternalSend(
       to: recipients.to.map((recipient) => formatAddress(recipient)),
     })
     rawKey = buildOutboundRawKey(now, providerMessageId ?? sendId)
-    const stored = await putRawMessage(env.RAW_EMAILS, rawKey, canonical, 'outbound')
+    const stored = await putRawMessage(env.STORAGE, rawKey, canonical, 'outbound')
     rawSha256 = stored.sha256
     rawSize = stored.size
   } catch (error) {

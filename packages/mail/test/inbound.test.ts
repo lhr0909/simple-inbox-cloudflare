@@ -472,7 +472,7 @@ describe('inbound email capture', () => {
     expect(parsed.attachments.length).toBeLessThanOrEqual(100)
   })
 
-  it('removes unprojected raw and never forwards when projection fails', async () => {
+  it('retains unprojected raw and never forwards when projection fails', async () => {
     const events: string[] = []
     const store = new FakeMailStore(events)
     store.failProjection = true
@@ -488,10 +488,10 @@ describe('inbound email capture', () => {
       ),
     ).rejects.toThrow('synthetic projection failure')
 
-    expect(runtime.objects.size).toBe(0)
+    expect(runtime.objects.size).toBe(1)
     expect(runtime.sent).toEqual([])
     expect(store.threads.size).toBe(0)
-    expect(events).toContain('r2:delete')
+    expect(events).not.toContain('r2:delete')
     expect(events.indexOf('r2:put')).toBeLessThan(events.indexOf('db:project-inbound'))
   })
 
@@ -513,7 +513,7 @@ describe('inbound email capture', () => {
     expect(store.threads.size).toBe(0)
     expect(store.projects).toEqual([])
     expect(runtime.sent).toEqual([])
-    expect(runtime.objects.size).toBe(0)
+    expect(runtime.objects.size).toBe(1)
   })
 
   it('performs no D1 or provider side effect when the raw R2 write fails', async () => {
@@ -697,7 +697,7 @@ describe('reply-alias relay', () => {
     )
 
     expect(result.kind).toBe('relay_failed')
-    expect(runtime.objects.size).toBe(0)
+    expect(runtime.objects.size).toBe(1)
     expect(runtime.sent).toEqual([])
     expect(store.projects).toEqual([])
     expect(events).not.toContain('db:outbound-workflow')

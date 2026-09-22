@@ -50,7 +50,7 @@ describe('linked attachment delivery', () => {
     expect(created.status, await created.clone().text()).toBe(201)
     const upload = (await created.json()) as { id: string; partSize: number }
     expect(upload.partSize).toBe(firstPart.length)
-    const { ATTACHMENTS } = await harness.worker.getEnv()
+    const { STORAGE } = await harness.worker.getEnv()
     const row = await readHarnessUpload(harness, upload.id)
     if (!row) throw new Error('Missing upload')
     const downloadPath = `/api/v1/downloads/${row.downloadToken}`
@@ -198,7 +198,7 @@ describe('linked attachment delivery', () => {
       scheduledTime: new Date(Date.now() + 20 * 365 * 86_400_000),
       cron: '17 3 * * *',
     })
-    expect(await ATTACHMENTS.head(row.objectKey)).not.toBeNull()
+    expect(await STORAGE.head(row.objectKey)).not.toBeNull()
     const stillShared = await workerFetch(downloadPath, { headers: { range: 'bytes=0-3' } })
     expect(stillShared.status).toBe(206)
     expect(await stillShared.text()).toBe('AAAA')

@@ -116,7 +116,7 @@ export function registerMessageRoutes(
       const mailbox = await repository.getMailboxSettings(metadata.mailboxId)
       if (!mailbox || (!mailbox.renderHtml && context.req.valid('query').preview !== '1'))
         throw new ApiFault('message_not_found')
-      const preview = await messageHtmlPreview(context.env.RAW_EMAILS, metadata)
+      const preview = await messageHtmlPreview(context.env.STORAGE, metadata)
       return htmlPreviewResponse(preview.html)
     } catch (error) {
       return htmlPreviewResponse(null, error instanceof ApiFault ? error.status : 500)
@@ -129,26 +129,24 @@ export function registerMessageRoutes(
       .inboxRepository(context.env, actor.userId)
       .getRawMessage(context.req.valid('param').messageId)
     if (metadata === undefined) throw new ApiFault('message_not_found')
-    return rawMessageResponse(context.env.RAW_EMAILS, metadata, context.req.raw)
+    return rawMessageResponse(context.env.STORAGE, metadata, context.req.raw)
   })
 
   app.openapi(downloadAttachmentRoute, async (context) => {
     const actor = await requireActor(context.req.raw, context.env, dependencies, 'read')
     const { attachmentId, messageId } = context.req.valid('param')
-    const linkedFile = context.env.ATTACHMENTS
-      ? await new UploadedFileRepository(context.env.DB).forMessage(
-          attachmentId,
-          messageId,
-          actor.userId,
-        )
-      : null
+    const linkedFile = await new UploadedFileRepository(context.env.DB).forMessage(
+      attachmentId,
+      messageId,
+      actor.userId,
+    )
     if (linkedFile)
       return uploadedFileResponse(attachmentBucket(context.env), linkedFile, context.req.raw)
     const metadata = await dependencies
       .inboxRepository(context.env, actor.userId)
       .getAttachment(messageId, attachmentId)
     if (metadata === undefined) throw new ApiFault('attachment_not_found')
-    return attachmentResponse(context.env.RAW_EMAILS, metadata, context.req.raw)
+    return attachmentResponse(context.env.STORAGE, metadata, context.req.raw)
   })
 }
 

@@ -25,8 +25,7 @@ export type RootBindings = {
   ENVIRONMENT: string
   /** Optional exact sender for authentication mail. Store it as a secret to survive deploys. */
   MAGIC_LINK_FROM_EMAIL?: string
-  ATTACHMENTS?: R2Bucket
-  RAW_EMAILS: R2Bucket
+  STORAGE: R2Bucket
   /** One-time first-run secret. It is never persisted or returned. */
   SETUP_TOKEN?: string
 }
@@ -93,8 +92,7 @@ function createApiBindings(bindings: RootBindings, status: InstallationStatus): 
     MAIL: createPrivateMailFetcher(mailBindings),
     MAIL_DOMAIN: settings.mailDomain,
     OWNER_EMAIL: settings.ownerEmail,
-    RAW_EMAILS: bindings.RAW_EMAILS,
-    ...(bindings.ATTACHMENTS ? { ATTACHMENTS: bindings.ATTACHMENTS } : {}),
+    STORAGE: bindings.STORAGE,
     RAW_EMAIL_RETENTION_DAYS: String(settings.rawEmailRetentionDays),
     ...(bindings.SETUP_TOKEN === undefined ? {} : { SETUP_TOKEN: bindings.SETUP_TOKEN }),
   }
@@ -112,8 +110,7 @@ function createMailBindings(bindings: RootBindings, settings: InstallationSettin
       : { MAGIC_LINK_FROM_EMAIL: bindings.MAGIC_LINK_FROM_EMAIL }),
     MAIL_DOMAIN: settings.mailDomain,
     OWNER_EMAIL: settings.ownerEmail,
-    RAW_EMAILS: bindings.RAW_EMAILS,
-    ...(bindings.ATTACHMENTS ? { ATTACHMENTS: bindings.ATTACHMENTS } : {}),
+    STORAGE: bindings.STORAGE,
     RAW_EMAIL_RETENTION_DAYS: String(settings.rawEmailRetentionDays),
     RETENTION_BATCH_SIZE: String(settings.retentionBatchSize),
   }

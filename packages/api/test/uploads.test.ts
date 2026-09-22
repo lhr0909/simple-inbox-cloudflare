@@ -9,7 +9,7 @@ const file: UploadedFile = {
   filename: 'report.txt',
   mediaType: 'text/plain',
   size: 4,
-  objectKey: 'files/synthetic-id',
+  objectKey: 'attachments/synthetic-id',
   multipartId: 'synthetic/multipart+id',
   downloadToken: 'a'.repeat(64),
   etag: 'expected-etag',
@@ -18,12 +18,12 @@ const file: UploadedFile = {
 }
 const env = {
   APP_ORIGIN: 'https://inbox.example.test',
-  ATTACHMENTS: {},
+  STORAGE: {},
 } as unknown as ApiBindings
 
 describe('R2 upload and download boundaries', () => {
   it('requires only a bucket binding on production HTTPS origins', () => {
-    expect(attachmentBucket(env)).toBe(env.ATTACHMENTS)
+    expect(attachmentBucket(env)).toBe(env.STORAGE)
     expect(() => attachmentBucket({ APP_ORIGIN: env.APP_ORIGIN } as ApiBindings)).toThrow(
       'service_unavailable',
     )

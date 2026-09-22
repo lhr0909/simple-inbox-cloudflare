@@ -62,7 +62,7 @@ The root `wrangler.jsonc` is the only source deployment configuration. It declar
 
 - Worker `simple-inbox-cf`, public on `workers.dev` by default;
 - D1 binding `DB` backed by `simple-inbox-cf-db`;
-- private R2 binding `RAW_EMAILS` backed by `simple-inbox-cf-raw`;
+- private R2 binding `STORAGE` backed by `simple-inbox-cf-storage`;
 - Email Sending binding `EMAIL`;
 - rate-limit binding `AUTH_RATE_LIMIT`;
 - daily retention cron `17 3 * * *`;
@@ -151,6 +151,6 @@ automation.
 
 The original age-based retention decision is superseded: mail and completed attachments are kept
 indefinitely, cron is disabled, and old queued deletion work is ignored. Linked webmail attachments
-use the additional private `simple-inbox-cf-attachments` bucket. See the current architecture and
+use the shared private `simple-inbox-cf-storage` bucket. See the current architecture and
 operations guides for authenticated streaming uploads through the R2 binding and removal of old
 object-expiration rules. Uploads require no R2 S3 credentials or bucket CORS policy.

@@ -40,8 +40,7 @@ export const TEST_ADDRESSES = {
 
 type HarnessBindings = {
   DB: D1Database
-  RAW_EMAILS: R2Bucket
-  ATTACHMENTS: R2Bucket
+  STORAGE: R2Bucket
 }
 
 export type InboxTestHarness = {

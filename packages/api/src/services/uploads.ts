@@ -10,8 +10,8 @@ export function uploadPartSize(size: number): number {
 }
 
 export function attachmentBucket(env: ApiBindings): R2Bucket {
-  if (!env.ATTACHMENTS) throw new ApiFault('service_unavailable')
-  return env.ATTACHMENTS
+  if (!env.STORAGE) throw new ApiFault('service_unavailable')
+  return env.STORAGE
 }
 
 export async function uploadedFileResponse(

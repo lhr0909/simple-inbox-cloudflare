@@ -4,8 +4,8 @@ description: Deploy one Worker, complete first-run setup, and activate Cloudflar
 ---
 
 Simple Inbox deploys as `simple-inbox-cf`. The root `wrangler.jsonc` declares its D1 database
-`simple-inbox-cf-db`, private R2 bucket `simple-inbox-cf-raw`, Email Sending and rate-limit bindings,
-and the private `simple-inbox-cf-attachments` bucket; no retention cron is enabled. Wrangler provisions D1/R2 when needed; you do not copy resource IDs into
+`simple-inbox-cf-db`, private R2 bucket `simple-inbox-cf-storage`, Email Sending and rate-limit bindings;
+no retention cron is enabled. Wrangler provisions D1/R2 when needed; you do not copy resource IDs into
 the repository.
 
 Deployment never changes DNS, custom domains, or Email Routing, and never reads or mutates a legacy
@@ -117,9 +117,9 @@ These owner actions are not part of deployment:
 1. Onboard the Email Sending domain and verify SPF/DKIM.
 2. Verify only owner-controlled test destinations; keep arbitrary sending disabled until reviewed.
 3. Confirm the Worker's `EMAIL` binding can deliver a magic link and synthetic outbound mail.
-4. Keep `simple-inbox-cf-raw` private with no `r2.dev` URL/custom domain.
-5. Disable object-expiration lifecycle rules on both private R2 buckets. When upgrading, remove
-   any old raw-bucket expiration rule separately; deployment cannot override bucket lifecycle.
+4. Keep `simple-inbox-cf-storage` private with no `r2.dev` URL/custom domain.
+5. Disable all R2 lifecycle rules, including the default incomplete-multipart-upload rule. When
+   upgrading, also clear the old bucket’s rules; deployment cannot override bucket lifecycle.
 6. Only after setup and outbound validation, add a test-domain Email Routing rule/catch-all targeting
    `simple-inbox-cf`'s `email()` handler.
 7. Do not modify an existing legacy mail rule as part of this process.
@@ -164,7 +164,7 @@ automatically into another store.
 
 ## Attachment upload setup
 
-The deployment declares a private `simple-inbox-cf-attachments` bucket with an `ATTACHMENTS`
+The deployment declares a private `simple-inbox-cf-storage` bucket with the `STORAGE`
 Worker binding. Both uploads and downloads stream through the Worker. No R2 S3 credentials,
 additional secrets, bucket CORS setup, or public bucket access are required. Local development
 uses the same API with local R2.
@@ -175,6 +175,6 @@ on the intended account. Existing authentication secrets and Email Routing remai
 See the repository operations runbook for the upgrade procedure.
 
 Recipients use permanent application download links. Anyone with a link can access its file,
-including recipients of forwarded emails. Existing R2 object-expiration rules must be removed
+including recipients of forwarded emails. Existing R2 lifecycle rules must be removed
 separately by the owner; deployment cannot override them. Live email tests also require separate
 owner authorization.

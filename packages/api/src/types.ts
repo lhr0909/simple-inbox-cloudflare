@@ -24,8 +24,7 @@ export type ApiBindings = {
   MAIL: InternalFetcher
   MAIL_DOMAIN: string
   OWNER_EMAIL: string
-  ATTACHMENTS?: R2Bucket
-  RAW_EMAILS: R2Bucket
+  STORAGE: R2Bucket
   RAW_EMAIL_RETENTION_DAYS: string
   /** One-time first-run secret. It is never persisted or returned. */
   SETUP_TOKEN?: string

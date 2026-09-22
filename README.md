@@ -8,11 +8,11 @@ Simple Inbox is a clean-room, self-hosted mail workspace deployed as one Cloudfl
 - `scheduled()` is a compatibility no-op; there is no automatic mail expiration.
 
 D1 is the source of truth for queryable state. A private R2 bucket stores canonical RFC 822 `.eml`
-objects. The browser never receives a storage binding. Attachments upload in chunks through the authenticated Worker API into a separate private R2 bucket.
+objects. The browser never receives a storage binding. Attachments upload in chunks through the authenticated Worker API into the same private R2 bucket.
 
 This repository is independent from every legacy Cloudflare Inbox repository and deployment. Its
 automation creates or updates only `simple-inbox-cf`, `simple-inbox-cf-db`,
-`simple-inbox-cf-raw`, and `simple-inbox-cf-attachments`. It contains no legacy resource identifiers and never changes DNS, custom
+`simple-inbox-cf-storage`. It contains no legacy resource identifiers and never changes DNS, custom
 domains, or Email Routing rules.
 
 ## Architecture
@@ -88,7 +88,7 @@ Primary routes:
 
 ## Deploy
 
-The root [wrangler.jsonc](wrangler.jsonc) declares the one Worker, D1 database, private R2 buckets,
+The root [wrangler.jsonc](wrangler.jsonc) declares the one Worker, D1 database, private R2 bucket,
 Email Sending binding, and rate limiter; automatic retention cron is disabled. Wrangler provisions the declared D1 and R2
 resources when the deployment first needs them; no resource IDs are copied into the repository.
 
@@ -148,15 +148,16 @@ Magic links and sessions are opaque random values; D1 stores only keyed digests.
 use a Secure, HttpOnly, SameSite=Lax `__Host-` cookie. Cookie-authenticated mutations require a
 same-origin request, and every mailbox/thread/message lookup is scoped to the authenticated owner.
 
-Raw mail is sensitive. Keep both R2 buckets private, invocation logs and automatic traces disabled,
+Raw mail is sensitive. Keep the R2 bucket private, invocation logs and automatic traces disabled,
 and message content, addresses, tokens, object keys, and attachment bytes out of logs.
 Mail and completed attachments are retained indefinitely, including Spam and Trash. No automatic
-expiration runs, and historical retention settings no longer trigger deletion. Keep R2 object
-expiration rules disabled; existing bucket rules must be removed by the owner separately.
+expiration runs, and historical retention settings no longer trigger deletion. Keep all R2 lifecycle rules disabled, including the default incomplete-upload cleanup.
+Remove existing/default bucket rules explicitly; code deployment does not change them.
+Duplicate/unprojected raw objects and abandoned uploads also remain stored until explicit cleanup.
 
 ## Linked attachments
 
-Compose and reply upload files to `simple-inbox-cf-attachments` before sending. Emails contain
+Compose and reply upload files to `simple-inbox-cf-storage` before sending. Emails contain
 HTML attachment cards and plain-text download links rather than file bytes. Anyone with a link
 can download immediately without signing in. Links have no expiration, and forwarding an email
 shares access. Webmail imposes no file-size or file-count quota; Cloudflare service and email-body

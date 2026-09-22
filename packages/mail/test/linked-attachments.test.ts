@@ -8,7 +8,7 @@ const file: UploadedFile = {
   filename: '<img src=x onerror=alert(1)> & report.txt',
   mediaType: 'text/plain',
   size: 1024 ** 3,
-  objectKey: 'files/synthetic',
+  objectKey: 'attachments/synthetic',
   multipartId: 'synthetic',
   downloadToken: 'a'.repeat(64),
   etag: 'verified',

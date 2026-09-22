@@ -12,15 +12,14 @@ complete local verification before running either command.
 
 The root `wrangler.jsonc` is the single source deployment config:
 
-| Resource                  | Fixed declaration                             |
-| ------------------------- | --------------------------------------------- |
-| Worker                    | `simple-inbox-cf`                             |
-| D1 binding/database       | `DB` / `simple-inbox-cf-db`                   |
-| Private R2 binding/bucket | `RAW_EMAILS` / `simple-inbox-cf-raw`          |
-| Email Sending binding     | `EMAIL`                                       |
-| Rate-limit binding        | `AUTH_RATE_LIMIT`                             |
-| Private attachment bucket | `ATTACHMENTS` / `simple-inbox-cf-attachments` |
-| Retention schedule        | Disabled; no automatic expiration             |
+| Resource                  | Fixed declaration                     |
+| ------------------------- | ------------------------------------- |
+| Worker                    | `simple-inbox-cf`                     |
+| D1 binding/database       | `DB` / `simple-inbox-cf-db`           |
+| Private R2 binding/bucket | `STORAGE` / `simple-inbox-cf-storage` |
+| Email Sending binding     | `EMAIL`                               |
+| Rate-limit binding        | `AUTH_RATE_LIMIT`                     |
+| Retention schedule        | Disabled; no automatic expiration     |
 
 Wrangler provisions the declared D1 database and R2 bucket when the deployment first requires them.
 Do not add account-specific IDs, legacy identifiers, real addresses, routes, or secrets to the
@@ -146,7 +145,7 @@ ID back into tracked `wrangler.jsonc`; the ID remains in Cloudflare. Do not bypa
 deploying an old generated file. The migration step uses only checked-in SQL; generate and review
 new migrations during development, never during a remote deployment.
 
-On the first deployment, Wrangler creates/binds `simple-inbox-cf-db` and `simple-inbox-cf-raw` from
+On the first deployment, Wrangler creates/binds `simple-inbox-cf-db` and `simple-inbox-cf-storage` from
 their declarations. Later deployments reuse them and apply migrations before uploading new code.
 Neither command configures a sending domain, R2 lifecycle, custom domain, DNS, or Email Routing.
 
@@ -293,43 +292,55 @@ deployment alone does not prove Email Sending authorization.
 
 ### Private R2 lifecycle
 
-Keep `simple-inbox-cf-raw` and `simple-inbox-cf-attachments` private. Do not configure object
-expiration rules. Mail and completed attachments are kept indefinitely, including Spam/Trash.
-Old installation retention values and pending deletion tombstones are ignored by the new Worker.
+Keep `simple-inbox-cf-storage` private and its lifecycle rule list empty. Remove object-expiration,
+storage-class-transition, and incomplete-multipart-abort rules, including R2's default seven-day
+multipart rule. New buckets also need this explicit owner action; provisioning alone does not remove
+R2 defaults. The application performs no automatic deletion of mail, duplicate/unprojected raw
+objects, completed uploads, or unfinished multipart sessions. Old retention settings and queued
+deletion tombstones are ignored. Spam and Trash remain reversible until permanent deletion is
+explicitly implemented and invoked.
 
-**Upgrade action:** remove any existing object-expiration lifecycle rule from the replacement raw
-bucket before relying on indefinite storage. This is a separate owner-controlled Cloudflare action;
-a code deployment cannot prevent an existing bucket lifecycle rule from deleting objects. Do not
-roll back to an older Worker with the automatic retention implementation while a cron is enabled.
-Deleted bytes cannot be recovered by a Worker rollback.
+A code deployment cannot override an existing bucket lifecycle rule. Do not roll back to code with
+automatic deletion enabled. Deleted bytes cannot be recovered by a Worker rollback.
 
 ### Attachment uploads
 
-Deployment declares the private bucket `simple-inbox-cf-attachments` and its `ATTACHMENTS` binding.
+Deployment declares the private bucket `simple-inbox-cf-storage` and its `STORAGE` binding.
 The browser uploads chunks to the authenticated, same-origin Worker API. The Worker streams each
 part into R2 multipart storage, verifies completion, and streams downloads from the same binding.
 Production and local development use the same code path. No R2 S3 access keys, additional Worker
 secrets, bucket CORS policy, public R2 hostname, or custom domain are required.
 
-For this upgrade, authorize provisioning the replacement attachment bucket, applying migration
-`0007_linked_attachments.sql` to `simple-inbox-cf-db` (and any earlier pending migrations after
-review), and deploying `simple-inbox-cf` with the new binding and disabled retention cron.
-An authenticated Wrangler identity needs Worker deployment permission, D1 write access for
-migrations, and R2 bucket creation/configuration access for provisioning. Use the intended account
-only. The deployed Worker gets object access from its binding, not from deployment credentials.
-See [Workers authorization](https://developers.cloudflare.com/workers/authorization/) and
-[Cloudflare API token permissions](https://developers.cloudflare.com/fundamentals/api/reference/permissions/).
+Deployment requires Worker deployment permission and D1 write access for pending migrations.
+First installations also require R2 provisioning access. The running Worker accesses objects through
+its binding. Existing auth/setup secrets remain; there is no attachment-specific secret to add.
+This upgrade requires no DNS, custom-domain, or Email Routing changes. Live email acceptance tests
+remain an explicit owner-authorized action.
 
-Review any existing object-expiration rules on the replacement buckets and separately authorize
-removing them if present. Deployment does not edit those rules. Existing auth/setup secrets remain
-in place; there is no attachment-specific secret to add. This upgrade requires no DNS, custom-domain,
-or Email Routing changes. Live email acceptance tests remain a separate owner-authorized action.
+### Storage layout and upgrades
+
+The one `STORAGE` binding uses `simple-inbox-cf-storage`:
+
+- `raw/inbound/YYYY/MM/DD/<hash>.eml`: original inbound MIME, including embedded attachments.
+- `raw/outbound/YYYY/MM/DD/<id>.eml`: canonical outbound archives.
+- `attachments/<upload-id>`: standalone files uploaded by webmail; filenames and associations live in D1.
+
+Object keys stay stable when mail moves to Spam/Trash. Future permanent deletion must follow D1
+references and retain objects still referenced by other mail. Inbound attachments are extracted from
+the retained raw MIME when requested; they are not duplicated as separate objects.
+
+Changing an existing installation's physical bucket name requires an owner-approved copy and
+binding switch; editing Wrangler alone does not move data. Preserve object keys, HTTP metadata,
+custom metadata (including raw SHA-256), and all existing D1 references. Account for concurrent
+incoming mail during the copy, validate content and metadata, and keep the old bucket until its
+removal is explicitly authorized. Migration-specific scripts and deployment details remain outside
+this repository. Future installations use the final single-bucket configuration directly.
 
 Every uploaded webmail attachment is sent as an HTML/plain-text link. Anyone possessing the link
 can download without sign-in; forwarding the email grants the same access. Public links do not
 expire. Moving mail to Spam/Trash does not revoke or delete files. Draft removal only detaches a
-file; completed unused uploads remain stored. No automatic orphan-object deletion runs. An R2
-incomplete-multipart abort rule affects only unfinished uploads, never completed attachments.
+file; completed unused uploads remain stored. No automatic orphan-object deletion runs. Remove R2
+incomplete-multipart abort rules too; unfinished uploads remain until explicitly cleaned up.
 
 Webmail has no application-defined size/count limits; R2 service limits and the email link-body
 budget remain. Raw MIME attachment API requests retain their existing safety bounds for backwards
