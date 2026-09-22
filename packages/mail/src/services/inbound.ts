@@ -557,10 +557,15 @@ async function forwardToOwner(input: {
   }
 
   const attemptedAt = input.now()
+  const headers = threadingHeaders(
+    input.parsed.inReplyTo,
+    appendReference(input.parsed.references, input.parsed.inReplyTo, { maxBytes: 2048 }),
+  )
   try {
     const result = await input.env.EMAIL.send({
       attachments: providerAttachments,
       from: forwardedSenderAddress(input.mailbox, input.parsed.from),
+      ...(headers === undefined ? {} : { headers }),
       html,
       replyTo,
       subject: input.parsed.subject,

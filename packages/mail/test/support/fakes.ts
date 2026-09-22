@@ -449,6 +449,7 @@ export function mailboxRecord(): MailboxRecord {
   return {
     address: 'support@example.test',
     forwardHtml: true,
+    forwardSent: true,
     forwardTo: 'owner@example.test',
     id: MAILBOX_ID,
     ownerUserId: OWNER_USER_ID,

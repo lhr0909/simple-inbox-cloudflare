@@ -140,6 +140,7 @@ export function createPreviewInboxData(): InboxData {
         address: 'support@example.test',
         forwardTo: 'owner@example.test',
         forwardHtml: true,
+        forwardSent: true,
         renderHtml: false,
         whitelisted: true,
         blocked: false,

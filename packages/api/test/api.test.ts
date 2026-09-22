@@ -830,6 +830,7 @@ function createFixture(
     },
   }
 
+  let forwardSent = true
   let forwardHtml = false
   let renderHtml = false
   let forwardTo: string | null = 'owner@example.test'
@@ -841,6 +842,7 @@ function createFixture(
     createdAt: NOW,
     forwardTo,
     forwardHtml,
+    forwardSent,
     renderHtml,
     whitelisted: true,
     blocked: false,
@@ -954,6 +956,7 @@ function createFixture(
             address: mailbox.address,
             forwardTo,
             forwardHtml,
+            forwardSent,
             renderHtml,
             whitelisted: true,
             blocked: false,
@@ -971,7 +974,7 @@ function createFixture(
         : ((options.threadDetail ?? threadDetail) as never),
     ),
     listMailboxes: vi.fn(async () => [
-      { ...mailbox, forwardTo, senderAlias, forwardHtml, renderHtml },
+      { ...mailbox, forwardTo, senderAlias, forwardHtml, forwardSent, renderHtml },
     ]),
     listThreads: vi.fn(async () => ({ items: [threadSummary], nextCursor: null })),
     markThreadRead: vi.fn(async () => true),
@@ -984,9 +987,11 @@ function createFixture(
           forwardTo?: string | null
           senderAlias?: string | null
           forwardHtml?: boolean
+          forwardSent?: boolean
           renderHtml?: boolean
         },
       ) => {
+        if (values.forwardSent !== undefined) forwardSent = values.forwardSent
         if (values.forwardHtml !== undefined) forwardHtml = values.forwardHtml
         if (values.renderHtml !== undefined) renderHtml = values.renderHtml
         if (values.forwardTo !== undefined) forwardTo = values.forwardTo

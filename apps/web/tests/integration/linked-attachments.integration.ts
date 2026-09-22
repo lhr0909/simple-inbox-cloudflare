@@ -148,7 +148,14 @@ describe('linked attachment delivery', () => {
       headers: { cookie },
     })
     expect(await detail.json()).toMatchObject({
-      messages: [{ attachments: [{ id: upload.id, size, filename: 'customer-report.txt' }] }],
+      messages: [
+        {
+          attachments: [{ id: upload.id, size, filename: 'customer-report.txt' }],
+          recipients: expect.arrayContaining([
+            { address: 'owner@example.test', displayName: null, kind: 'bcc', position: 0 },
+          ]),
+        },
+      ],
     })
     const raw = await workerFetch(`/api/v1/messages/${result.messageId}/raw`, {
       headers: { cookie },

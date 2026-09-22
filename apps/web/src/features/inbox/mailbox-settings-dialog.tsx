@@ -34,6 +34,7 @@ export function MailboxSettingsDialog({
   const [alias, setAlias] = useState(mailbox?.senderAlias ?? '')
   const [whitelisted, setWhitelisted] = useState(mailbox?.whitelisted ?? false)
   const [forwardTo, setForwardTo] = useState(mailbox?.forwardTo ?? '')
+  const [forwardSent, setForwardSent] = useState(mailbox?.forwardSent ?? true)
   const [forwardHtml, setForwardHtml] = useState(mailbox?.forwardHtml ?? false)
   const [renderHtml, setRenderHtml] = useState(mailbox?.renderHtml ?? false)
   const [forwardToEdited, setForwardToEdited] = useState(false)
@@ -61,6 +62,7 @@ export function MailboxSettingsDialog({
     setWhitelisted(mailbox?.whitelisted ?? false)
     setAlias(mailbox?.senderAlias ?? '')
     setForwardTo(mailbox?.forwardTo ?? '')
+    setForwardSent(mailbox?.forwardSent ?? true)
     setForwardHtml(mailbox?.forwardHtml ?? false)
     setRenderHtml(mailbox?.renderHtml ?? false)
     setForwardToEdited(false)
@@ -71,6 +73,7 @@ export function MailboxSettingsDialog({
     mailbox?.id,
     mailbox?.senderAlias,
     mailbox?.forwardHtml,
+    mailbox?.forwardSent,
     mailbox?.renderHtml,
     open,
   ])
@@ -82,6 +85,7 @@ export function MailboxSettingsDialog({
     const patch: PatchMailboxRequest = {
       ...(whitelisted === mailbox.whitelisted ? {} : { whitelisted }),
       ...(forwardHtml === mailbox.forwardHtml ? {} : { forwardHtml }),
+      ...(forwardSent === mailbox.forwardSent ? {} : { forwardSent }),
       ...(renderHtml === mailbox.renderHtml ? {} : { renderHtml }),
       ...(senderAlias === mailbox.senderAlias ? {} : { senderAlias }),
       ...(forwardToEdited ? { forwardTo: forwardTo.trim() || null } : {}),
@@ -100,6 +104,7 @@ export function MailboxSettingsDialog({
       const saved = await onUpdateMailbox(mailbox.id, patch)
       setAlias(saved.senderAlias ?? '')
       setForwardTo(saved.forwardTo ?? '')
+      setForwardSent(saved.forwardSent)
       setForwardHtml(saved.forwardHtml)
       setRenderHtml(saved.renderHtml)
       setForwardToEdited(false)
@@ -235,6 +240,33 @@ export function MailboxSettingsDialog({
             ) : null}
           </div>
         </Field>
+
+        <label className="mt-4 flex items-start gap-3">
+          <input
+            aria-describedby={`${id}-forward-sent-help`}
+            aria-labelledby={`${id}-forward-sent-label`}
+            checked={forwardSent}
+            className="mt-1 size-4 shrink-0 accent-primary"
+            disabled={busy || mailbox === null || status === 'saving'}
+            onChange={(event) => {
+              setForwardSent(event.currentTarget.checked)
+              setStatus('idle')
+            }}
+            type="checkbox"
+          />
+          <span>
+            <span className="text-sm font-medium" id={`${id}-forward-sent-label`}>
+              Copy sent mail to forwarding address
+            </span>
+            <span
+              className="mt-1 block text-xs text-muted-foreground"
+              id={`${id}-forward-sent-help`}
+            >
+              Keep a copy of messages and replies you send here, including attachment links. Copies
+              are sent privately when this inbox has forwarding enabled.
+            </span>
+          </span>
+        </label>
 
         <fieldset
           className="mt-5 space-y-4 border-t pt-4"

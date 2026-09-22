@@ -55,6 +55,24 @@ describe('MailboxScopedRepository', () => {
     })
   })
 
+  it('persists sent-copy opt-out independently and restricts updates to the mailbox owner', async () => {
+    const db = setupTwoUsers()
+    const owner = new MailboxScopedRepository(db.asD1(), { userId: 'user_owner' })
+    expect(await owner.getMailboxSettings('mailbox_owner')).toMatchObject({ forwardSent: true })
+    expect(
+      await owner.updateMailboxSettings('mailbox_owner', { forwardSent: false }, NOW + 1),
+    ).toBe(true)
+    expect((await owner.listMailboxes())[0]).toMatchObject({
+      forwardSent: false,
+      forwardHtml: true,
+    })
+    expect(
+      await owner.updateMailboxSettings('mailbox_intruder', { forwardSent: false }, NOW + 1),
+    ).toBe(false)
+    const other = new MailboxScopedRepository(db.asD1(), { userId: 'user_intruder' })
+    expect(await other.getMailboxSettings('mailbox_intruder')).toMatchObject({ forwardSent: true })
+  })
+
   it('groups blocked mailboxes under Other inbound without changing messages or visibility preferences', async () => {
     const db = setupTwoUsers()
     const repo = new MailboxScopedRepository(db.asD1(), { userId: 'user_owner' })

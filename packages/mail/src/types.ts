@@ -70,6 +70,7 @@ export type NormalizedInboundMessage = {
 
 export type MailboxRecord = {
   forwardHtml: boolean
+  forwardSent: boolean
   address: string
   forwardTo: string | null
   id: string

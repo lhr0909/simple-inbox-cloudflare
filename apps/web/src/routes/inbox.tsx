@@ -361,6 +361,7 @@ function Inbox() {
                     blocked: result.blocked,
                     forwardTo: result.forwardTo,
                     forwardHtml: result.forwardHtml,
+                    forwardSent: result.forwardSent,
                     renderHtml: result.renderHtml,
                     senderAlias: result.senderAlias,
                     updatedAt: result.updatedAt,

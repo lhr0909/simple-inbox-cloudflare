@@ -32,6 +32,33 @@ describe('reviewed D1 baseline migration', () => {
     expect(baseline.match(/\bSELECT\s+\(CASE\b/gu)).toHaveLength(6)
   })
 
+  it('enables sent copies for existing and new mailboxes without changing forwarding destinations', () => {
+    const db = new DatabaseSync(':memory:')
+    openDatabases.push(db)
+    for (const name of readdirSync(migrationsUrl)
+      .filter((name) => name.endsWith('.sql') && name < '0008')
+      .sort()) {
+      db.exec(readFileSync(new URL(name, migrationsUrl), 'utf8'))
+    }
+    insertMailbox(db, 'existing', 'existing@example.test')
+    db.prepare('UPDATE mailboxes SET forward_to = ?, forward_html = 0 WHERE id = ?').run(
+      'owner@example.test',
+      'existing',
+    )
+    db.exec(readFileSync(new URL('0008_copy_sent_mail.sql', migrationsUrl), 'utf8'))
+    expect(
+      db.prepare('SELECT forward_sent, forward_to, forward_html FROM mailboxes').get(),
+    ).toEqual({
+      forward_sent: 1,
+      forward_to: 'owner@example.test',
+      forward_html: 0,
+    })
+    insertMailbox(db, 'new', 'new@example.test')
+    expect(db.prepare("SELECT forward_sent FROM mailboxes WHERE id = 'new'").get()).toEqual({
+      forward_sent: 1,
+    })
+  })
+
   it('adds disabled HTML preferences to an existing mailbox without changing its data', () => {
     const db = new DatabaseSync(':memory:')
     openDatabases.push(db)

@@ -134,6 +134,7 @@ export function registerInboxRoutes(app: OpenAPIHono<ApiEnv>, dependencies: ApiD
     const values = {
       ...(patch.whitelisted === undefined ? {} : { whitelisted: patch.whitelisted }),
       ...(patch.forwardHtml === undefined ? {} : { forwardHtml: patch.forwardHtml }),
+      ...(patch.forwardSent === undefined ? {} : { forwardSent: patch.forwardSent }),
       ...(patch.renderHtml === undefined ? {} : { renderHtml: patch.renderHtml }),
       ...(normalizedForwardTo === undefined ? {} : { forwardTo: normalizedForwardTo }),
       ...(patch.senderAlias === undefined ? {} : { senderAlias: patch.senderAlias }),

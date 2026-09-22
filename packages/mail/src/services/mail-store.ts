@@ -42,6 +42,7 @@ import type {
 
 type MailboxJoinRow = {
   forwardHtml: boolean
+  forwardSent: boolean
   whitelisted: boolean
   address: string
   forwardTo: string | null
@@ -369,6 +370,7 @@ export class D1MailStore implements MailStore {
         forwardTo: mailboxes.forwardTo,
         whitelisted: mailboxes.whitelisted,
         forwardHtml: mailboxes.forwardHtml,
+        forwardSent: mailboxes.forwardSent,
         id: mailboxes.id,
         ownerUserId: users.id,
         senderAlias: mailboxes.senderAlias,
@@ -485,6 +487,7 @@ export class D1MailStore implements MailStore {
         forwardTo: mailboxes.forwardTo,
         whitelisted: mailboxes.whitelisted,
         forwardHtml: mailboxes.forwardHtml,
+        forwardSent: mailboxes.forwardSent,
         id: mailboxes.id,
         ownerUserId: users.id,
         senderAlias: mailboxes.senderAlias,
@@ -509,6 +512,7 @@ export class D1MailStore implements MailStore {
         forwardTo: mailboxes.forwardTo,
         whitelisted: mailboxes.whitelisted,
         forwardHtml: mailboxes.forwardHtml,
+        forwardSent: mailboxes.forwardSent,
         id: mailboxes.id,
         ownerUserId: users.id,
         senderAlias: mailboxes.senderAlias,
@@ -614,6 +618,7 @@ function mailboxRecord(row: MailboxJoinRow): MailboxRecord {
     address: row.address,
     forwardTo: row.whitelisted ? row.forwardTo : null,
     forwardHtml: row.forwardHtml,
+    forwardSent: row.forwardSent,
     id: row.id,
     ownerUserId: row.ownerUserId,
     senderAlias: row.senderAlias,

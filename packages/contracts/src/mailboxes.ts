@@ -13,6 +13,7 @@ export const MailboxSummarySchema = z
     senderAlias: SenderAliasSchema.nullable(),
     forwardTo: NormalizedEmailAddressSchema.nullable(),
     forwardHtml: z.boolean(),
+    forwardSent: z.boolean(),
     renderHtml: z.boolean(),
     whitelisted: z.boolean(),
     blocked: z.boolean(),
@@ -37,6 +38,7 @@ export const MailboxSettingsSchema = z
     senderAlias: SenderAliasSchema.nullable(),
     forwardTo: NormalizedEmailAddressSchema.nullable(),
     forwardHtml: z.boolean(),
+    forwardSent: z.boolean(),
     renderHtml: z.boolean(),
     whitelisted: z.boolean(),
     blocked: z.boolean(),
@@ -51,6 +53,7 @@ export const PatchMailboxRequestSchema = z
     senderAlias: SenderAliasSchema.nullable().optional(),
     forwardTo: EmailAddressSchema.nullable().optional(),
     forwardHtml: z.boolean().optional(),
+    forwardSent: z.boolean().optional(),
     renderHtml: z.boolean().optional(),
     whitelisted: z.boolean().optional(),
   })

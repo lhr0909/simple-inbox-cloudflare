@@ -149,6 +149,14 @@ On the first deployment, Wrangler creates/binds `simple-inbox-cf-db` and `simple
 their declarations. Later deployments reuse them and apply migrations before uploading new code.
 Neither command configures a sending domain, R2 lifecycle, custom domain, DNS, or Email Routing.
 
+## Sent-copy upgrade
+
+Migration `0008_copy_sent_mail.sql` adds a default-on `forward_sent` mailbox preference. Existing
+mailboxes retain their forwarding destinations; owners can opt out in mailbox settings. No new
+Cloudflare bindings, resources, secrets, or routing changes are required. The standard deployment
+applies the additive migration before uploading the Worker. Only future compose/reply sends gain
+an automatic Bcc; migration does not send mail or replay old messages.
+
 ## Required secrets
 
 The application requires two different secret values:

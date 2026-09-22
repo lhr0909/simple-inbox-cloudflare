@@ -76,6 +76,7 @@ describe('mail module D1 adapter', () => {
         forwardTo: mailboxes.forwardTo,
         id: mailboxes.id,
         forwardHtml: mailboxes.forwardHtml,
+        forwardSent: mailboxes.forwardSent,
         renderHtml: mailboxes.renderHtml,
       })
       .from(mailboxes)
@@ -107,6 +108,7 @@ describe('mail module D1 adapter', () => {
       address: 'support@example.test',
       forwardTo: 'owner@example.test',
       forwardHtml: true,
+      forwardSent: true,
       renderHtml: false,
     })
     expect(thread).toEqual({
