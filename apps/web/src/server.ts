@@ -15,7 +15,7 @@ import type { RootBindings } from '#/internal-services.server'
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "base-uri 'self'",
-  "connect-src 'self' https://*.r2.cloudflarestorage.com",
+  "connect-src 'self'",
   "font-src 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",

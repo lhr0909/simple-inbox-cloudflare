@@ -72,9 +72,9 @@ Mail and completed attachments are stored indefinitely, including Spam and Trash
 retention is disabled and the compatibility handler does not resume old deletion tombstones.
 Existing R2 expiration rules must be removed separately by the owner.
 
-Webmail uploads multipart file parts directly to private R2 using presigned PUT URLs. The server
+Webmail streams multipart file parts through the authenticated Worker API into private R2. The server
 verifies completion and ownership, then includes HTML and plain-text links in outgoing mail.
-Completed files cannot be replaced through old upload URLs. Downloads stream through a public,
+Completed files reject further part uploads. No R2 credentials or bucket CORS setup are needed. Downloads stream through a public,
 unguessable capability link without login or time-based expiration. Links are redacted from logs.
 
 ## Deployment boundary

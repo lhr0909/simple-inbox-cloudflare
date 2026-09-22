@@ -164,15 +164,17 @@ automatically into another store.
 
 ## Attachment upload setup
 
-Use a private `simple-inbox-cf-attachments` bucket. Configure Worker secrets `R2_ACCOUNT_ID`,
-`R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY` with R2 Object Read & Write credentials scoped only
-to this bucket. Keep credentials out of source and browser code.
+The deployment declares a private `simple-inbox-cf-attachments` bucket with an `ATTACHMENTS`
+Worker binding. Both uploads and downloads stream through the Worker. No R2 S3 credentials,
+additional secrets, bucket CORS setup, or public bucket access are required. Local development
+uses the same API with local R2.
 
-Set bucket CORS to allow `PUT` from your exact installation origin, allow the `Content-Type`
-request header, and expose the `ETag` response header. Keep public bucket access disabled.
-Uploads use short-lived presigned URLs; recipients use permanent application download links.
-Anyone with a download link can access its file, including recipients of forwarded emails.
+Authorize the new bucket, the linked-attachment D1 migration, and the Worker deployment before
+running the upgrade. Wrangler needs Worker deployment, D1 write, and R2 provisioning permissions
+on the intended account. Existing authentication secrets and Email Routing remain unchanged.
+See the repository operations runbook for the upgrade procedure.
 
-Local loopback development uses local R2 without credentials. Live setup, CORS changes, lifecycle
-changes, and deployment remain explicit owner actions. See the repository operations runbook for
-the complete CORS example and upgrade procedure.
+Recipients use permanent application download links. Anyone with a link can access its file,
+including recipients of forwarded emails. Existing R2 object-expiration rules must be removed
+separately by the owner; deployment cannot override them. Live email tests also require separate
+owner authorization.

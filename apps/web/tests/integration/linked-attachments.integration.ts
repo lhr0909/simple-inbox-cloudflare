@@ -17,7 +17,7 @@ describe('linked attachment delivery', () => {
   beforeAll(async () => {
     harness = await startInboxTestHarness()
     await migrateAndSeedHarness(harness)
-    const response = await httpFetch('/api/v1/auth/magic-links/verify', {
+    const response = await workerFetch('/api/v1/auth/magic-links/verify', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ token: TEST_MAGIC_TOKEN }),
@@ -26,12 +26,12 @@ describe('linked attachment delivery', () => {
   })
   afterAll(async () => harness.close())
 
-  function httpFetch(path: string, init?: RequestInit) {
-    return fetch(new URL(path, harness.origin), init)
+  function workerFetch(path: string, init?: Parameters<InboxTestHarness['worker']['fetch']>[1]) {
+    return harness.worker.fetch(new URL(path, harness.origin).href, init)
   }
 
   function post(path: string, body: unknown) {
-    return httpFetch(path, {
+    return workerFetch(path, {
       method: 'POST',
       headers: { ...sameOriginHeaders(harness.origin, cookie), 'content-type': 'application/json' },
       body: JSON.stringify(body),
@@ -55,29 +55,52 @@ describe('linked attachment delivery', () => {
     if (!row) throw new Error('Missing upload')
     const downloadPath = `/api/v1/downloads/${row.downloadToken}`
     {
-      const response = await httpFetch(downloadPath)
+      const response = await workerFetch(downloadPath)
       expect(response.status, await response.text()).toBe(404)
     }
 
     // An upload ID grants no rights to another owner; Origin remains mandatory.
-    const otherOwner = await httpFetch(`/api/v1/uploads/${upload.id}/parts/1`, {
-      method: 'POST',
+    const otherOwner = await workerFetch(`/api/v1/uploads/${upload.id}/parts/1`, {
+      method: 'PUT',
       headers: { authorization: `Bearer ${TEST_SECOND_API_TOKEN}` },
+      body: finalPart,
     })
-    expect(otherOwner.status).toBe(404)
-    const crossSite = await httpFetch('/api/v1/uploads', {
+    expect(otherOwner.status, await otherOwner.text()).toBe(404)
+    const crossSite = await workerFetch('/api/v1/uploads', {
       method: 'POST',
       headers: { cookie, origin: 'https://other.example.test', 'content-type': 'application/json' },
       body: JSON.stringify({ filename: 'x.txt', mediaType: 'text/plain', size: 1 }),
     })
-    expect(crossSite.status).toBe(403)
+    expect(crossSite.status, await crossSite.text()).toBe(403)
+
+    for (const headers of [{}, { cookie, origin: 'https://other.example.test' }, { cookie }]) {
+      const denied = await workerFetch(`/api/v1/uploads/${upload.id}/parts/1`, {
+        method: 'PUT',
+        headers,
+        body: finalPart,
+      })
+      expect([401, 403], await denied.text()).toContain(denied.status)
+    }
+    for (const partNumber of ['0', '3', '10001', 'invalid']) {
+      const invalid = await workerFetch(`/api/v1/uploads/${upload.id}/parts/${partNumber}`, {
+        method: 'PUT',
+        headers: sameOriginHeaders(harness.origin, cookie),
+        body: finalPart,
+      })
+      expect(invalid.status, await invalid.text()).toBe(400)
+    }
+
+    // A retry can replace an unfinished part; completion must use the latest receipt.
+    const retriedPart = await workerFetch(`/api/v1/uploads/${upload.id}/parts/2`, {
+      method: 'PUT',
+      headers: sameOriginHeaders(harness.origin, cookie),
+      body: new Uint8Array(finalPart.length).fill(66),
+    })
+    expect(retriedPart.status, await retriedPart.text()).toBe(200)
 
     const parts: Array<{ partNumber: number; etag: string }> = []
     for (const [i, bytes] of [firstPart, finalPart].entries()) {
-      const signed = await post(`/api/v1/uploads/${upload.id}/parts/${i + 1}`, {})
-      expect(signed.status).toBe(200)
-      const { url } = (await signed.json()) as { url: string }
-      const put = await fetch(new URL(url, harness.origin), {
+      const put = await workerFetch(`/api/v1/uploads/${upload.id}/parts/${i + 1}`, {
         method: 'PUT',
         headers: sameOriginHeaders(harness.origin, cookie),
         body: bytes,
@@ -90,9 +113,14 @@ describe('linked attachment delivery', () => {
     ).toBe(400)
     expect((await post(`/api/v1/uploads/${upload.id}/complete`, { parts })).status).toBe(204)
     expect((await post(`/api/v1/uploads/${upload.id}/complete`, { parts })).status).toBe(204)
-    expect((await post(`/api/v1/uploads/${upload.id}/parts/1`, {})).status).toBe(400)
+    const overwrite = await workerFetch(`/api/v1/uploads/${upload.id}/parts/1`, {
+      method: 'PUT',
+      headers: sameOriginHeaders(harness.origin, cookie),
+      body: finalPart,
+    })
+    expect(overwrite.status, await overwrite.text()).toBe(400)
     {
-      const response = await httpFetch(downloadPath)
+      const response = await workerFetch(downloadPath)
       expect(response.status, await response.text()).toBe(404)
     }
 
@@ -104,7 +132,7 @@ describe('linked attachment delivery', () => {
       body.set('body', 'Here is your report.')
       body.set('format', 'markdown')
       body.append('linkedAttachmentIds', uploadId)
-      return httpFetch('/api/v1/messages', {
+      return fetch(new URL('/api/v1/messages', harness.origin), {
         method: 'POST',
         headers: { ...sameOriginHeaders(harness.origin, cookie), 'idempotency-key': key },
         body,
@@ -116,13 +144,13 @@ describe('linked attachment delivery', () => {
     const replay = await send('linked-send-00000001')
     expect(replay.status).toBe(201)
     expect(await replay.json()).toMatchObject({ id: result.id })
-    const detail = await httpFetch(`/api/v1/threads/${result.threadId}`, {
+    const detail = await workerFetch(`/api/v1/threads/${result.threadId}`, {
       headers: { cookie },
     })
     expect(await detail.json()).toMatchObject({
       messages: [{ attachments: [{ id: upload.id, size, filename: 'customer-report.txt' }] }],
     })
-    const raw = await httpFetch(`/api/v1/messages/${result.messageId}/raw`, {
+    const raw = await workerFetch(`/api/v1/messages/${result.messageId}/raw`, {
       headers: { cookie },
     })
     const source = await raw.text()
@@ -134,18 +162,18 @@ describe('linked attachment delivery', () => {
     expect(source).not.toContain('Content-Disposition: attachment')
     expect(source.length).toBeLessThan(10_000)
 
-    const download = await httpFetch(downloadPath)
+    const download = await workerFetch(downloadPath)
     expect(download.status).toBe(200)
     expect(download.headers.get('content-disposition')).toContain('attachment;')
     expect(download.headers.get('content-disposition')).toContain('customer-report.txt')
     expect(download.headers.get('cache-control')).toContain('no-store')
     expect((await download.arrayBuffer()).byteLength).toBe(size)
-    const range = await httpFetch(downloadPath, {
+    const range = await workerFetch(downloadPath, {
       headers: { range: `bytes=${firstPart.length}-` },
     })
     expect(range.status).toBe(206)
     expect(await range.text()).toBe('synthetic attachment end')
-    const ownerDownload = await httpFetch(
+    const ownerDownload = await workerFetch(
       `/api/v1/messages/${result.messageId}/attachments/${upload.id}`,
       { headers: { cookie } },
     )
@@ -153,7 +181,7 @@ describe('linked attachment delivery', () => {
     await ownerDownload.body?.cancel()
 
     for (const location of ['spam', 'trash']) {
-      const moved = await httpFetch(`/api/v1/threads/${result.threadId}/state`, {
+      const moved = await workerFetch(`/api/v1/threads/${result.threadId}/state`, {
         method: 'PATCH',
         headers: {
           ...sameOriginHeaders(harness.origin, cookie),
@@ -171,10 +199,10 @@ describe('linked attachment delivery', () => {
       cron: '17 3 * * *',
     })
     expect(await ATTACHMENTS.head(row.objectKey)).not.toBeNull()
-    const stillShared = await httpFetch(downloadPath, { headers: { range: 'bytes=0-3' } })
+    const stillShared = await workerFetch(downloadPath, { headers: { range: 'bytes=0-3' } })
     expect(stillShared.status).toBe(206)
     expect(await stillShared.text()).toBe('AAAA')
-    const stillRaw = await httpFetch(`/api/v1/messages/${result.messageId}/raw`, {
+    const stillRaw = await workerFetch(`/api/v1/messages/${result.messageId}/raw`, {
       headers: { cookie },
     })
     expect(stillRaw.status).toBe(200)

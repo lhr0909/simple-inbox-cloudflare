@@ -152,4 +152,5 @@ automation.
 The original age-based retention decision is superseded: mail and completed attachments are kept
 indefinitely, cron is disabled, and old queued deletion work is ignored. Linked webmail attachments
 use the additional private `simple-inbox-cf-attachments` bucket. See the current architecture and
-operations guides for upload credentials, CORS, and removal of old object-expiration rules.
+operations guides for authenticated streaming uploads through the R2 binding and removal of old
+object-expiration rules. Uploads require no R2 S3 credentials or bucket CORS policy.

@@ -1,4 +1,4 @@
-import { UploadSessionSchema, UploadPartUrlSchema } from '@cloudflare-inbox/contracts/uploads'
+import { UploadSessionSchema } from '@cloudflare-inbox/contracts/uploads'
 
 async function jsonRequest(path: string, body: unknown, signal?: AbortSignal): Promise<unknown> {
   const response = await fetch(path, {
@@ -41,15 +41,12 @@ export async function uploadAttachment(
   for (let offset = 0; offset < file.size; offset += session.partSize) {
     const partNumber = parts.length + 1
     const part = file.slice(offset, offset + session.partSize)
-    // Retry a part with a fresh signature; R2 replaces that part atomically.
+    // Retry the same part through the authenticated Worker; R2 replaces it atomically.
     let etag: string | undefined
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const { url } = UploadPartUrlSchema.parse(
-          await jsonRequest(`/api/v1/uploads/${session.id}/parts/${partNumber}`, {}, signal),
-        )
         etag = await putPart(
-          url,
+          `/api/v1/uploads/${session.id}/parts/${partNumber}`,
           part,
           (loaded) => progress(Math.min(99, Math.floor(((offset + loaded) / file.size) * 100))),
           signal,
@@ -59,7 +56,7 @@ export async function uploadAttachment(
         if (signal?.aborted || attempt === 2) throw error
       }
     }
-    if (!etag) throw new Error('Storage did not return an upload receipt. Check R2 CORS settings.')
+    if (!etag) throw new Error('Storage did not return an upload receipt. Retry to continue.')
     parts.push({ partNumber, etag })
   }
   await jsonRequest(`/api/v1/uploads/${session.id}/complete`, { parts }, signal)
@@ -78,6 +75,7 @@ function putPart(
     const abort = () => request.abort()
     const cleanup = () => signal?.removeEventListener('abort', abort)
     request.open('PUT', url)
+    request.setRequestHeader('content-type', 'application/octet-stream')
     request.upload.onprogress = (event) => progress(event.loaded)
     request.onload = () => {
       cleanup()
@@ -87,7 +85,7 @@ function putPart(
     }
     request.onerror = () => {
       cleanup()
-      reject(new Error('Upload failed. Check your connection or R2 CORS settings.'))
+      reject(new Error('Upload failed. Check your connection and retry.'))
     }
     request.onabort = () => {
       cleanup()

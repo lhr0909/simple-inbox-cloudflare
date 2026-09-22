@@ -305,35 +305,25 @@ Deleted bytes cannot be recovered by a Worker rollback.
 
 ### Attachment uploads
 
-Deployment declares the new private bucket `simple-inbox-cf-attachments`. Before production
-uploads, configure these Worker secrets through the Dashboard or interactive Wrangler prompts:
+Deployment declares the private bucket `simple-inbox-cf-attachments` and its `ATTACHMENTS` binding.
+The browser uploads chunks to the authenticated, same-origin Worker API. The Worker streams each
+part into R2 multipart storage, verifies completion, and streams downloads from the same binding.
+Production and local development use the same code path. No R2 S3 access keys, additional Worker
+secrets, bucket CORS policy, public R2 hostname, or custom domain are required.
 
-- `R2_ACCOUNT_ID`: the account containing the replacement attachment bucket.
-- `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`: R2 S3 credentials with Object Read & Write access
-  scoped only to `simple-inbox-cf-attachments`. Never expose these to the browser or commit them.
+For this upgrade, authorize provisioning the replacement attachment bucket, applying migration
+`0007_linked_attachments.sql` to `simple-inbox-cf-db` (and any earlier pending migrations after
+review), and deploying `simple-inbox-cf` with the new binding and disabled retention cron.
+An authenticated Wrangler identity needs Worker deployment permission, D1 write access for
+migrations, and R2 bucket creation/configuration access for provisioning. Use the intended account
+only. The deployed Worker gets object access from its binding, not from deployment credentials.
+See [Workers authorization](https://developers.cloudflare.com/workers/authorization/) and
+[Cloudflare API token permissions](https://developers.cloudflare.com/fundamentals/api/reference/permissions/).
 
-Configure this bucket's CORS policy, substituting the exact installation origin:
-
-```json
-[
-  {
-    "AllowedOrigins": ["https://inbox.example.test"],
-    "AllowedMethods": ["PUT"],
-    "AllowedHeaders": ["Content-Type"],
-    "ExposeHeaders": ["ETag"],
-    "MaxAgeSeconds": 3600
-  }
-]
-```
-
-The upload workflow creates multipart sessions via the R2 binding and signs each part's PUT URL
-for 15 minutes. Completed objects cannot be replaced using these part URLs. No public R2 hostname
-or custom domain is needed. New credentials/CORS/bucket provisioning require explicit owner
-authorization; repository code does not create credentials or change CORS. Missing credentials
-produce a storage-not-configured message in webmail, while normal sending continues to work.
-
-Local HTTP loopback installations use an authenticated streaming adapter to local R2 and require
-no S3 credentials or CORS changes. This adapter refuses production origins.
+Review any existing object-expiration rules on the replacement buckets and separately authorize
+removing them if present. Deployment does not edit those rules. Existing auth/setup secrets remain
+in place; there is no attachment-specific secret to add. This upgrade requires no DNS, custom-domain,
+or Email Routing changes. Live email acceptance tests remain a separate owner-authorized action.
 
 Every uploaded webmail attachment is sent as an HTML/plain-text link. Anyone possessing the link
 can download without sign-in; forwarding the email grants the same access. Public links do not
@@ -343,7 +333,9 @@ incomplete-multipart abort rule affects only unfinished uploads, never completed
 
 Webmail has no application-defined size/count limits; R2 service limits and the email link-body
 budget remain. Raw MIME attachment API requests retain their existing safety bounds for backwards
-compatibility. They are separate from webmail's direct uploads.
+compatibility. They are separate from webmail's streamed uploads. Each upload chunk is subject to Cloudflare's
+per-request body-size limit; the default chunk is 16 MiB and grows for very large files to respect
+R2's 10,000-part limit.
 
 ### Email Routing activation
 

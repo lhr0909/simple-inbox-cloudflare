@@ -1424,17 +1424,6 @@
         "required": ["filename", "mediaType", "size"],
         "additionalProperties": false
       },
-      "UploadPartUrl": {
-        "type": "object",
-        "properties": {
-          "url": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": ["url"],
-        "additionalProperties": false
-      },
       "CompleteUpload": {
         "type": "object",
         "properties": {
@@ -3839,8 +3828,8 @@
       }
     },
     "/v1/uploads/{uploadId}/parts/{partNumber}": {
-      "post": {
-        "operationId": "signUploadPart",
+      "put": {
+        "operationId": "uploadPart",
         "tags": ["Attachments"],
         "parameters": [
           {
@@ -3864,14 +3853,26 @@
             "in": "path"
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "JSON response",
-            "content": {
-              "application/json": {
+            "description": "Part stored; use the ETag response header to complete the upload",
+            "headers": {
+              "ETag": {
                 "schema": {
-                  "$ref": "#/components/schemas/UploadPartUrl"
-                }
+                  "type": "string"
+                },
+                "description": "R2 part receipt"
               }
             }
           },

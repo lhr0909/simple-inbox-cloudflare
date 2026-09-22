@@ -25,9 +25,6 @@ export type ApiBindings = {
   MAIL_DOMAIN: string
   OWNER_EMAIL: string
   ATTACHMENTS?: R2Bucket
-  R2_ACCOUNT_ID?: string
-  R2_ACCESS_KEY_ID?: string
-  R2_SECRET_ACCESS_KEY?: string
   RAW_EMAILS: R2Bucket
   RAW_EMAIL_RETENTION_DAYS: string
   /** One-time first-run secret. It is never persisted or returned. */

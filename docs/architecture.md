@@ -202,12 +202,13 @@ expiration rules must be disabled separately by the owner; code cannot override 
 
 Authenticated senders initiate multipart uploads in the private `simple-inbox-cf-attachments`
 bucket. D1 owns filenames, expected sizes, object keys, multipart IDs, completion ETags, random
-256-bit download capabilities, and the outbound send association. Each part uploads directly to
-R2 with a 15-minute presigned PUT URL. The browser receives only the part capability; R2 secrets
-remain server-side. A loopback-only authenticated streaming adapter supports local R2 tests.
+256-bit download capabilities, and the outbound send association. Each part streams through a same-origin
+Worker PUT endpoint into the R2 binding. Every part requires send authorization, ownership, and
+same-origin checks for cookie sessions. Production and local tests share this path; no R2 S3
+credentials, browser-to-R2 requests, or bucket CORS policy are needed.
 
 The completion endpoint checks ordered parts and actual object size, then stores the immutable
-completed object's ETag. Completing multipart upload invalidates its part URLs. A lost completion
+completed object's ETag. Completed uploads reject further parts, and R2 closes the multipart session. A lost completion
 response can be retried by inspecting the final object. Send checks owner, readiness, size, and ETag,
 then appends escaped filenames, sizes, and stable application links to HTML and plain text. Linked
 bytes never pass through Email Sending or become MIME attachments in canonical outbound mail.
@@ -223,7 +224,7 @@ completed orphan uploads are retained for owner-controlled cleanup. R2 may abort
 multipart sessions under its own incomplete-upload policy; this does not expire completed files.
 
 There are no product file-size/count quotas. Multipart part sizing respects R2's 10,000-part
-constraint. Provider message-body and D1 projection limits still apply to generated link text.
+constraint; each chunk is also subject to Cloudflare's per-request upload limit. Provider message-body and D1 projection limits still apply to generated link text.
 
 ## Deployment topology
 

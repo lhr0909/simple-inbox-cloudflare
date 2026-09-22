@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { UploadedFile } from '@cloudflare-inbox/db'
-import {
-  localUploads,
-  presignPart,
-  uploadPartSize,
-  uploadedFileResponse,
-} from '../src/services/uploads'
+import { attachmentBucket, uploadPartSize, uploadedFileResponse } from '../src/services/uploads'
 import type { ApiBindings } from '../src/types'
 
 const file: UploadedFile = {
@@ -24,33 +19,17 @@ const file: UploadedFile = {
 const env = {
   APP_ORIGIN: 'https://inbox.example.test',
   ATTACHMENTS: {},
-  R2_ACCOUNT_ID: 'a'.repeat(32),
-  R2_ACCESS_KEY_ID: 'synthetic-access-key',
-  R2_SECRET_ACCESS_KEY: 'synthetic-secret-key',
 } as unknown as ApiBindings
 
 describe('R2 upload and download boundaries', () => {
-  it('signs a PUT capability for exactly one multipart part with a short lifetime', async () => {
-    const url = new URL(await presignPart(env, file, 2))
-    expect(url.origin).toBe(`https://${'a'.repeat(32)}.r2.cloudflarestorage.com`)
-    expect(url.pathname).toBe('/simple-inbox-cf-attachments/files/synthetic-id')
-    expect(url.searchParams.get('uploadId')).toBe(file.multipartId)
-    expect(url.searchParams.get('partNumber')).toBe('2')
-    expect(url.searchParams.get('X-Amz-Expires')).toBe('900')
-    expect(url.searchParams.get('X-Amz-Credential')).toContain('/auto/s3/aws4_request')
-    expect(url.searchParams.get('X-Amz-Signature')).toMatch(/^[a-f0-9]{64}$/u)
-    expect(url.href).not.toContain('synthetic-secret-key')
-  })
-
-  it('fails closed without production credentials; the local adapter requires loopback HTTP', async () => {
-    await expect(presignPart({ ...env, R2_ACCOUNT_ID: '' }, file, 1)).rejects.toThrow(
+  it('requires only a bucket binding on production HTTPS origins', () => {
+    expect(attachmentBucket(env)).toBe(env.ATTACHMENTS)
+    expect(() => attachmentBucket({ APP_ORIGIN: env.APP_ORIGIN } as ApiBindings)).toThrow(
       'service_unavailable',
     )
-    expect(localUploads({ ...env, APP_ORIGIN: 'http://inbox.example.test' })).toBe(false)
-    expect(localUploads({ ...env, APP_ORIGIN: 'https://localhost' })).toBe(false)
-    expect(await presignPart({ ...env, APP_ORIGIN: 'http://127.0.0.1:8787' }, file, 1)).toBe(
-      `/api/v1/uploads/${file.id}/parts/1/local`,
-    )
+  })
+
+  it('sizes parts within the R2 part-count constraint', () => {
     const largeSize = 1024 ** 4
     expect(Math.ceil(largeSize / uploadPartSize(largeSize))).toBeLessThanOrEqual(10_000)
   })

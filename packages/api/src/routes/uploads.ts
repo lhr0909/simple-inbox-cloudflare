@@ -1,6 +1,6 @@
 import {
   createUploadRoute,
-  signUploadPartRoute,
+  uploadPartRoute,
   completeUploadRoute,
   downloadSharedFileRoute,
 } from '@cloudflare-inbox/contracts'
@@ -9,14 +9,7 @@ import { sanitizeFilename, safeAttachmentContentType } from '@cloudflare-inbox/m
 import type { OpenAPIHono } from '@hono/zod-openapi'
 import { requireActor, requireCookieMutationOrigin } from '../auth'
 import { ApiFault } from '../http'
-import {
-  attachmentBucket,
-  localUploads,
-  presignPart,
-  requireUploadConfiguration,
-  uploadedFileResponse,
-  uploadPartSize,
-} from '../services/uploads'
+import { attachmentBucket, uploadedFileResponse, uploadPartSize } from '../services/uploads'
 import type { ApiDependencies, ApiEnv } from '../types'
 
 export function registerUploadRoutes(
@@ -26,7 +19,6 @@ export function registerUploadRoutes(
   app.openapi(createUploadRoute, async (context) => {
     const actor = await requireActor(context.req.raw, context.env, dependencies, 'send')
     requireCookieMutationOrigin(context.req.raw, context.env, actor)
-    requireUploadConfiguration(context.env)
     const input = context.req.valid('json')
     const bucket = attachmentBucket(context.env)
     const id = dependencies.generateId(dependencies.now())
@@ -72,7 +64,7 @@ export function registerUploadRoutes(
     )
   })
 
-  app.openapi(signUploadPartRoute, async (context) => {
+  app.openapi(uploadPartRoute, async (context) => {
     const actor = await requireActor(context.req.raw, context.env, dependencies, 'send')
     requireCookieMutationOrigin(context.req.raw, context.env, actor)
     const { uploadId, partNumber } = context.req.valid('param')
@@ -80,33 +72,24 @@ export function registerUploadRoutes(
     if (!file) throw new ApiFault('attachment_not_found')
     if (file.etag || partNumber > Math.ceil(file.size / uploadPartSize(file.size)))
       throw new ApiFault('validation_failed')
-    return context.json({ url: await presignPart(context.env, file, partNumber) }, 200)
-  })
-
-  // Wrangler's local R2 has no S3 endpoint. This adapter is restricted to a
-  // loopback installation and repeats owner/CSRF checks on every part.
-  app.put('/v1/uploads/:uploadId/parts/:partNumber/local', async (context) => {
-    if (!localUploads(context.env)) throw new ApiFault('not_found')
-    const actor = await requireActor(context.req.raw, context.env, dependencies, 'send')
-    requireCookieMutationOrigin(context.req.raw, context.env, actor)
-    const file = await new UploadedFileRepository(context.env.DB).owned(
-      context.req.param('uploadId'),
-      actor.userId,
+    if (!context.req.raw.body) throw new ApiFault('validation_failed')
+    // R2 needs a known-length stream. Enforce the session's expected part size
+    // while streaming, including when the incoming request has no Content-Length.
+    const partSize = uploadPartSize(file.size)
+    const expectedSize = Math.min(partSize, file.size - (partNumber - 1) * partSize)
+    const upload = attachmentBucket(context.env).resumeMultipartUpload(
+      file.objectKey,
+      file.multipartId,
     )
-    const partNumber = Number(context.req.param('partNumber'))
-    if (!file) throw new ApiFault('attachment_not_found')
-    if (
-      file.etag ||
-      !Number.isInteger(partNumber) ||
-      partNumber < 1 ||
-      partNumber > Math.ceil(file.size / uploadPartSize(file.size)) ||
-      !context.req.raw.body
-    )
-      throw new ApiFault('validation_failed')
-    const part = await attachmentBucket(context.env)
-      .resumeMultipartUpload(file.objectKey, file.multipartId)
-      .uploadPart(partNumber, context.req.raw.body)
-    return new Response(null, { headers: { etag: part.etag } })
+    const stream = new FixedLengthStream(expectedSize)
+    const controller = new AbortController()
+    const writing = context.req.raw.body.pipeTo(stream.writable, { signal: controller.signal })
+    try {
+      const [, part] = await Promise.all([writing, upload.uploadPart(partNumber, stream.readable)])
+      return new Response(null, { headers: { etag: part.etag } })
+    } finally {
+      controller.abort()
+    }
   })
 
   app.openapi(completeUploadRoute, async (context) => {

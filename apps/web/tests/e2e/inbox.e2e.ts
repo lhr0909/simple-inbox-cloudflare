@@ -12,6 +12,12 @@ const SYNTHETIC_SUBJECT = 'Synthetic quarterly check-in'
 test('exercises the authenticated inbox parity flow responsively', async ({ page }, testInfo) => {
   test.setTimeout(120_000)
   const unexpectedBrowserErrors = captureUnexpectedBrowserErrors(page)
+  const uploadPartRequests: Array<{ method: string; url: string }> = []
+  page.on('request', (request) => {
+    if (/\/uploads\/[^/]+\/parts\//u.test(request.url())) {
+      uploadPartRequests.push({ method: request.method(), url: request.url() })
+    }
+  })
 
   await page.goto('/sign-in')
   await expect(page).toHaveTitle('Sign in · Simple Inbox')
@@ -184,6 +190,12 @@ test('exercises the authenticated inbox parity flow responsively', async ({ page
   )
   await expect(composeDialog.getByRole('button', { name: 'Send message' })).toBeEnabled()
   await expect(composeDialog.getByText('Ready to send', { exact: true })).toBeVisible()
+  expect(uploadPartRequests).toHaveLength(2)
+  for (const request of uploadPartRequests) {
+    expect(request.method).toBe('PUT')
+    expect(new URL(request.url).origin).toBe(new URL(page.url()).origin)
+    expect(new URL(request.url).pathname).toMatch(/^\/api\/v1\/uploads\/[^/]+\/parts\/1$/u)
+  }
   await mkdir('/tmp/simple-inbox-qa', { recursive: true })
   await page.screenshot({
     path: `/tmp/simple-inbox-qa/linked-attachments-${testInfo.project.name}.png`,

@@ -17,7 +17,6 @@
     "@cloudflare-inbox/db": "workspace:*",
     "@cloudflare-inbox/mail-core": "workspace:*",
     "@hono/zod-openapi": "catalog:",
-    "aws4fetch": "1.0.20",
     "hono": "catalog:",
     "parse5": "catalog:",
     "postal-mime": "catalog:",

@@ -1,4 +1,4 @@
-import type { CreateUpload, UploadSession, UploadPartUrl, CompleteUpload } from './uploads'
+import type { CreateUpload, UploadSession, CompleteUpload } from './uploads'
 import type { Hono } from 'hono'
 
 import type {
@@ -213,9 +213,9 @@ export type PublicApiSchema = {
     >
   }
   '/v1/uploads/:uploadId/parts/:partNumber': {
-    $post: WithStandardErrors<
+    $put: WithStandardErrors<
       { param: { uploadId: AttachmentId; partNumber: string } },
-      JsonEndpoint<{ param: { uploadId: AttachmentId; partNumber: string } }, UploadPartUrl, 200>
+      EmptyEndpoint<{ param: { uploadId: AttachmentId; partNumber: string } }, 200>
     >
   }
   '/v1/uploads/:uploadId/complete': {

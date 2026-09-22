@@ -18,10 +18,6 @@ export const UploadSessionSchema = z
   })
   .strict()
   .openapi('UploadSession')
-export const UploadPartUrlSchema = z
-  .object({ url: z.string().min(1) })
-  .strict()
-  .openapi('UploadPartUrl')
 export const CompleteUploadSchema = z
   .object({
     parts: z.array(
@@ -38,5 +34,4 @@ export const CompleteUploadSchema = z
 
 export type CreateUpload = z.infer<typeof CreateUploadSchema>
 export type UploadSession = z.infer<typeof UploadSessionSchema>
-export type UploadPartUrl = z.infer<typeof UploadPartUrlSchema>
 export type CompleteUpload = z.infer<typeof CompleteUploadSchema>

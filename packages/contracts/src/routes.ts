@@ -1,9 +1,4 @@
-import {
-  CreateUploadSchema,
-  UploadSessionSchema,
-  UploadPartUrlSchema,
-  CompleteUploadSchema,
-} from './uploads'
+import { CreateUploadSchema, UploadSessionSchema, CompleteUploadSchema } from './uploads'
 import { createRoute, z } from '@hono/zod-openapi'
 
 import {
@@ -602,13 +597,25 @@ export const createUploadRoute = createRoute({
   },
   responses: { 201: json(UploadSessionSchema), ...standardErrors },
 })
-export const signUploadPartRoute = createRoute({
-  method: 'post',
+export const uploadPartRoute = createRoute({
+  method: 'put',
   path: '/v1/uploads/{uploadId}/parts/{partNumber}',
-  operationId: 'signUploadPart',
+  operationId: 'uploadPart',
   tags: ['Attachments'],
-  request: { params: UploadPartPathSchema },
-  responses: { 200: json(UploadPartUrlSchema), ...standardErrors },
+  request: {
+    params: UploadPartPathSchema,
+    body: {
+      required: true,
+      content: { 'application/octet-stream': { schema: z.string().openapi({ format: 'binary' }) } },
+    },
+  },
+  responses: {
+    200: {
+      description: 'Part stored; use the ETag response header to complete the upload',
+      headers: { ETag: { schema: { type: 'string' }, description: 'R2 part receipt' } },
+    },
+    ...standardErrors,
+  },
 })
 export const completeUploadRoute = createRoute({
   method: 'post',
@@ -636,7 +643,7 @@ export const downloadSharedFileRoute = createRoute({
 
 export const PUBLIC_API_ROUTES = [
   createUploadRoute,
-  signUploadPartRoute,
+  uploadPartRoute,
   completeUploadRoute,
   downloadSharedFileRoute,
   listSpamRulesRoute,

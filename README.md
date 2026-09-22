@@ -8,7 +8,7 @@ Simple Inbox is a clean-room, self-hosted mail workspace deployed as one Cloudfl
 - `scheduled()` is a compatibility no-op; there is no automatic mail expiration.
 
 D1 is the source of truth for queryable state. A private R2 bucket stores canonical RFC 822 `.eml`
-objects. The browser never receives a storage binding. Attachments upload directly to a separate private R2 bucket using narrowly scoped presigned PUT URLs.
+objects. The browser never receives a storage binding. Attachments upload in chunks through the authenticated Worker API into a separate private R2 bucket.
 
 This repository is independent from every legacy Cloudflare Inbox repository and deployment. Its
 automation creates or updates only `simple-inbox-cf`, `simple-inbox-cf-db`,
@@ -88,8 +88,8 @@ Primary routes:
 
 ## Deploy
 
-The root [wrangler.jsonc](wrangler.jsonc) declares the one Worker, D1 database, private R2 bucket,
-Email Sending binding, rate limiter, and daily cron. Wrangler provisions the declared D1 and R2
+The root [wrangler.jsonc](wrangler.jsonc) declares the one Worker, D1 database, private R2 buckets,
+Email Sending binding, and rate limiter; automatic retention cron is disabled. Wrangler provisions the declared D1 and R2
 resources when the deployment first needs them; no resource IDs are copied into the repository.
 
 Before a real deployment, authenticate Wrangler to the intended Cloudflare account and run the
@@ -121,7 +121,7 @@ atomically creates the owner, primary mailbox, owner membership, application ori
 and retention settings in D1. Until setup completes, inbound email is rejected, retention is idle,
 and protected API routes fail closed.
 
-Email Sending domain verification, attachment upload configuration, and activation of an Email
+Email Sending domain verification and activation of an Email
 Routing rule remain explicit Cloudflare Dashboard owner actions. Deploying code never switches an
 existing route or touches a legacy Worker or data store.
 
@@ -162,8 +162,8 @@ can download immediately without signing in. Links have no expiration, and forwa
 shares access. Webmail imposes no file-size or file-count quota; Cloudflare service and email-body
 limits still apply. Upload progress, retries, and removal from a draft are supported.
 
-See [attachment setup](docs/operations.md#attachment-uploads) for the bucket-scoped R2 credentials
-and browser CORS configuration. Local development and tests use local R2 and need no credentials.
+See [attachment setup](docs/operations.md#attachment-uploads) for deployment details. Uploads and
+downloads use the Worker’s R2 binding; no R2 S3 credentials or bucket CORS policy are needed.
 
 The application performs no AI inference and sends mailbox content to no AI service. Report
 vulnerabilities through [SECURITY.md](SECURITY.md).

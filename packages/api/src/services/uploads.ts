@@ -1,4 +1,3 @@
-import { AwsClient } from 'aws4fetch'
 import type { UploadedFile } from '@cloudflare-inbox/db'
 import { buildContentDisposition } from '@cloudflare-inbox/mail-core'
 import { ApiFault } from '../http'
@@ -13,45 +12,6 @@ export function uploadPartSize(size: number): number {
 export function attachmentBucket(env: ApiBindings): R2Bucket {
   if (!env.ATTACHMENTS) throw new ApiFault('service_unavailable')
   return env.ATTACHMENTS
-}
-
-export function localUploads(env: ApiBindings): boolean {
-  const url = new URL(env.APP_ORIGIN)
-  return url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
-}
-
-export function requireUploadConfiguration(env: ApiBindings): void {
-  attachmentBucket(env)
-  if (localUploads(env)) return
-  if (
-    !env.R2_ACCOUNT_ID ||
-    !/^[a-f0-9]{32}$/u.test(env.R2_ACCOUNT_ID) ||
-    !env.R2_ACCESS_KEY_ID ||
-    !env.R2_SECRET_ACCESS_KEY
-  )
-    throw new ApiFault('service_unavailable')
-}
-
-export async function presignPart(
-  env: ApiBindings,
-  file: UploadedFile,
-  part: number,
-): Promise<string> {
-  requireUploadConfiguration(env)
-  if (localUploads(env)) return `/api/v1/uploads/${file.id}/parts/${part}/local`
-  const client = new AwsClient({
-    accessKeyId: env.R2_ACCESS_KEY_ID!,
-    secretAccessKey: env.R2_SECRET_ACCESS_KEY!,
-    service: 's3',
-    region: 'auto',
-  })
-  const url = new URL(
-    `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/simple-inbox-cf-attachments/${file.objectKey}`,
-  )
-  url.searchParams.set('uploadId', file.multipartId)
-  url.searchParams.set('partNumber', String(part))
-  url.searchParams.set('X-Amz-Expires', '900')
-  return (await client.sign(url, { method: 'PUT', aws: { signQuery: true } })).url
 }
 
 export async function uploadedFileResponse(

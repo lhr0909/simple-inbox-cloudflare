@@ -14,7 +14,7 @@ Cloudflare Cron -- scheduled() ----------------> Email Sending
 ```
 
 D1 holds queryable mailbox state. A private R2 bucket holds canonical raw `.eml` objects. The
-browser uses authenticated APIs, with scoped presigned URLs for attachment uploads.
+browser uses authenticated APIs, including streamed attachment uploads through the Worker’s R2 binding.
 
 ## What is included
 
@@ -50,7 +50,7 @@ such as `owner@example.test`, `mail.example.test`, and `inbox@mail.example.test`
 installation records atomically; until it succeeds, protected APIs fail closed, inbound mail is
 rejected, and retention stays idle.
 
-Email Sending domain verification, attachment credentials and CORS, and Email Routing activation remain
+Email Sending domain verification, bucket lifecycle changes, and Email Routing activation remain
 explicit Cloudflare Dashboard owner steps.
 
 ## One-click deployment
