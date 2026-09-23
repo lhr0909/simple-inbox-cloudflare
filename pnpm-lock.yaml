@@ -372,6 +372,9 @@ importers:
       '@cloudflare-inbox/mail':
         specifier: workspace:*
         version: link:../../packages/mail
+      '@cloudflare-inbox/mail-core':
+        specifier: workspace:*
+        version: link:../../packages/mail-core
       '@fontsource-variable/geist':
         specifier: 'catalog:'
         version: 5.3.0

@@ -123,3 +123,18 @@ already in To, Cc, or Bcc receives no duplicate. This applies to future sends on
 Forwarded customer replies and webmail replies include threading headers to help your email client
 keep both sides of the conversation together. Copies arrive as delivered mail; this does not place
 messages directly into another provider's Sent folder.
+
+## Markdown and image previews
+
+Compose and reply offer **Write**, **Preview**, and **Plain text** tabs. Format messages with headings,
+bold, italics, lists, quotes, code, links, and images. Raw HTML is displayed as text. Upload a file,
+then use **Insert link** or **Insert image** to place it at the cursor. Supported uploaded images
+include PNG, JPEG, GIF, WebP, AVIF, and BMP; other files remain download links.
+
+Previews do not publish uploads. Links become available when the message is sent, including when
+delivery is uncertain. Anyone with a sent attachment link can access it. Email clients may block
+remote images until the recipient chooses to load them. Markdown formatting is removed from the
+plain-text version, while descriptive links and attachment download URLs remain.
+
+Received HTML previews use readable font, padding, and image defaults while keeping the sender's
+explicit styles. This improves older retained mail too; no migration or rewrite is needed.

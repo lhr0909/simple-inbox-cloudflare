@@ -134,6 +134,16 @@ Deploy this public repository using Cloudflare's one-click flow:
 Cloudflare's deploy button requires a public GitHub or GitLab repository. See Cloudflare's
 [Deploy to Cloudflare button documentation](https://developers.cloudflare.com/workers/platform/deploy-buttons/).
 
+## Markdown email editor
+
+Compose and reply support Markdown headings, emphasis, lists, quotes, code, links, and images.
+Use **Write**, **Preview**, and **Plain text** to review both versions before sending. Upload a file,
+then choose **Insert link** or **Insert image** to place it in the body. Download cards remain below
+the message. Images use permanent R2-backed links; email clients may ask recipients to load images.
+
+Received HTML previews have minimal typography, padding, and responsive-image defaults. The sender's
+own styles take precedence. Preview styling does not rewrite stored mail or forwarded email.
+
 ## Sent-mail copies
 
 Mailbox settings includes **Copy sent mail to forwarding address**, enabled by default for existing

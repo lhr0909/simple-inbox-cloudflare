@@ -1,4 +1,5 @@
-import { AttachmentPicker, useAttachmentUploads } from './attachment-picker'
+import { MarkdownEmailEditor, useEmailPreview } from './markdown-email-editor'
+import { useAttachmentUploads } from './attachment-picker'
 import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import CheckCircleIcon from 'lucide-react/dist/esm/icons/circle-check.mjs'
@@ -10,7 +11,6 @@ import type { ComposeStatus } from './inbox-types'
 import { Button } from '#/components/ui/button'
 import { Field, FieldGroup, FieldLabel } from '#/components/ui/field'
 import { Input } from '#/components/ui/input'
-import { Textarea } from '#/components/ui/textarea'
 
 import type { InboxData } from './inbox-types'
 
@@ -35,6 +35,7 @@ export function NewMessageDialog({
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const uploads = useAttachmentUploads()
+  const preview = useEmailPreview(body, uploads)
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID())
   const [status, setStatus] = useState<ComposeStatus>('idle')
   const [statusMessage, setStatusMessage] = useState('')
@@ -63,6 +64,7 @@ export function NewMessageDialog({
       onCompose === undefined ||
       locked ||
       uploads.blocked ||
+      Boolean(preview.error) ||
       !to.trim() ||
       !body.trim()
     ) {
@@ -213,29 +215,29 @@ export function NewMessageDialog({
               value={subject}
             />
           </Field>
-          <Field>
-            <FieldLabel className="sr-only" htmlFor={`${id}-body`}>
-              Message
-            </FieldLabel>
-            <Textarea
-              className="min-h-48 resize-y"
-              disabled={locked}
-              id={`${id}-body`}
-              onChange={(event) => {
-                setBody(event.currentTarget.value)
-                draftChanged()
-              }}
-              placeholder="Write a message… Markdown is supported."
-              required
-              value={body}
-            />
-          </Field>
-          <AttachmentPicker uploads={uploads} disabled={locked} onChange={draftChanged} />
+          <MarkdownEmailEditor
+            id={`${id}-body`}
+            value={body}
+            uploads={uploads}
+            preview={preview}
+            disabled={locked}
+            onChange={(value) => {
+              setBody(value)
+              draftChanged()
+            }}
+          />
         </FieldGroup>
 
         <div className="mt-5 flex flex-wrap items-center gap-2 border-t pt-4">
           <Button
-            disabled={mailbox === null || locked || uploads.blocked || !to.trim() || !body.trim()}
+            disabled={
+              mailbox === null ||
+              locked ||
+              uploads.blocked ||
+              Boolean(preview.error) ||
+              !to.trim() ||
+              !body.trim()
+            }
             type="submit"
           >
             <SendIcon aria-hidden="true" className="size-4" />

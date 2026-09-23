@@ -22,6 +22,7 @@
     "@cloudflare-inbox/contracts": "workspace:*",
     "@cloudflare-inbox/db": "workspace:*",
     "@cloudflare-inbox/mail": "workspace:*",
+    "@cloudflare-inbox/mail-core": "workspace:*",
     "@fontsource-variable/geist": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "catalog:",

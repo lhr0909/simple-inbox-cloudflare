@@ -21,7 +21,7 @@ export async function uploadAttachment(
   file: File,
   progress: (percent: number) => void = () => {},
   signal?: AbortSignal,
-): Promise<string> {
+): Promise<{ id: string; downloadUrl: string }> {
   const session = UploadSessionSchema.parse(
     await jsonRequest(
       '/api/v1/uploads',
@@ -35,7 +35,7 @@ export async function uploadAttachment(
   )
   if (session.complete) {
     progress(100)
-    return session.id
+    return { id: session.id, downloadUrl: session.downloadUrl }
   }
   const parts: Array<{ partNumber: number; etag: string }> = []
   for (let offset = 0; offset < file.size; offset += session.partSize) {
@@ -61,7 +61,7 @@ export async function uploadAttachment(
   }
   await jsonRequest(`/api/v1/uploads/${session.id}/complete`, { parts }, signal)
   progress(100)
-  return session.id
+  return { id: session.id, downloadUrl: session.downloadUrl }
 }
 
 function putPart(
