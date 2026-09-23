@@ -1,6 +1,6 @@
 import { UploadedFileRepository, type UploadedFile } from '@cloudflare-inbox/db'
 import {
-  escapeHtml,
+  appendEmailAttachmentLinks,
   MAX_MESSAGE_PROJECTION_BODY_BYTES,
   messageProjectionBodyBytes,
   type RenderedMessageContent,
@@ -31,15 +31,11 @@ export function appendLinkedAttachments(
   files: readonly UploadedFile[],
   origin: string,
 ): RenderedMessageContent {
-  if (!files.length) return content
   const links = files.map((file) => ({
     ...file,
     url: `${origin}/api/v1/downloads/${file.downloadToken}`,
   }))
-  const result = {
-    text: `${content.text}\n\nAttachments\n${links.map((file) => `${file.filename} (${file.size.toLocaleString('en-US')} bytes): ${file.url}`).join('\n')}`,
-    html: `${content.html}<div style="margin-top:24px;padding:16px;border:1px solid #ddd;border-radius:8px"><p style="margin:0 0 12px;font-weight:bold">Attachments</p>${links.map((file) => `<p style="margin:8px 0"><a href="${escapeHtml(file.url)}" style="color:#2563eb">${escapeHtml(file.filename)}</a> <span style="color:#666">(${file.size.toLocaleString('en-US')} bytes)</span></p>`).join('')}</div>`,
-  }
+  const result = appendEmailAttachmentLinks(content, links)
   if (
     messageProjectionBodyBytes(result) > MAX_MESSAGE_PROJECTION_BODY_BYTES ||
     result.text.length > 1_000_000

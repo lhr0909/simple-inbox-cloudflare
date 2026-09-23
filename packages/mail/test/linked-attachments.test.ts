@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { MAX_MESSAGE_PROJECTION_BODY_BYTES } from '@cloudflare-inbox/mail-core'
 import type { UploadedFile } from '@cloudflare-inbox/db'
 import { appendLinkedAttachments } from '../src/services/linked-attachments'
 
@@ -32,6 +33,15 @@ describe('linked email rendering', () => {
       `https://inbox.example.test/api/v1/downloads/${file.downloadToken}`,
     )
     expect(rendered.text).toContain('1,073,741,824 bytes')
+  })
+  it('checks the final styled body budget even without linked files', () => {
+    expect(() =>
+      appendLinkedAttachments(
+        { text: 'Body', html: 'x'.repeat(MAX_MESSAGE_PROJECTION_BODY_BYTES) },
+        [],
+        'https://inbox.example.test',
+      ),
+    ).toThrow(expect.objectContaining({ code: 'request_too_large', status: 413 }))
   })
   it('has no arbitrary file-count limit', () => {
     const rendered = appendLinkedAttachments(

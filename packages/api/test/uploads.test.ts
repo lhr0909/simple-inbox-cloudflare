@@ -34,6 +34,32 @@ describe('R2 upload and download boundaries', () => {
     expect(Math.ceil(largeSize / uploadPartSize(largeSize))).toBeLessThanOrEqual(10_000)
   })
 
+  it('serves public raster images inline but keeps active files download-only', async () => {
+    const bucket = {
+      get: async () => ({
+        etag: file.etag,
+        size: 4,
+        httpEtag: '"expected-etag"',
+        body: new Response('test').body,
+      }),
+    } as unknown as R2Bucket
+    const request = new Request('https://inbox.example.test/api/v1/downloads/token?inline=1')
+    const response = await uploadedFileResponse(
+      bucket,
+      { ...file, filename: 'screen.png', mediaType: 'image/png' },
+      request,
+    )
+    expect(response.headers.get('content-type')).toBe('image/png')
+    expect(response.headers.get('content-disposition')).toContain('inline;')
+    expect(response.headers.get('cross-origin-resource-policy')).toBe('cross-origin')
+    expect(response.headers.get('content-security-policy')).toBe("sandbox; default-src 'none'")
+    for (const mediaType of ['text/html', 'image/svg+xml', 'application/pdf']) {
+      await expect(uploadedFileResponse(bucket, { ...file, mediaType }, request)).rejects.toThrow(
+        'attachment_not_found',
+      )
+    }
+  })
+
   it('refuses a replaced object and forces potentially active content to download', async () => {
     const bucket = (etag: string) =>
       ({

@@ -19,7 +19,7 @@ const CONTENT_SECURITY_POLICY = [
   "font-src 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
-  "img-src 'self' data:",
+  "img-src 'self' data: blob: https:",
   "object-src 'none'",
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
@@ -151,9 +151,14 @@ function secureResponse(request: Request, response: Response, fallbackRequestId:
     /^\/api\/v1\/messages\/[0-9a-f-]+\/html$/u.test(new URL(request.url).pathname) &&
     headers.get('content-type')?.startsWith('text/html') &&
     headers.get('content-security-policy')?.startsWith('sandbox ')
-  if (!isHtmlPreview) headers.set('content-security-policy', CONTENT_SECURITY_POLICY)
+  const isSharedImage =
+    /^\/api\/v1\/downloads\/[a-f0-9]{64}$/u.test(new URL(request.url).pathname) &&
+    headers.get('content-disposition')?.startsWith('inline;') &&
+    headers.get('cross-origin-resource-policy') === 'cross-origin'
+  if (!isHtmlPreview && !isSharedImage)
+    headers.set('content-security-policy', CONTENT_SECURITY_POLICY)
   headers.set('cross-origin-opener-policy', 'same-origin')
-  headers.set('cross-origin-resource-policy', 'same-origin')
+  headers.set('cross-origin-resource-policy', isSharedImage ? 'cross-origin' : 'same-origin')
   headers.set('permissions-policy', 'camera=(), geolocation=(), microphone=()')
   headers.set('referrer-policy', 'no-referrer')
   headers.set('x-content-type-options', 'nosniff')

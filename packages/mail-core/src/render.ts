@@ -1,9 +1,19 @@
 import { containsControlCharacters, replaceControlCharacters } from './text'
 
+export interface MarkdownAttachment {
+  id: string
+  filename: string
+  url: string
+  imageUrl?: string
+}
+
+export const RASTER_IMAGE_TYPE = /^image\/(?:png|jpeg|gif|webp|avif|bmp)$/u
+
 export type MessageContentSource = 'inbound' | 'app'
 
 export interface MessageContentInput {
   source: MessageContentSource
+  attachments?: readonly MarkdownAttachment[]
   text?: string | null
   markdown?: string | null
   html?: string | null
@@ -38,11 +48,14 @@ export function renderSafeMessageContent(input: MessageContentInput): RenderedMe
     const boundedMarkdown = markdownWasTruncated
       ? boundedUtf8Prefix(normalizedMarkdown, MAX_RENDERED_TEXT_CHARACTERS, MAX_RENDERED_TEXT_BYTES)
       : normalizedMarkdown
-    const text = boundPlainText(markdownToPlainText(boundedMarkdown), markdownWasTruncated)
+    const text = boundPlainText(
+      markdownToPlainText(boundedMarkdown, input.attachments),
+      markdownWasTruncated,
+    )
 
     return boundedMessageContent(
       text,
-      renderMarkdownToSafeHtml(boundedMarkdown),
+      renderMarkdownToSafeHtml(boundedMarkdown, input.attachments),
       markdownWasTruncated,
     )
   }
@@ -76,7 +89,10 @@ export function renderPlainTextToSafeHtml(input: string): string {
     .join('\n')
 }
 
-export function renderMarkdownToSafeHtml(input: string): string {
+export function renderMarkdownToSafeHtml(
+  input: string,
+  attachments: readonly MarkdownAttachment[] = [],
+): string {
   const source = normalizeBodyText(input).replace(/[\ue000-\uf8ff]/gu, '')
   if (!source) return '<p></p>'
   const lines = source.split('\n')
@@ -105,7 +121,7 @@ export function renderMarkdownToSafeHtml(input: string): string {
     const heading = line.match(/^\s{0,3}(#{1,6})\s+(.+)$/u)
     if (heading) {
       const level = heading[1]?.length ?? 1
-      output.push(`<h${level}>${renderInlineMarkdown(heading[2] ?? '')}</h${level}>`)
+      output.push(`<h${level}>${renderInlineMarkdown(heading[2] ?? '', attachments)}</h${level}>`)
       index += 1
       continue
     }
@@ -117,7 +133,7 @@ export function renderMarkdownToSafeHtml(input: string): string {
         index += 1
       }
       output.push(
-        `<blockquote>${renderInlineMarkdown(quoted.join('\n')).replaceAll('\n', '<br>\n')}</blockquote>`,
+        `<blockquote>${renderInlineMarkdown(quoted.join('\n'), attachments).replaceAll('\n', '<br>\n')}</blockquote>`,
       )
       continue
     }
@@ -130,7 +146,7 @@ export function renderMarkdownToSafeHtml(input: string): string {
       while (index < lines.length) {
         const item = (lines[index] ?? '').match(itemPattern)
         if (!item) break
-        items.push(`<li>${renderInlineMarkdown(item[1] ?? '')}</li>`)
+        items.push(`<li>${renderInlineMarkdown(item[1] ?? '', attachments)}</li>`)
         index += 1
       }
       const tag = ordered ? 'ol' : 'ul'
@@ -148,26 +164,59 @@ export function renderMarkdownToSafeHtml(input: string): string {
       paragraph.push(lines[index] ?? '')
       index += 1
     }
-    output.push(`<p>${renderInlineMarkdown(paragraph.join('\n')).replaceAll('\n', '<br>\n')}</p>`)
+    output.push(
+      `<p>${renderInlineMarkdown(paragraph.join('\n'), attachments).replaceAll('\n', '<br>\n')}</p>`,
+    )
   }
   return output.join('\n')
 }
 
-export function markdownToPlainText(input: string): string {
+export function markdownToPlainText(
+  input: string,
+  attachments: readonly MarkdownAttachment[] = [],
+): string {
+  const protectedText: string[] = []
+  const protect = (value: string) => `\ue000${protectedText.push(value) - 1}\ue001`
   return normalizeBodyText(input)
-    .replace(/^[ \t]*```[^\n]*$/gmu, '')
-    .replace(/^[ \t]*```[ \t]*$/gmu, '')
-    .replace(/!\[([^\]]*)\]\([^)]*\)/gu, '$1')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/gu, '$1 ($2)')
+    .replace(/[\ue000-\uf8ff]/gu, '')
+    .replace(
+      /^[ \t]*```[^\n]*\n([\s\S]*?)(?:^[ \t]*```[ \t]*$|(?![\s\S]))/gmu,
+      (_match, code: string) => protect(code.trimEnd()),
+    )
+    .replace(/`([^`\n]+)`/gu, (_match, code: string) => protect(code))
+    .replace(/!?\[([^\]\n]*)\]\(([^)\s]+)\)/gu, (_match, label: string, destination: string) => {
+      const url =
+        attachmentDestination(destination, attachments, false) ?? safeLinkDestination(destination)
+      return protect(url ? `${label || 'Image'} (${url})` : label)
+    })
     .replace(/^[ \t]{0,3}#{1,6}[ \t]+/gmu, '')
     .replace(/^[ \t]*>[ \t]?/gmu, '')
     .replace(/^[ \t]*(?:[-+*]|\d+\.)[ \t]+/gmu, '')
-    .replace(/(`{1,2}|\*{1,2}|_{1,2}|~~)/gu, '')
+    .replace(/\*\*([^*\n]+)\*\*/gu, '$1')
+    .replace(/__([^_\n]+)__/gu, '$1')
+    .replace(/\*([^*\n]+)\*/gu, '$1')
+    .replace(/(?<![\p{L}\p{N}])_([^_\n]+)_(?![\p{L}\p{N}])/gu, '$1')
+    .replace(/~~([^~\n]+)~~/gu, '$1')
+    .replace(/\ue000(\d+)\ue001/gu, (_match, index: string) => protectedText[Number(index)] ?? '')
     .replace(/\n{3,}/gu, '\n\n')
     .trim()
 }
 
-function renderInlineMarkdown(input: string): string {
+function attachmentDestination(
+  destination: string,
+  attachments: readonly MarkdownAttachment[],
+  image: boolean,
+): string | null {
+  if (!destination.startsWith('attachment:')) return null
+  const file = attachments.find((file) => file.id === destination.slice('attachment:'.length))
+  if (!file || (image && !file.imageUrl))
+    throw new Error(
+      'A referenced attachment is missing or cannot be displayed as an image. Remove its reference or attach the file again.',
+    )
+  return image ? file.imageUrl! : file.url
+}
+
+function renderInlineMarkdown(input: string, attachments: readonly MarkdownAttachment[]): string {
   const replacements: string[] = []
   const placeholder = (html: string): string => {
     const index = replacements.push(html) - 1
@@ -178,9 +227,22 @@ function renderInlineMarkdown(input: string): string {
     placeholder(`<code>${escapeHtml(code)}</code>`),
   )
   value = value.replace(
+    /!\[([^\]\n]*)\]\(([^)\s]+)\)/gu,
+    (_match, alt: string, destination: string) => {
+      const source =
+        attachmentDestination(destination, attachments, true) ?? safeImageDestination(destination)
+      return placeholder(
+        source
+          ? `<img src="${escapeHtml(source)}" alt="${escapeHtml(alt)}" style="max-width:100%;height:auto;border:0" />`
+          : escapeHtml(alt),
+      )
+    },
+  )
+  value = value.replace(
     /\[([^\]\n]+)\]\(([^)\s]+)\)/gu,
     (_match, label: string, destination: string) => {
-      const safeDestination = safeLinkDestination(destination)
+      const safeDestination =
+        attachmentDestination(destination, attachments, false) ?? safeLinkDestination(destination)
       if (!safeDestination) return label
       return placeholder(
         `<a href="${escapeHtml(safeDestination)}" rel="nofollow noopener noreferrer">${escapeHtml(label)}</a>`,
@@ -192,12 +254,18 @@ function renderInlineMarkdown(input: string): string {
     .replace(/\*\*([^*\n]+)\*\*/gu, '<strong>$1</strong>')
     .replace(/__([^_\n]+)__/gu, '<strong>$1</strong>')
     .replace(/\*([^*\n]+)\*/gu, '<em>$1</em>')
-    .replace(/_([^_\n]+)_/gu, '<em>$1</em>')
+    .replace(/(?<![\p{L}\p{N}])_([^_\n]+)_(?![\p{L}\p{N}])/gu, '<em>$1</em>')
+    .replace(/~~([^~\n]+)~~/gu, '<del>$1</del>')
 
   return value.replace(/\ue000(\d+)\ue001/gu, (_match, rawIndex: string) => {
     const replacement = replacements[Number(rawIndex)]
     return replacement ?? ''
   })
+}
+
+function safeImageDestination(value: string): string | null {
+  const destination = safeLinkDestination(value)
+  return destination?.startsWith('https://') ? destination : null
 }
 
 function safeLinkDestination(input: string): string | null {
@@ -323,12 +391,13 @@ function boundSafeHtml(
 
       const opening = token.match(/^<([a-z][a-z0-9]*)(?:\s[^<>]*)?>$/u)
       const tag = opening?.[1]
-      const addedClosingBytes = tag && tag !== 'br' ? utf8ByteLength(`</${tag}>`) : 0
+      const addedClosingBytes =
+        tag && tag !== 'br' && tag !== 'img' ? utf8ByteLength(`</${tag}>`) : 0
       if (!fitsWithRequiredSuffix(token, closingBytes + addedClosingBytes)) break
 
       output.push(token)
       outputBytes += utf8ByteLength(token)
-      if (tag && tag !== 'br') {
+      if (tag && tag !== 'br' && tag !== 'img') {
         openElements.push(tag)
         closingBytes += addedClosingBytes
       }
@@ -396,7 +465,7 @@ function normalizeGeneratedHtmlStructure(value: string): string {
       }
     } else {
       output.push(token)
-      if (tag !== 'br') openElements.push(tag)
+      if (tag !== 'br' && tag !== 'img') openElements.push(tag)
     }
     cursor = index + token.length
   }

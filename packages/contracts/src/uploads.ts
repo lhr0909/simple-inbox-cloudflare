@@ -15,6 +15,7 @@ export const UploadSessionSchema = z
     id: AttachmentIdSchema,
     partSize: z.number().int().positive(),
     complete: z.boolean(),
+    downloadUrl: z.string().url(),
   })
   .strict()
   .openapi('UploadSession')

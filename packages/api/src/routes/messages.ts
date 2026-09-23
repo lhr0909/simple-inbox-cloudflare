@@ -183,6 +183,7 @@ async function forwardSend(
     throw new ApiFault('send_unknown')
   }
 
+  if (response.status === 400) throw new ApiFault('validation_failed')
   if (response.status === 409) throw new ApiFault('idempotency_conflict')
   if (response.status === 413) throw new ApiFault('request_too_large')
   if (response.status === 429) throw new ApiFault('rate_limited')

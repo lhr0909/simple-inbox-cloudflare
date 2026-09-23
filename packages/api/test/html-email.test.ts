@@ -5,6 +5,17 @@ import { htmlPreviewResponse, renderEmailDocument } from '../src/services/html-e
 const png = Uint8Array.from([137, 80, 78, 71]).buffer
 
 describe('isolated HTML email documents', () => {
+  it('adds readable typography and spacing without overriding sender styles', () => {
+    const html = renderEmailDocument(
+      '<div>Hello from a support reply.</div><img src="https://example.test/screen.png">',
+      [],
+    )
+    expect(html).toContain(
+      ':where(body){margin:0;padding:20px;font-family:Arial, Helvetica, sans-serif;font-size:15px;line-height:1.6',
+    )
+    expect(html).toContain(':where(img){max-width:100%;height:auto}')
+  })
+
   it('preserves email layout and resolves only raster inline images', () => {
     const html = renderEmailDocument(
       '<style>.offer{color:red}</style><table cellpadding="8"><tr><td style="background:#abc"><strong>Offer</strong><img src="cid:logo"><img src="https://images.example.test/logo.png"><img src="cid:vector"></td></tr></table>',

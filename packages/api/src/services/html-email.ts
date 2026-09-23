@@ -1,3 +1,4 @@
+import { EMAIL_PREVIEW_CSS } from '@cloudflare-inbox/mail-core'
 import sanitizeHtml from 'sanitize-html'
 import { parse, serialize } from 'parse5'
 import type { Attachment } from 'postal-mime'
@@ -109,8 +110,7 @@ export function renderEmailDocument(html: string, attachments: Attachment[]): st
   })
   // Keep the document's body/root styling and head CSS. Low-specificity defaults
   // precede sender styles, so presentation attributes and newsletter rules can win.
-  const defaults =
-    '<meta charset="utf-8"><meta name="referrer" content="no-referrer"><style>:where(body){margin:0;overflow-wrap:anywhere;color:#111;background:#fff}:where(img){max-width:100%;height:auto}</style>'
+  const defaults = `<meta charset="utf-8"><meta name="referrer" content="no-referrer"><style>${EMAIL_PREVIEW_CSS}</style>`
   const document = `<!doctype html>${cleaned.replace('<head>', `<head>${defaults}`)}`
   if (new TextEncoder().encode(document).byteLength > MAX_PREVIEW_BYTES) {
     throw new ApiFault('request_too_large')

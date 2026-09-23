@@ -120,6 +120,17 @@ describe('internal outbound submission', () => {
     },
   )
 
+  it('rejects a missing embedded attachment before claiming or sending mail', async () => {
+    const store = new FakeMailStore()
+    const runtime = createFakeEnvironment()
+    const prepared = await newMessage({ body: '![Missing](attachment:missing)' })
+    await expect(
+      submitInternalSend(prepared, runtime.env, createDependencies(store)),
+    ).rejects.toMatchObject({ code: 'validation_failed', status: 400 })
+    expect(runtime.sent).toHaveLength(0)
+    expect(store.sends.size).toBe(0)
+  })
+
   it('rejects a conflicting reuse without a second provider call', async () => {
     const store = new FakeMailStore()
     const runtime = createFakeEnvironment()
@@ -362,6 +373,7 @@ describe('internal outbound submission', () => {
 })
 
 type NewMessageOptions = {
+  body?: string
   attachments?: File[]
   bcc?: Array<{ address: string; displayName?: string }>
   cc?: Array<{ address: string; displayName?: string }>
@@ -383,7 +395,7 @@ async function newMessage(options: NewMessageOptions = {}): Promise<PreparedInte
             })),
           }),
       ...(options.bcc === undefined ? {} : { bcc: options.bcc }),
-      body: 'A synthetic outbound body.',
+      body: options.body ?? 'A synthetic outbound body.',
       ...(options.cc === undefined ? {} : { cc: options.cc }),
       format: 'markdown' as const,
       mailboxId: MAILBOX_ID,

@@ -10,3 +10,5 @@ export * from './reply'
 export * from './storage'
 export * from './threading'
 export * from './spam'
+
+export * from './email-presentation'
