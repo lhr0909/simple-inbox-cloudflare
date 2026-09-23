@@ -15,6 +15,63 @@ import {
 } from '../src/render'
 
 describe('safe body rendering', () => {
+  it('renders owned file links and responsive images while keeping the text alternative clean', () => {
+    const attachments = [
+      {
+        id: 'file-1',
+        filename: 'screen.png',
+        url: 'https://inbox.example.test/downloads/file_1',
+        imageUrl: 'https://inbox.example.test/downloads/file_1?inline=1',
+      },
+    ]
+    const content = renderSafeMessageContent({
+      source: 'app',
+      attachments,
+      markdown:
+        '## Instructions\n\n**Open** the _settings_.\n\n![Settings screen](attachment:file-1)\n\n[Download screenshot](attachment:file-1)',
+    })
+    expect(content.html).toContain('<h2>Instructions</h2>')
+    expect(content.html).toContain('<strong>Open</strong>')
+    expect(content.html).toContain('<em>settings</em>')
+    expect(content.html).toContain('src="https://inbox.example.test/downloads/file_1?inline=1"')
+    expect(content.html).toContain('max-width:100%;height:auto')
+    expect(content.html).not.toContain('</img>')
+    expect(content.text).toBe(
+      'Instructions\n\nOpen the settings.\n\nSettings screen (https://inbox.example.test/downloads/file_1)\n\nDownload screenshot (https://inbox.example.test/downloads/file_1)',
+    )
+  })
+
+  it('preserves literal code and underscores in the plain-text version', () => {
+    const content = renderSafeMessageContent({
+      source: 'app',
+      markdown:
+        'File receipt_backup.zip and `a_b * c`.\n\n```js\nconst a_b = 2 * 3;\nconst reference = "[literal](attachment:missing)";\n```',
+    })
+    expect(content.text).toContain('receipt_backup.zip and a_b * c')
+    expect(content.text).toContain(
+      'const a_b = 2 * 3;\nconst reference = "[literal](attachment:missing)";',
+    )
+    expect(content.html).not.toContain('<em>backup</em>')
+  })
+
+  it('refuses missing or non-image attachment references and excludes active image destinations', () => {
+    expect(() =>
+      renderSafeMessageContent({ source: 'app', markdown: '[Missing](attachment:missing)' }),
+    ).toThrow('referenced attachment')
+    expect(() =>
+      renderSafeMessageContent({
+        source: 'app',
+        markdown: '![Wrong](attachment:file)',
+        attachments: [{ id: 'file', filename: 'file.txt', url: 'https://example.test/file' }],
+      }),
+    ).toThrow('referenced attachment')
+    const html = renderMarkdownToSafeHtml(
+      '![No](javascript:evil) ![Vector](data:image/svg+xml;base64,AAAA) ![Safe](https://example.test/image.png) <script>evil()</script>',
+    )
+    expect(html.match(/<img /gu)).toHaveLength(1)
+    expect(html).not.toMatch(/src="(?:javascript:|data:)|<script>/u)
+  })
+
   it('escapes every HTML-significant character in plain text', () => {
     expect(renderPlainTextToSafeHtml('<img src=x onerror="alert(1)"> & hi')).toBe(
       '<p>&lt;img src=x onerror=&quot;alert(1)&quot;&gt; &amp; hi</p>',

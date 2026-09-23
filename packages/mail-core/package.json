@@ -16,6 +16,14 @@
     "./testing": {
       "types": "./src/testing.ts",
       "import": "./src/testing.ts"
+    },
+    "./render": {
+      "types": "./src/render.ts",
+      "import": "./src/render.ts"
+    },
+    "./email-presentation": {
+      "types": "./src/email-presentation.ts",
+      "import": "./src/email-presentation.ts"
     }
   },
   "scripts": {

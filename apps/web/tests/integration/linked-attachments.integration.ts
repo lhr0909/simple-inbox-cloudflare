@@ -38,6 +38,76 @@ describe('linked attachment delivery', () => {
     })
   }
 
+  it('renders embedded uploaded images, keeps drafts private, and exposes only safe inline responses after sending', async () => {
+    const bytes = Uint8Array.from(
+      Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jMioAAAAASUVORK5CYII=',
+        'base64',
+      ),
+    )
+    const created = await post('/api/v1/uploads', {
+      filename: 'screen.png',
+      mediaType: 'image/png',
+      size: bytes.length,
+    })
+    const upload = (await created.json()) as { id: string; downloadUrl: string }
+    const path = new URL(upload.downloadUrl).pathname
+    const part = await workerFetch(`/api/v1/uploads/${upload.id}/parts/1`, {
+      method: 'PUT',
+      headers: sameOriginHeaders(harness.origin, cookie),
+      body: bytes,
+    })
+    expect(part.status).toBe(200)
+    const completed = await post(`/api/v1/uploads/${upload.id}/complete`, {
+      parts: [{ partNumber: 1, etag: part.headers.get('etag')! }],
+    })
+    expect(completed.status).toBe(204)
+    expect((await workerFetch(`${path}?inline=1`)).status).toBe(404)
+    async function send(body: string, key: string) {
+      const form = new FormData()
+      for (const [name, value] of Object.entries({
+        mailboxId: TEST_IDS.mailbox,
+        to: 'customer@example.test',
+        subject: 'Illustrated instructions',
+        body,
+        format: 'markdown',
+      }))
+        form.set(name, value)
+      form.append('linkedAttachmentIds', upload.id)
+      return fetch(new URL('/api/v1/messages', harness.origin), {
+        method: 'POST',
+        headers: { ...sameOriginHeaders(harness.origin, cookie), 'idempotency-key': key },
+        body: form,
+      })
+    }
+    expect((await send('[Missing](attachment:unknown)', 'missing-image-0000001')).status).toBe(400)
+    const sent = await send(
+      `## Instructions\n\n**Open** settings.\n\n![Settings screen](attachment:${upload.id})`,
+      'inline-image-0000001',
+    )
+    expect(sent.status, await sent.clone().text()).toBe(201)
+    const result = (await sent.json()) as { messageId: string }
+    const raw = await workerFetch(`/api/v1/messages/${result.messageId}/raw`, {
+      headers: { cookie },
+    })
+    const source = await raw.text()
+    const alternatives = [
+      ...source.matchAll(/Content-Transfer-Encoding: base64\r\n\r\n([A-Za-z0-9+/=\r\n]+)/gu),
+    ].map((part) => Buffer.from(part[1]!, 'base64').toString('utf8'))
+    expect(alternatives[0]).toContain('Open settings.')
+    expect(alternatives[0]).not.toMatch(/##|\*\*|attachment:/u)
+    expect(alternatives[1]).toContain(`<img src="${upload.downloadUrl}?inline=1"`)
+    expect(alternatives[1]).toContain('font-family:Arial')
+    const image = await workerFetch(`${path}?inline=1`)
+    expect(image.status).toBe(200)
+    expect(image.headers.get('content-type')).toBe('image/png')
+    expect(image.headers.get('content-disposition')).toContain('inline;')
+    expect(image.headers.get('cross-origin-resource-policy')).toBe('cross-origin')
+    expect(image.headers.get('content-security-policy')).toBe("sandbox; default-src 'none'")
+    expect(new Uint8Array(await image.arrayBuffer())).toEqual(bytes)
+    expect((await workerFetch(path)).headers.get('content-disposition')).toContain('attachment;')
+  })
+
   it('verifies multipart files, sends links, streams public downloads, and retains old mail', async () => {
     const firstPart = new Uint8Array(16 * 1024 * 1024).fill(65)
     const finalPart = new TextEncoder().encode('synthetic attachment end')

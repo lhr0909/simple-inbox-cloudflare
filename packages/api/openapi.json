@@ -1408,9 +1408,13 @@
           },
           "complete": {
             "type": "boolean"
+          },
+          "downloadUrl": {
+            "type": "string",
+            "format": "uri"
           }
         },
-        "required": ["id", "partSize", "complete"],
+        "required": ["id", "partSize", "complete", "downloadUrl"],
         "additionalProperties": false
       },
       "CreateUpload": {
@@ -4156,6 +4160,15 @@
             "required": true,
             "name": "token",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["1"]
+            },
+            "required": false,
+            "name": "inline",
+            "in": "query"
           }
         ],
         "responses": {

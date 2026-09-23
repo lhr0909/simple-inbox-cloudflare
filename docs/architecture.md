@@ -21,14 +21,14 @@ mail bindings and invokes their Hono handlers directly.
 
 ## Workspace responsibilities
 
-| Workspace            | Responsibility                                                       | May depend on             |
-| -------------------- | -------------------------------------------------------------------- | ------------------------- |
-| `apps/web`           | Worker entry, UI/SSR, docs, setup routing, public `/api/v1` bridge   | API, mail, db, contracts  |
-| `packages/api`       | Setup, HTTP contracts, auth, authorization, inbox orchestration      | contracts, db, mail-core  |
-| `packages/mail`      | Inbound capture, parsing, threading, forwarding, sending, retention  | contracts, db, mail-core  |
-| `packages/contracts` | Stable schemas, DTOs, IDs, errors, and API type surface              | runtime-neutral libraries |
-| `packages/db`        | Drizzle schema, migrations, installation and mailbox repositories    | contracts                 |
-| `packages/mail-core` | Runtime-neutral parsing, threading, rendering, encoding, limit rules | contracts                 |
+| Workspace            | Responsibility                                                       | May depend on                       |
+| -------------------- | -------------------------------------------------------------------- | ----------------------------------- |
+| `apps/web`           | Worker entry, UI/SSR, docs, setup routing, public `/api/v1` bridge   | API, mail, db, contracts, mail-core |
+| `packages/api`       | Setup, HTTP contracts, auth, authorization, inbox orchestration      | contracts, db, mail-core            |
+| `packages/mail`      | Inbound capture, parsing, threading, forwarding, sending, retention  | contracts, db, mail-core            |
+| `packages/contracts` | Stable schemas, DTOs, IDs, errors, and API type surface              | runtime-neutral libraries           |
+| `packages/db`        | Drizzle schema, migrations, installation and mailbox repositories    | contracts                           |
+| `packages/mail-core` | Runtime-neutral parsing, threading, rendering, encoding, limit rules | contracts                           |
 
 Workspace imports use package exports and `workspace:*`. Source-path imports across package
 boundaries remain forbidden, and `packages/tooling/scripts/check-boundaries.mjs` checks the dependency graph
@@ -46,6 +46,30 @@ unseen messages arriving concurrently remain unread.
 
 The initial server render supplies the mailbox and conversation list. Deep-linked conversation
 content loads after hydration, using the same path as subsequent selection and browser history.
+
+## Markdown composition
+
+The browser and mail service share runtime-neutral `mail-core` rendering and presentation helpers.
+Compose/reply use a Markdown textarea with formatting actions and Write/Preview/Plain text tabs.
+Raw HTML is escaped. The preview is a scriptless sandboxed `srcdoc` frame with a restrictive CSP;
+`allow-same-origin` permits local Blob image previews without enabling scripts, forms, or popups.
+Object URLs are revoked when files are removed or the composer unmounts. Receiving-email previews
+remain opaque-origin sandboxes with only the existing nonce-protected sizing helper.
+
+Uploads return their future download URL only to the authenticated sender. Body references use
+`attachment:<upload-id>`; delivery resolves them only against the current send's verified, owned
+`linkedAttachmentIds`. Missing or non-image references fail before the send claim and provider call.
+Plain text removes formatting while retaining descriptive link labels and actual download URLs.
+Both body variants retain attachment download cards. Generated HTML uses a minimal inline font style.
+
+`GET /api/v1/downloads/{token}?inline=1` streams only allowlisted raster image MIME types. It uses the
+same sent/sending/unknown association and object integrity checks as ordinary downloads. Other
+files, including SVG and HTML, cannot use inline mode. Inline responses include `nosniff`, a scriptless
+sandbox CSP, and cross-origin resource permission so recipient email clients can display images.
+Ordinary download links retain attachment disposition. No upload is published by previewing it.
+
+Received HTML documents receive zero-specificity font, padding, line-height, image, and quote defaults
+before sender CSS, preserving sender styles. Stored MIME and owner-forward HTML remain unchanged.
 
 ## HTML preferences
 

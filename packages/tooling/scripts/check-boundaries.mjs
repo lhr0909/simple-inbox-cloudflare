@@ -37,6 +37,7 @@ const ALLOWED_INTERNAL_DEPENDENCIES = new Map([
       `${INTERNAL_SCOPE}contracts`,
       `${INTERNAL_SCOPE}db`,
       `${INTERNAL_SCOPE}mail`,
+      `${INTERNAL_SCOPE}mail-core`,
     ]),
   ],
   [

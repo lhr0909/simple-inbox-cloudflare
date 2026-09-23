@@ -633,7 +633,10 @@ export const downloadSharedFileRoute = createRoute({
   path: '/v1/downloads/{token}',
   operationId: 'downloadSharedFile',
   tags: ['Attachments'],
-  request: { params: z.object({ token: z.string().regex(/^[a-f0-9]{64}$/u) }) },
+  request: {
+    params: z.object({ token: z.string().regex(/^[a-f0-9]{64}$/u) }),
+    query: z.object({ inline: z.enum(['1']).optional() }),
+  },
   responses: {
     200: { description: 'Attachment download' },
     206: { description: 'Partial attachment download' },

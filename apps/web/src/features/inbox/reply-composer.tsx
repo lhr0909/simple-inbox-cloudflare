@@ -1,4 +1,5 @@
-import { AttachmentPicker, useAttachmentUploads } from './attachment-picker'
+import { MarkdownEmailEditor, useEmailPreview } from './markdown-email-editor'
+import { useAttachmentUploads } from './attachment-picker'
 import { useContext, useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import CheckCircleIcon from 'lucide-react/dist/esm/icons/circle-check.mjs'
@@ -9,7 +10,6 @@ import { HydratedTimeContext, formatTime } from './inbox-primitives'
 import { Button } from '#/components/ui/button'
 import { Field, FieldGroup, FieldLabel } from '#/components/ui/field'
 import { Input } from '#/components/ui/input'
-import { Textarea } from '#/components/ui/textarea'
 
 import { defaultReplyRecipients, inboundReplyTargets, replySubject } from './inbox-model'
 import type { InboxData } from './inbox-types'
@@ -38,6 +38,7 @@ export function ReplyComposer({
   const [showCopies, setShowCopies] = useState(false)
   const [body, setBody] = useState('')
   const uploads = useAttachmentUploads()
+  const preview = useEmailPreview(body, uploads)
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID())
   const [status, setStatus] = useState<ComposeStatus>('idle')
   const [statusMessage, setStatusMessage] = useState('')
@@ -61,7 +62,15 @@ export function ReplyComposer({
 
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
-    if (locked || uploads.blocked || !body.trim() || !to.trim() || onReply === undefined) return
+    if (
+      locked ||
+      uploads.blocked ||
+      Boolean(preview.error) ||
+      !body.trim() ||
+      !to.trim() ||
+      onReply === undefined
+    )
+      return
     setStatus('sending')
     setStatusMessage('Sending your reply…')
     try {
@@ -196,29 +205,27 @@ export function ReplyComposer({
             </Field>
           </>
         ) : null}
-        <Field>
-          <FieldLabel className="sr-only" htmlFor={`${id}-body`}>
-            Message
-          </FieldLabel>
-          <Textarea
-            className="min-h-32 resize-y"
-            autoFocus
-            disabled={locked}
-            id={`${id}-body`}
-            onChange={(event) => {
-              setBody(event.currentTarget.value)
-              draftChanged()
-            }}
-            placeholder="Write a reply… Markdown is supported."
-            required
-            value={body}
-          />
-        </Field>
-        <AttachmentPicker uploads={uploads} disabled={locked} onChange={draftChanged} />
+        <MarkdownEmailEditor
+          id={`${id}-body`}
+          value={body}
+          uploads={uploads}
+          preview={preview}
+          disabled={locked}
+          autoFocus
+          onChange={(value) => {
+            setBody(value)
+            draftChanged()
+          }}
+        />
       </FieldGroup>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <Button disabled={locked || uploads.blocked || !body.trim() || !to.trim()} type="submit">
+        <Button
+          disabled={
+            locked || uploads.blocked || Boolean(preview.error) || !body.trim() || !to.trim()
+          }
+          type="submit"
+        >
           <SendIcon aria-hidden="true" className="size-4" />
           {status === 'sending' ? 'Sending…' : 'Send reply'}
         </Button>

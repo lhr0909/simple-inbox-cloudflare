@@ -149,6 +149,13 @@ On the first deployment, Wrangler creates/binds `simple-inbox-cf-db` and `simple
 their declarations. Later deployments reuse them and apply migrations before uploading new code.
 Neither command configures a sending domain, R2 lifecycle, custom domain, DNS, or Email Routing.
 
+## Markdown editor upgrade
+
+This upgrade adds shared browser/Worker Markdown rendering and an optional inline mode on existing
+public attachment URLs. It needs no D1 migration, R2 policy change, new binding, secret, or resource.
+Deploy the Worker and its matching assets together. Raster images remain private until their send
+is published. Ordinary attachment links continue to force a download, and retention is unchanged.
+
 ## Sent-copy upgrade
 
 Migration `0008_copy_sent_mail.sql` adds a default-on `forward_sent` mailbox preference. Existing

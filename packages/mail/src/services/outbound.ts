@@ -12,6 +12,8 @@ import {
 } from '@cloudflare-inbox/contracts'
 import {
   appendReference,
+  presentEmailHtml,
+  RASTER_IMAGE_TYPE,
   buildOutboundRawKey,
   checkProviderLimits,
   computeIdempotencyRequestDigest,
@@ -122,11 +124,28 @@ export async function submitInternalSend(
   let recipients: ReturnType<typeof normalizeCommandRecipients>
   let rendered: ReturnType<typeof renderSafeMessageContent>
   let uploadedAttachments: Array<{ bytes: Uint8Array; filename: string; mediaType: string }>
+  const linkedFiles = await resolveLinkedAttachments(
+    command.message.linkedAttachmentIds ?? [],
+    request.actor.userId,
+    env,
+  )
   try {
     recipients = normalizeCommandRecipients(command.message)
     rendered =
       command.message.format === 'markdown'
-        ? renderSafeMessageContent({ source: 'app', markdown: command.message.body })
+        ? renderSafeMessageContent({
+            source: 'app',
+            markdown: command.message.body,
+            attachments: linkedFiles.map((file) => {
+              const url = `${env.APP_ORIGIN}/api/v1/downloads/${file.downloadToken}`
+              return {
+                id: file.id,
+                filename: file.filename,
+                url,
+                ...(RASTER_IMAGE_TYPE.test(file.mediaType) ? { imageUrl: `${url}?inline=1` } : {}),
+              }
+            }),
+          })
         : renderSafeMessageContent({ source: 'app', text: command.message.body })
     uploadedAttachments = await Promise.all(
       attachments.map(async (file) => ({
@@ -138,11 +157,6 @@ export async function submitInternalSend(
   } catch {
     throw new MailFault('validation_failed', 400)
   }
-  const linkedFiles = await resolveLinkedAttachments(
-    command.message.linkedAttachmentIds ?? [],
-    request.actor.userId,
-    env,
-  )
   const copyDestination = context.mailbox.forwardSent ? context.mailbox.forwardTo : null
   if (
     copyDestination !== null &&
@@ -153,6 +167,7 @@ export async function submitInternalSend(
   ) {
     recipients.bcc.push({ address: copyDestination })
   }
+  rendered = { ...rendered, html: presentEmailHtml(rendered.html) }
   const projectedContent = rendered
   rendered = appendLinkedAttachments(rendered, linkedFiles, env.APP_ORIGIN)
   const limits = checkProviderLimits('user-send', {

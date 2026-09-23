@@ -54,7 +54,12 @@ export function registerUploadRoutes(
       await repository.complete(id, actor.userId, object.etag)
     }
     return context.json(
-      { id, partSize: uploadPartSize(input.size), complete: input.size === 0 },
+      {
+        id,
+        partSize: uploadPartSize(input.size),
+        complete: input.size === 0,
+        downloadUrl: `${context.env.APP_ORIGIN}/api/v1/downloads/${token}`,
+      },
       201,
     )
   })

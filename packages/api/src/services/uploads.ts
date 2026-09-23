@@ -1,5 +1,5 @@
 import type { UploadedFile } from '@cloudflare-inbox/db'
-import { buildContentDisposition } from '@cloudflare-inbox/mail-core'
+import { buildContentDisposition, RASTER_IMAGE_TYPE } from '@cloudflare-inbox/mail-core'
 import { ApiFault } from '../http'
 import type { ApiBindings } from '../types'
 
@@ -19,13 +19,23 @@ export async function uploadedFileResponse(
   file: UploadedFile,
   request: Request,
 ): Promise<Response> {
+  const inline = new URL(request.url).searchParams.get('inline') === '1'
+  if (inline && !RASTER_IMAGE_TYPE.test(file.mediaType)) throw new ApiFault('attachment_not_found')
   // Stream bytes; never buffer a potentially large file in the Worker.
   const object = await bucket.get(file.objectKey, { range: request.headers })
   if (!object || object.etag !== file.etag || object.size !== file.size)
     throw new ApiFault('attachment_not_found')
   const headers = new Headers({
-    'content-type': 'application/octet-stream',
-    'content-disposition': buildContentDisposition(file.filename),
+    'content-type': inline ? file.mediaType : 'application/octet-stream',
+    'content-disposition': inline
+      ? buildContentDisposition(file.filename).replace(/^attachment/u, 'inline')
+      : buildContentDisposition(file.filename),
+    ...(inline
+      ? {
+          'content-security-policy': "sandbox; default-src 'none'",
+          'cross-origin-resource-policy': 'cross-origin',
+        }
+      : {}),
     'cache-control': 'private, no-store',
     'x-content-type-options': 'nosniff',
     'referrer-policy': 'no-referrer',
