@@ -156,6 +156,7 @@ export interface MailStore {
     threadId?: string
   }): Promise<OutboundContext | undefined>
   getInboundForwardContext(messageId: string): Promise<InboundForwardContext | undefined>
+  findLatestOwnerForward(mailboxId: string, threadId: string): Promise<string | null>
   hasRawProjection(input: {
     direction: 'inbound' | 'outbound'
     mailboxId: string

@@ -149,6 +149,14 @@ On the first deployment, Wrangler creates/binds `simple-inbox-cf-db` and `simple
 their declarations. Later deployments reuse them and apply migrations before uploading new code.
 Neither command configures a sending domain, R2 lifecycle, custom domain, DNS, or Email Routing.
 
+## Forwarded-reply threading upgrade
+
+Future inbound forwards reference a previously delivered owner copy in the same mailbox and thread.
+This connects replies from external email clients despite the different Message-IDs assigned during
+forwarding and reply relay. Existing stored forward IDs work immediately; no migration, new binding,
+secret, or configuration change is needed. Deploy with the normal upgrade command. Previously
+delivered Gmail conversations are not rewritten or resent, and client-side regrouping is not guaranteed.
+
 ## Markdown editor upgrade
 
 This upgrade adds shared browser/Worker Markdown rendering and an optional inline mode on existing

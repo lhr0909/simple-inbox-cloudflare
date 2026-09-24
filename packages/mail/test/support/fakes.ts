@@ -219,6 +219,25 @@ export class FakeMailStore implements MailStore {
     return this.context
   }
 
+  async findLatestOwnerForward(mailboxId: string, threadId: string): Promise<string | null> {
+    return (
+      this.projects
+        .map(({ message }) => message)
+        .filter(
+          (message) =>
+            message.mailboxId === mailboxId &&
+            message.threadId === threadId &&
+            message.direction === 'inbound' &&
+            message.forwardState === 'forwarded' &&
+            message.providerMessageId !== null,
+        )
+        .sort(
+          (a, b) =>
+            (b.forwardAttemptedAt ?? 0) - (a.forwardAttemptedAt ?? 0) || b.id.localeCompare(a.id),
+        )[0]?.providerMessageId ?? null
+    )
+  }
+
   async getInboundForwardContext(messageId: string) {
     const projection = this.projects.find(({ message }) => message.id === messageId)
     if (projection === undefined || projection.message.receivedAt === null) return undefined

@@ -405,6 +405,24 @@ export class D1MailStore implements MailStore {
     return { mailbox: mailboxRecord(mailbox), messages: contextMessages, thread }
   }
 
+  async findLatestOwnerForward(mailboxId: string, threadId: string): Promise<string | null> {
+    const [forward] = await this.#db
+      .select({ providerMessageId: messages.providerMessageId })
+      .from(messages)
+      .where(
+        and(
+          eq(messages.mailboxId, mailboxId),
+          eq(messages.threadId, threadId),
+          eq(messages.direction, 'inbound'),
+          eq(messages.forwardState, 'forwarded'),
+          isNotNull(messages.providerMessageId),
+        ),
+      )
+      .orderBy(desc(messages.forwardAttemptedAt), desc(messages.id))
+      .limit(1)
+    return forward?.providerMessageId ?? null
+  }
+
   async getInboundForwardContext(messageId: string): Promise<InboundForwardContext | undefined> {
     const [message] = await this.#db
       .select({

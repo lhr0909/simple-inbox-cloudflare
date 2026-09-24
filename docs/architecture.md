@@ -112,7 +112,14 @@ and durable delivery claim. Recipient limits include the copy. A provider except
 ambiguous for the whole send and is never automatically retried. D1 records the effective Bcc
 recipient; canonical MIME omits Bcc headers. Reply-alias relays and authentication mail are unaffected.
 
-Inbound forwards now carry bounded `In-Reply-To` and `References` headers. Webmail replies keep the
+Inbound forwards carry bounded `In-Reply-To` and `References` headers. Before claiming a forward,
+we look up the latest successful inbound forward in the same mailbox and thread and add its provider
+Message-ID near the end of References. This bridges the customer-facing IDs to a copy the owner
+actually received, including replies relayed from Gmail or another external client. Pending, failed,
+and uncertain forwards cannot supply the bridge. A lookup failure leaves delivery unclaimed so an
+inbound replay can safely resume it. Original stored headers remain unchanged.
+
+Webmail replies keep the
 customer's original parent ID and include the owner's forwarded-copy ID in References when copying
 is enabled, connecting both histories despite Cloudflare generating a new ID for each forward.
 References are capped at Cloudflare's 2,048-byte header limit. Grouping remains the receiving email
