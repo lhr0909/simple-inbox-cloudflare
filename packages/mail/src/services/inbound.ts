@@ -486,6 +486,13 @@ async function deliverPendingOwnerForward(input: {
     return
   }
 
+  // Look up the owner-visible history before claiming delivery. A lookup failure
+  // leaves this forward pending so an inbound replay can safely resume it.
+  const ownerThreadReference = await input.store.findLatestOwnerForward(
+    input.mailbox.id,
+    input.threadId,
+  )
+
   const claimed = await input.store.claimPendingForward({
     messageId: input.messageId,
     now: input.dependencies.now(),
@@ -494,6 +501,7 @@ async function deliverPendingOwnerForward(input: {
 
   await forwardToOwner({
     alias,
+    ownerThreadReference,
     attachments: input.attachments,
     env: input.env,
     forwardTo: input.forwardTo,
@@ -507,6 +515,7 @@ async function deliverPendingOwnerForward(input: {
 }
 
 async function forwardToOwner(input: {
+  ownerThreadReference: string | null
   alias: ReplyAliasRecord
   attachments: Array<{ attachment: NormalizedAttachment; id: string; mimeOrdinal: number }>
   env: MailBindings
@@ -559,7 +568,13 @@ async function forwardToOwner(input: {
   const attemptedAt = input.now()
   const headers = threadingHeaders(
     input.parsed.inReplyTo,
-    appendReference(input.parsed.references, input.parsed.inReplyTo, { maxBytes: 2048 }),
+    // Relays and forwards have different provider IDs from the originals. Keep
+    // an ID the owner actually received near the tail so trimming preserves it.
+    appendReference(
+      appendReference(input.parsed.references, input.ownerThreadReference, { maxBytes: 2048 }),
+      input.parsed.inReplyTo,
+      { maxBytes: 2048 },
+    ),
   )
   try {
     const result = await input.env.EMAIL.send({
