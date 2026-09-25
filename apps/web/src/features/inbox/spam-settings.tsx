@@ -1,8 +1,18 @@
 import { useEffect, useState } from 'react'
+import { Tabs } from '@base-ui/react/tabs'
 import type { CreateSpamRule, SpamRulesResponse } from '@cloudflare-inbox/contracts/spam'
 import { SpamRulesResponseSchema } from '@cloudflare-inbox/contracts/spam'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
+
+const FILTERS = [
+  { value: 'all', label: 'All', empty: 'No blacklist rules.' },
+  { value: 'domain', label: 'Domains', empty: 'No blocked domains.' },
+  { value: 'recipient', label: 'Mailboxes', empty: 'No blocked mailboxes.' },
+  { value: 'sender', label: 'Email addresses', empty: 'No blocked sender email addresses.' },
+] as const
+
+type RuleFilter = (typeof FILTERS)[number]['value']
 
 export function SpamSettings({
   open,
@@ -14,6 +24,7 @@ export function SpamSettings({
   const [rules, setRules] = useState<SpamRulesResponse['rules']>([])
   const [kind, setKind] = useState<CreateSpamRule['kind']>('recipient')
   const [value, setValue] = useState('')
+  const [filter, setFilter] = useState<RuleFilter>('all')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   async function load(signal?: AbortSignal) {
@@ -50,6 +61,7 @@ export function SpamSettings({
       if (!response.ok) throw new Error('Invalid rule')
       if (!id) setValue('')
       await load()
+      if (!id) setFilter((current) => (current === 'all' ? current : kind))
       await onRulesChange?.()
     } catch {
       setError('Could not save blacklist. Check the address or domain and try again.')
@@ -107,36 +119,69 @@ export function SpamSettings({
           {error}
         </p>
       ) : null}
-      <ul className="max-h-48 space-y-2 overflow-y-auto">
-        {rules.map((rule) => (
-          <li key={rule.id} className="flex items-center gap-2 text-xs">
-            <span className="min-w-0 flex-1 break-all">
-              <span className="text-muted-foreground">
-                {rule.kind === 'recipient'
-                  ? 'Mailbox'
-                  : rule.kind === 'sender'
-                    ? 'Sender'
-                    : 'Domain'}{' '}
-                ·{' '}
-              </span>
-              {rule.value}
-            </span>
-            <Button
-              type="button"
-              size="xs"
-              variant="ghost"
-              disabled={busy}
-              aria-label={`Remove ${rule.value} from blacklist`}
-              onClick={() => void mutate(rule.id)}
+      <Tabs.Root value={filter} onValueChange={(next) => setFilter(next as RuleFilter)}>
+        <Tabs.List
+          aria-label="Blacklist categories"
+          className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1 sm:grid-cols-[auto_auto_auto_auto]"
+        >
+          {FILTERS.map((tab) => (
+            <Tabs.Tab
+              key={tab.value}
+              value={tab.value}
+              className="flex min-w-0 items-center justify-center gap-1.5 rounded-md px-2 py-2 text-xs whitespace-nowrap outline-none data-active:bg-background data-active:font-medium data-active:shadow-xs focus-visible:ring-2 focus-visible:ring-ring"
             >
-              Remove
-            </Button>
-          </li>
-        ))}
-      </ul>
-      {rules.length === 0 && !error ? (
-        <p className="text-xs text-muted-foreground">No blacklist rules.</p>
-      ) : null}
+              {tab.label}
+              <span className="text-muted-foreground tabular-nums">
+                {tab.value === 'all'
+                  ? rules.length
+                  : rules.filter((rule) => rule.kind === tab.value).length}
+              </span>
+            </Tabs.Tab>
+          ))}
+        </Tabs.List>
+        {FILTERS.map((tab) => {
+          const visibleRules =
+            tab.value === 'all' ? rules : rules.filter((rule) => rule.kind === tab.value)
+          return (
+            <Tabs.Panel
+              key={tab.value}
+              value={tab.value}
+              className="pt-3 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ul className="max-h-48 space-y-2 overflow-y-auto">
+                {visibleRules.map((rule) => (
+                  <li key={rule.id} className="flex items-center gap-2 text-xs">
+                    <span className="min-w-0 flex-1 break-all">
+                      <span className="text-muted-foreground">
+                        {rule.kind === 'recipient'
+                          ? 'Mailbox'
+                          : rule.kind === 'sender'
+                            ? 'Sender'
+                            : 'Domain'}{' '}
+                        ·{' '}
+                      </span>
+                      {rule.value}
+                    </span>
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="ghost"
+                      disabled={busy}
+                      aria-label={`Remove ${rule.value} from blacklist`}
+                      onClick={() => void mutate(rule.id)}
+                    >
+                      Remove
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+              {visibleRules.length === 0 && !error ? (
+                <p className="text-xs text-muted-foreground">{tab.empty}</p>
+              ) : null}
+            </Tabs.Panel>
+          )
+        })}
+      </Tabs.Root>
     </section>
   )
 }
