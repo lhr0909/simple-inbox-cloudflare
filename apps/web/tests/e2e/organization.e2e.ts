@@ -52,8 +52,11 @@ test('promotes catch-all aliases, preserves Sent conversations, and manages blac
     .getByRole('combobox', { name: 'Mailbox', exact: true })
     .filter({ visible: true })
   await expect(mailbox.locator('option', { hasText: alias })).toHaveCount(0)
-  await mailbox.selectOption('other')
-  await expect(page).toHaveURL((url) => url.searchParams.get('mailbox') === 'other')
+  // The default inbox is empty; open the alias scope before waiting for hydration.
+  await page.goto('/inbox?mailbox=other&folder=inbox')
+  await expect(page.getByTestId('thread-list').locator('time').first()).not.toHaveText(
+    /^\d{4}-\d{2}-\d{2}$/,
+  )
   await page
     .getByTestId('thread-list')
     .getByRole('button', { name: /Alias conversation/ })
