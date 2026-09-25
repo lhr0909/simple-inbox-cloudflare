@@ -307,13 +307,8 @@ for (const scope of ['inbox', 'other'] as const) {
       raw: mail('inbox@example.test', 'mailbox-block', 'Block receiving mailbox'),
     })
     await page.goto(`/auth/verify?token=${TEST_MAGIC_TOKEN}`)
-    if (scope === 'other') {
-      await page
-        .getByRole('combobox', { name: 'Mailbox', exact: true })
-        .filter({ visible: true })
-        .selectOption('other')
-      await expect(page).toHaveURL((url) => url.searchParams.get('mailbox') === 'other')
-    }
+    // Open the target scope before waiting for hydration; the default inbox is empty here.
+    if (scope === 'other') await page.goto('/inbox?mailbox=other&folder=inbox')
     // Localized dates indicate that the server-rendered inbox has hydrated.
     await expect(page.getByTestId('thread-list').locator('time').first()).not.toHaveText(
       /^\d{4}-\d{2}-\d{2}$/,
