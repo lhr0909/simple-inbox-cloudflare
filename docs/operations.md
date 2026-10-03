@@ -484,3 +484,34 @@ quiet. Existing read state and mail remain intact. Review existing aliases in Se
 that should become Other inbound. Spam and Trash have no automatic expiration; a Worker
 rollback cannot recover deleted mail. The migrations are additive and keep legacy workflow columns
 for compatibility, but the UI and public API no longer expose workflow statuses.
+
+## Agent API tokens upgrade
+
+Migration `0009_scoped_api_tokens.sql` adds token-to-mailbox grants, an explicit all-mailboxes flag,
+and token ownership for attachment uploads. Existing manually provisioned tokens retain their prior
+all-mailbox access, still limited by the owning user's memberships. No new secret, Cloudflare binding,
+DNS change, or resource is required. Apply the migration before deploying the Worker through the normal
+upgrade command. Do not roll back to a Worker without grant enforcement while selected-inbox tokens
+remain active; revoke those tokens first. A database migration alone does not enforce restrictions in
+older Worker code.
+
+In **General settings → API tokens**, create a named token, select its scopes and inboxes, and copy
+the secret once. Defaults are read-only, selected inboxes, and 30-day expiry; owners can select no
+expiry. The token cannot be recovered later. Revoke a lost token and create a replacement. If creation
+is interrupted, reload the token list and revoke any token whose secret you did not receive. Revoking
+blocks subsequent authentication; it does not cancel a request already running.
+
+Only the signed-in installation owner can list, create, or revoke tokens. Bearer tokens cannot manage
+other tokens. Selected inboxes are a fixed set; new inboxes are included only by the explicit **All
+current and future inboxes** option. Tokens remain subject to current mailbox memberships. A token
+with no remaining grants has no inbox access. Expiry and revocation affect credentials only; they do
+not remove mail, attachments, or public attachment links.
+
+Selected-inbox tokens cannot create inboxes or access shared blacklist rules, even with `settings`.
+The existing `settings` scope still combines mail organization with mailbox settings, including
+forwarding changes, for permitted inboxes. It is not a mail-organization-only permission.
+
+Uploads created using an API token can be continued and attached only by that same token or the
+owner's web session. Tokens cannot take over existing session uploads or another token's uploads.
+Completed uploads and mail remain retained indefinitely. Public attachment links remain bearer
+capabilities independent of API-token grants and revocation.

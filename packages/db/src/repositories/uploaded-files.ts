@@ -1,6 +1,7 @@
 export interface UploadedFile {
   id: string
   ownerUserId: string
+  apiTokenId?: string | null
   filename: string
   mediaType: string
   size: number
@@ -12,7 +13,7 @@ export interface UploadedFile {
   createdAt: number
 }
 
-const COLUMNS = `id, owner_user_id AS ownerUserId, filename, media_type AS mediaType,
+const COLUMNS = `api_token_id AS apiTokenId, id, owner_user_id AS ownerUserId, filename, media_type AS mediaType,
   size, object_key AS objectKey, multipart_id AS multipartId, download_token AS downloadToken,
   etag, outbound_send_id AS outboundSendId, created_at AS createdAt`
 
@@ -26,8 +27,8 @@ export class UploadedFileRepository {
   async create(file: UploadedFile): Promise<void> {
     await this.db
       .prepare(`INSERT INTO uploaded_files
-      (id, owner_user_id, filename, media_type, size, object_key, multipart_id, download_token, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      (id, owner_user_id, filename, media_type, size, object_key, multipart_id, download_token, created_at, api_token_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(
         file.id,
         file.ownerUserId,
@@ -38,14 +39,17 @@ export class UploadedFileRepository {
         file.multipartId,
         file.downloadToken,
         file.createdAt,
+        file.apiTokenId ?? null,
       )
       .run()
   }
 
-  async owned(id: string, ownerUserId: string): Promise<UploadedFile | null> {
+  async owned(id: string, ownerUserId: string, apiTokenId?: string): Promise<UploadedFile | null> {
     return this.db
-      .prepare(`SELECT ${COLUMNS} FROM uploaded_files WHERE id = ? AND owner_user_id = ?`)
-      .bind(id, ownerUserId)
+      .prepare(
+        `SELECT ${COLUMNS} FROM uploaded_files WHERE id = ? AND owner_user_id = ? AND (? IS NULL OR api_token_id = ?)`,
+      )
+      .bind(id, ownerUserId, apiTokenId ?? null, apiTokenId ?? null)
       .first<UploadedFile>()
   }
 

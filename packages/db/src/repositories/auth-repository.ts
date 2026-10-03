@@ -32,6 +32,7 @@ export interface ApiTokenPrincipal {
   email: string
   scopes: number
   tokenId: string
+  mailboxIds: string[] | null
   userId: string
 }
 
@@ -245,6 +246,7 @@ export class AuthRepository {
         email: users.email,
         lastUsedAt: apiTokens.lastUsedAt,
         scopes: apiTokens.scopes,
+        allMailboxes: apiTokens.allMailboxes,
         tokenId: apiTokens.id,
         userId: apiTokens.userId,
       })
@@ -278,7 +280,21 @@ export class AuthRepository {
         )
     }
 
-    return { email: row.email, scopes: row.scopes, tokenId: row.tokenId, userId: row.userId }
+    const grants = row.allMailboxes
+      ? null
+      : await this.#binding
+          .prepare(
+            'SELECT mailbox_id AS mailboxId FROM api_token_mailboxes WHERE token_id = ? ORDER BY mailbox_id',
+          )
+          .bind(row.tokenId)
+          .all<{ mailboxId: string }>()
+    return {
+      email: row.email,
+      scopes: row.scopes,
+      tokenId: row.tokenId,
+      userId: row.userId,
+      mailboxIds: grants === null ? null : grants.results.map((grant) => grant.mailboxId),
+    }
   }
 
   async bootstrapOwner(input: BootstrapOwnerInput): Promise<BootstrapOwnerResult> {

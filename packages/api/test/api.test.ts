@@ -806,6 +806,7 @@ function createFixture(
         email: 'owner@example.test',
         scopes: options.apiTokenScopes ?? 7,
         tokenId: '01996f7a-7bcd-7abc-8def-8123456789ab',
+        mailboxIds: null,
         userId: USER_ID,
       }
     },

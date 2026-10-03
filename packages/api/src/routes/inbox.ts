@@ -20,7 +20,7 @@ import { AuthRepository, SpamRuleRepository } from '@cloudflare-inbox/db'
 import { normalizeEmailAddress } from '@cloudflare-inbox/mail-core'
 import type { OpenAPIHono } from '@hono/zod-openapi'
 
-import { requireActor, requireCookieMutationOrigin } from '../auth'
+import { requireAllMailboxAccess, requireActor, requireCookieMutationOrigin } from '../auth'
 import { ApiFault, isoDate } from '../http'
 import {
   databaseFolder,
@@ -34,6 +34,7 @@ import type { ApiDependencies, ApiEnv } from '../types'
 export function registerInboxRoutes(app: OpenAPIHono<ApiEnv>, dependencies: ApiDependencies): void {
   app.openapi(listSpamRulesRoute, async (context) => {
     const actor = await requireActor(context.req.raw, context.env, dependencies, 'settings')
+    requireAllMailboxAccess(actor)
     const rules = await new SpamRuleRepository(context.env.DB, actor.userId).list()
     return context.json(
       { rules: rules.map((rule) => ({ ...rule, createdAt: isoDate(rule.createdAt) })) },
@@ -42,6 +43,7 @@ export function registerInboxRoutes(app: OpenAPIHono<ApiEnv>, dependencies: ApiD
   })
   app.openapi(createSpamRuleRoute, async (context) => {
     const actor = await requireActor(context.req.raw, context.env, dependencies, 'settings')
+    requireAllMailboxAccess(actor)
     requireCookieMutationOrigin(context.req.raw, context.env, actor)
     if (actor.email !== context.env.OWNER_EMAIL) throw new ApiFault('forbidden')
     const input = context.req.valid('json')
@@ -57,6 +59,7 @@ export function registerInboxRoutes(app: OpenAPIHono<ApiEnv>, dependencies: ApiD
   })
   app.openapi(deleteSpamRuleRoute, async (context) => {
     const actor = await requireActor(context.req.raw, context.env, dependencies, 'settings')
+    requireAllMailboxAccess(actor)
     requireCookieMutationOrigin(context.req.raw, context.env, actor)
     await new SpamRuleRepository(context.env.DB, actor.userId).remove(
       context.req.valid('param').ruleId,
@@ -66,7 +69,7 @@ export function registerInboxRoutes(app: OpenAPIHono<ApiEnv>, dependencies: ApiD
 
   app.openapi(listMailboxesRoute, async (context) => {
     const actor = await requireActor(context.req.raw, context.env, dependencies, 'read')
-    const repository = dependencies.inboxRepository(context.env, actor.userId)
+    const repository = dependencies.inboxRepository(context.env, actor.userId, actor.mailboxIds)
     const body = MailboxListResponseSchema.parse({
       mailboxes: (await repository.listMailboxes()).map(projectMailboxSummary),
     })
@@ -75,11 +78,12 @@ export function registerInboxRoutes(app: OpenAPIHono<ApiEnv>, dependencies: ApiD
 
   app.openapi(createMailboxRoute, async (context) => {
     const actor = await requireActor(context.req.raw, context.env, dependencies, 'settings')
+    requireAllMailboxAccess(actor)
     requireCookieMutationOrigin(context.req.raw, context.env, actor)
     if (actor.email !== context.env.OWNER_EMAIL) throw new ApiFault('forbidden')
     const input = context.req.valid('json')
     const address = normalizeEmailAddress(input.address)
-    const repository = dependencies.inboxRepository(context.env, actor.userId)
+    const repository = dependencies.inboxRepository(context.env, actor.userId, actor.mailboxIds)
     const known = await repository.listMailboxes()
     const domain = address.slice(address.lastIndexOf('@') + 1)
     if (
@@ -139,7 +143,7 @@ export function registerInboxRoutes(app: OpenAPIHono<ApiEnv>, dependencies: ApiD
       ...(normalizedForwardTo === undefined ? {} : { forwardTo: normalizedForwardTo }),
       ...(patch.senderAlias === undefined ? {} : { senderAlias: patch.senderAlias }),
     }
-    const repository = dependencies.inboxRepository(context.env, actor.userId)
+    const repository = dependencies.inboxRepository(context.env, actor.userId, actor.mailboxIds)
     if (!(await repository.updateMailboxSettings(mailboxId, values, dependencies.now()))) {
       throw new ApiFault('mailbox_not_found')
     }
@@ -151,7 +155,7 @@ export function registerInboxRoutes(app: OpenAPIHono<ApiEnv>, dependencies: ApiD
   app.openapi(listThreadsRoute, async (context) => {
     const actor = await requireActor(context.req.raw, context.env, dependencies, 'read')
     const query = normalizeThreadListQuery(context.req.valid('query'))
-    const repository = dependencies.inboxRepository(context.env, actor.userId)
+    const repository = dependencies.inboxRepository(context.env, actor.userId, actor.mailboxIds)
     if (
       query.mailboxId !== 'other' &&
       (await repository.getMailboxSettings(query.mailboxId)) === undefined
@@ -178,7 +182,7 @@ export function registerInboxRoutes(app: OpenAPIHono<ApiEnv>, dependencies: ApiD
 
   app.openapi(getThreadRoute, async (context) => {
     const actor = await requireActor(context.req.raw, context.env, dependencies, 'read')
-    const repository = dependencies.inboxRepository(context.env, actor.userId)
+    const repository = dependencies.inboxRepository(context.env, actor.userId, actor.mailboxIds)
     const detail = await repository.getThreadDetail(context.req.valid('param').threadId)
     if (detail === undefined) throw new ApiFault('thread_not_found')
     const body = ThreadDetailResponseSchema.parse(projectThreadDetail(detail))
@@ -188,7 +192,7 @@ export function registerInboxRoutes(app: OpenAPIHono<ApiEnv>, dependencies: ApiD
   app.openapi(patchThreadStateRoute, async (context) => {
     const actor = await requireActor(context.req.raw, context.env, dependencies, 'settings')
     requireCookieMutationOrigin(context.req.raw, context.env, actor)
-    const repository = dependencies.inboxRepository(context.env, actor.userId)
+    const repository = dependencies.inboxRepository(context.env, actor.userId, actor.mailboxIds)
     if (
       !(await repository.patchMessageState(
         context.req.valid('param').threadId,
@@ -203,7 +207,7 @@ export function registerInboxRoutes(app: OpenAPIHono<ApiEnv>, dependencies: ApiD
   app.openapi(markThreadReadRoute, async (context) => {
     const actor = await requireActor(context.req.raw, context.env, dependencies, 'settings')
     requireCookieMutationOrigin(context.req.raw, context.env, actor)
-    const repository = dependencies.inboxRepository(context.env, actor.userId)
+    const repository = dependencies.inboxRepository(context.env, actor.userId, actor.mailboxIds)
     if (
       !(await repository.markThreadRead(context.req.valid('param').threadId, dependencies.now()))
     ) {
@@ -216,7 +220,7 @@ export function registerInboxRoutes(app: OpenAPIHono<ApiEnv>, dependencies: ApiD
     const actor = await requireActor(context.req.raw, context.env, dependencies, 'settings')
     requireCookieMutationOrigin(context.req.raw, context.env, actor)
     const now = dependencies.now()
-    const repository = dependencies.inboxRepository(context.env, actor.userId)
+    const repository = dependencies.inboxRepository(context.env, actor.userId, actor.mailboxIds)
     if (!(await repository.setThreadArchived(context.req.valid('param').threadId, now, now))) {
       throw new ApiFault('thread_not_found')
     }
@@ -226,7 +230,7 @@ export function registerInboxRoutes(app: OpenAPIHono<ApiEnv>, dependencies: ApiD
   app.openapi(unarchiveThreadRoute, async (context) => {
     const actor = await requireActor(context.req.raw, context.env, dependencies, 'settings')
     requireCookieMutationOrigin(context.req.raw, context.env, actor)
-    const repository = dependencies.inboxRepository(context.env, actor.userId)
+    const repository = dependencies.inboxRepository(context.env, actor.userId, actor.mailboxIds)
     if (
       !(await repository.setThreadArchived(
         context.req.valid('param').threadId,
