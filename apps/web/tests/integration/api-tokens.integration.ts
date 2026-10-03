@@ -219,8 +219,10 @@ describe('owner-issued inbox-scoped API tokens', () => {
         ).json()) as ThreadListResponse
       ).items,
     ).toHaveLength(1)
-    for (const path of [`/threads/${excludedThread}/read`, `/threads/${excludedThread}/archive`])
-      expect((await post(token, path, {})).status).toBe(404)
+    for (const path of [`/threads/${excludedThread}/read`, `/threads/${excludedThread}/archive`]) {
+      const response = await post(token, path, {})
+      expect(response.status, `${path}: ${await response.text()}`).toBe(404)
+    }
     expect(
       (
         await request(`/threads/${excludedThread}/state`, {
