@@ -221,6 +221,7 @@ export const apiTokens = sqliteTable(
     tokenDigest: text('token_digest').notNull(),
     name: text('name').notNull(),
     scopes: integer('scopes', { mode: 'number' }).notNull(),
+    allMailboxes: integer('all_mailboxes', { mode: 'boolean' }).notNull().default(true),
     expiresAt: integer('expires_at', { mode: 'number' }),
     revokedAt: integer('revoked_at', { mode: 'number' }),
     lastUsedAt: integer('last_used_at', { mode: 'number' }),
@@ -252,6 +253,19 @@ export const apiTokens = sqliteTable(
       table.expiresAt,
     ),
   }),
+)
+
+export const apiTokenMailboxes = sqliteTable(
+  'api_token_mailboxes',
+  {
+    tokenId: text('token_id')
+      .notNull()
+      .references(() => apiTokens.id, { onDelete: 'cascade' }),
+    mailboxId: text('mailbox_id')
+      .notNull()
+      .references(() => mailboxes.id, { onDelete: 'cascade' }),
+  },
+  (table) => ({ pk: primaryKey({ columns: [table.tokenId, table.mailboxId] }) }),
 )
 
 export const threads = sqliteTable(
@@ -775,6 +789,7 @@ export const retentionTombstones = sqliteTable(
 )
 
 export const schema = {
+  apiTokenMailboxes,
   apiTokens,
   attachments,
   installations,
@@ -838,6 +853,7 @@ export const spamRules = sqliteTable(
 
 /** Files uploaded by an owner. Completed objects have no expiration deadline. */
 export const uploadedFiles = sqliteTable('uploaded_files', {
+  apiTokenId: text('api_token_id').references(() => apiTokens.id),
   id: text('id').primaryKey().notNull(),
   ownerUserId: text('owner_user_id')
     .notNull()

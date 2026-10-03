@@ -8,6 +8,7 @@
     "test:integration": "vp test run"
   },
   "devDependencies": {
+    "@cloudflare-inbox/contracts": "workspace:*",
     "@cloudflare-inbox/test-harness": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
