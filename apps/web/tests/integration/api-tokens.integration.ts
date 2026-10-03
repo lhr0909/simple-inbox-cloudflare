@@ -88,8 +88,20 @@ describe('owner-issued inbox-scoped API tokens', () => {
     excludedAttachment = detail.messages[0]!.attachments[0]!.id
   })
   afterAll(async () => harness.close())
-  function request(path: string, init?: RequestInit) {
-    return fetch(new URL(`/api/v1${path}`, harness.origin), init)
+  async function request(
+    path: string,
+    init?: { method?: string; headers?: Record<string, string>; body?: string | FormData },
+  ) {
+    // Use the Worker directly for JSON calls, avoiding the dev proxy's intermittent
+    // connection resets under concurrent harnesses. Multipart uses the HTTP path.
+    const url = new URL(`/api/v1${path}`, harness.origin).href
+    const body = init?.body
+    if (body instanceof FormData) return fetch(url, init)
+    return harness.worker.fetch(url, {
+      method: init?.method ?? 'GET',
+      headers: init?.headers ?? {},
+      ...(body === undefined ? {} : { body }),
+    })
   }
   function ownerPost(path: string, body: unknown) {
     return request(path, {
