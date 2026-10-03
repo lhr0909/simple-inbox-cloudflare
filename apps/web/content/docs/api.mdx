@@ -254,3 +254,55 @@ links require no session, stream the file with attachment disposition, support b
 never expire by age. Completed files and raw mail remain retained, including in Spam and Trash.
 No product file-size or count quota applies to linked uploads; Cloudflare service limits and
 message-body limits remain. The public OpenAPI document contains the upload contracts.
+
+## Create agent credentials
+
+Open **General settings → API tokens** in webmail. Give each agent a named token, select its scopes
+and inboxes, choose an expiry (or **Never**), then copy the secret. The default is read-only access,
+selected inboxes, and 30 days. Secrets are shown once and only keyed digests are stored. The list
+shows permissions, inbox access, expiry, revocation, and last use (updated at most every five minutes).
+
+Owner-session-only endpoints:
+
+| Method | Path                                | Purpose                                           |
+| ------ | ----------------------------------- | ------------------------------------------------- |
+| GET    | `/api/v1/auth/api-tokens`           | List token metadata without secrets               |
+| POST   | `/api/v1/auth/api-tokens`           | Create a token and return its secret once         |
+| DELETE | `/api/v1/auth/api-tokens/{tokenId}` | Revoke a token; repeated revocation is idempotent |
+
+Creation accepts JSON:
+
+```json
+{
+  "name": "Support agent",
+  "scopes": ["read", "send"],
+  "mailboxIds": ["01996f7a-7bcd-7abc-8def-1123456789ab"],
+  "expiresAt": null
+}
+```
+
+`mailboxIds` is required: supply a non-empty array of your inbox IDs for a fixed selection, or
+explicitly `null` for all current and future inboxes. Unowned and duplicate selections are rejected.
+`expiresAt` is optional: omit it or use `null` for no expiry, otherwise supply a future ISO timestamp.
+Creation returns `201` with `{ "token": "...", "apiToken": { ... } }`. Keep the secret in your
+agent's secret store. API-token requests cannot access the token-management endpoints, even with
+all three scopes. Session-authenticated creation and revocation require the same-origin headers.
+There is no token-edit endpoint; create a replacement and revoke the old token to change permissions.
+
+Agents send `Authorization: Bearer <token>` to the existing API. No Cloudflare credentials are
+needed. `read` permits reading/searching/downloading; `send` permits compose, replies, and uploads;
+`settings` permits message organization and mailbox settings. Reading does not mark a message read.
+The `settings` permission includes changes to forwarding destinations: it is broader than organizing
+mail. Selected-inbox tokens cannot manage shared blacklist rules or create inboxes. All-inbox tokens
+with `settings` can do both.
+
+Inbox restrictions apply to list/search results (including **Other inbound**), thread and message
+IDs, raw/HTML/attachment downloads, send/reply, and mailbox/message mutations. Token uploads are
+isolated: continue and attach uploads with the same token that created them. The owner session can
+still manage those uploads. Public attachment links intentionally remain accessible to anyone who
+has the link; revoking an API token does not revoke those links or delete stored content.
+
+Revocation and expiry reject subsequent API requests; already-running operations may finish.
+If token creation loses its response, use the owner session to review/revoke the unreceived token
+before creating a replacement. Bearer credentials are not browser sessions: `/auth/session` is not
+a token-validation endpoint. Use `GET /api/v1/mailboxes` to check a token with `read` permission.
