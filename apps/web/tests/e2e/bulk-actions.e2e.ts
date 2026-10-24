@@ -276,3 +276,55 @@ test('the Undo offer expires after eight seconds', async ({ page, bulkHarness })
   await expect(status).toHaveCount(0)
   expect(await folderSubjects(page, 'trash')).toEqual(['Expiry 1'])
 })
+
+test('Escape that closes a settings dialog keeps the selection', async ({ page, bulkHarness }) => {
+  await seed(bulkHarness, ['Modal 1', 'Modal 2', 'Modal 3'])
+  await page.goto(`/auth/verify?token=${encodeURIComponent(TEST_MAGIC_TOKEN)}`)
+  const { row, toolbar } = bulkUi(page)
+  await expect(row('Modal 1')).toBeVisible()
+  for (const subject of ['Modal 1', 'Modal 2'])
+    await page.getByRole('checkbox', { name: `Select conversation: ${subject}` }).click()
+  await expect(toolbar).toContainText('2 selected')
+
+  await page.getByRole('button', { name: 'General settings' }).filter({ visible: true }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('button', { name: 'Close general settings' }).focus()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  await expect(toolbar).toContainText('2 selected')
+  for (const subject of ['Modal 1', 'Modal 2'])
+    await expect(
+      page.getByRole('checkbox', { name: `Select conversation: ${subject}` }),
+    ).toBeChecked()
+})
+
+test('Undo of Spam from Archive drops the row that not_spam returns to the Inbox', async ({
+  page,
+  bulkHarness,
+}) => {
+  await seed(bulkHarness, ['Archived 1', 'Archived 2'])
+  await page.goto(`/auth/verify?token=${encodeURIComponent(TEST_MAGIC_TOKEN)}`)
+  const { row, status, toolbar } = bulkUi(page)
+  for (const subject of ['Archived 1', 'Archived 2']) {
+    await row(subject).click()
+    await page.getByRole('button', { name: 'Archive', exact: true }).click()
+    await page.goto(`/inbox?mailbox=${TEST_IDS.mailbox}&folder=inbox`)
+  }
+  expect(await folderSubjects(page, 'archive')).toEqual(['Archived 1', 'Archived 2'])
+
+  await page.goto(`/inbox?mailbox=${TEST_IDS.mailbox}&folder=archive`)
+  await expect(row('Archived 1')).toBeVisible()
+  await page.getByRole('checkbox', { name: 'Select conversation: Archived 1' }).click()
+  await toolbar.getByRole('button', { name: 'Spam', exact: true }).click()
+  await expect(status).toContainText('1 conversation moved to Spam.')
+  await expect(row('Archived 1')).toHaveCount(0)
+
+  await status.getByRole('button', { name: 'Undo' }).click()
+  await expect(status).toHaveCount(0)
+  await expect(row('Archived 2')).toBeVisible()
+  await expect(row('Archived 1')).toHaveCount(0)
+  expect(await folderSubjects(page, 'archive')).toEqual(['Archived 2'])
+  expect(await folderSubjects(page, 'spam')).toEqual([])
+  expect(await folderSubjects(page, 'inbox')).toEqual(['Archived 1'])
+})
