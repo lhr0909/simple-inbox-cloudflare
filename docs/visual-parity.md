@@ -30,7 +30,10 @@ deterministic `example.test` fixture from `apps/web/tests/fixtures/messages`.
 - Each list row and the list header carry a selection checkbox; a bulk toolbar applies a folder
   action to the checked conversations in view (Trash or Spam elsewhere, Trash or Not spam in Spam,
   Restore in Trash; Spam moves only, no blacklist rule), keeps failed ones checked with a visible
-  error, and offers Undo for the last action.
+  error, and offers Undo for the last action for 8 seconds (a failed Undo stays offered for the
+  conversations it could not move back). Shift-click checks or unchecks the range from the last
+  clicked row; Escape clears the selection unless focus is in a text field or dialog. Moves keep
+  every loaded page instead of reloading the first one.
 - Mailbox settings have a labelled modal, predictable initial focus, Escape/Cancel behavior,
   sender alias and forwarding fields, theme selection, and sign-out.
 - Empty, loading, search-empty, archived, attachment, refresh-error, and send-error states retain
