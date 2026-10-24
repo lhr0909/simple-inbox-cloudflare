@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
+import ArchiveRestoreIcon from 'lucide-react/dist/esm/icons/archive-restore.mjs'
 import MailOpenIcon from 'lucide-react/dist/esm/icons/mail-open.mjs'
 import PaperclipIcon from 'lucide-react/dist/esm/icons/paperclip.mjs'
 import RefreshIcon from 'lucide-react/dist/esm/icons/refresh-cw.mjs'
 import SearchIcon from 'lucide-react/dist/esm/icons/search.mjs'
 import SendIcon from 'lucide-react/dist/esm/icons/send.mjs'
 import ShieldIcon from 'lucide-react/dist/esm/icons/shield-alert.mjs'
+import ShieldCheckIcon from 'lucide-react/dist/esm/icons/shield-check.mjs'
 import TrashIcon from 'lucide-react/dist/esm/icons/trash-2.mjs'
 import XIcon from 'lucide-react/dist/esm/icons/x.mjs'
 
+import type { ThreadFolder } from '@cloudflare-inbox/contracts/folders'
 import type { ThreadSummary } from '@cloudflare-inbox/contracts/threads'
 
 import { Avatar, AvatarFallback } from '#/components/ui/avatar'
@@ -22,11 +25,29 @@ import type { InboxQuery } from './inbox-types'
 import { EmptyList, HydratedTime } from './inbox-primitives'
 import type { BulkMoveLocation, InboxShellProps } from './inbox-shell-types'
 
-type BulkMove = Readonly<{ location: 'trash' | 'spam'; threadIds: readonly string[] }>
+type BulkMove = Readonly<{ location: BulkMoveLocation; threadIds: readonly string[] }>
 
-const UNDO_LOCATION: Readonly<Record<BulkMove['location'], BulkMoveLocation>> = {
-  trash: 'restore',
-  spam: 'not_spam',
+const BULK_ACTIONS: Readonly<
+  Record<
+    BulkMoveLocation,
+    Readonly<{ label: string; icon: typeof TrashIcon; undo: BulkMoveLocation; done: string }>
+  >
+> = {
+  trash: { label: 'Trash', icon: TrashIcon, undo: 'restore', done: 'moved to Trash' },
+  spam: { label: 'Spam', icon: ShieldIcon, undo: 'not_spam', done: 'moved to Spam' },
+  restore: {
+    label: 'Restore',
+    icon: ArchiveRestoreIcon,
+    undo: 'trash',
+    done: 'restored from Trash',
+  },
+  not_spam: { label: 'Not spam', icon: ShieldCheckIcon, undo: 'spam', done: 'marked as not spam' },
+}
+
+function bulkLocations(folder: ThreadFolder): readonly BulkMoveLocation[] {
+  if (folder === 'trash') return ['restore']
+  if (folder === 'spam') return ['trash', 'not_spam']
+  return ['trash', 'spam']
 }
 
 export function ThreadListPane({
@@ -72,8 +93,6 @@ export function ThreadListPane({
   const listKey = `${query.mailboxId}:${query.folder}:${query.unreadOnly}:${query.search}`
   const checkedIds = threads.filter((thread) => checked.has(thread.id)).map((thread) => thread.id)
   const allChecked = threads.length > 0 && checkedIds.length === threads.length
-  const canTrash = query.folder !== 'trash'
-  const canSpam = query.folder !== 'spam' && query.folder !== 'trash'
 
   useEffect(() => {
     setChecked(new Set())
@@ -89,7 +108,7 @@ export function ThreadListPane({
     })
   }
 
-  async function moveChecked(location: BulkMove['location']): Promise<void> {
+  async function moveChecked(location: BulkMoveLocation): Promise<void> {
     if (!onBulkMove || checkedIds.length === 0) return
     setMoving(true)
     try {
@@ -105,7 +124,7 @@ export function ThreadListPane({
     if (!onBulkMove || lastMove === null) return
     setMoving(true)
     try {
-      await onBulkMove(lastMove.threadIds, UNDO_LOCATION[lastMove.location])
+      await onBulkMove(lastMove.threadIds, BULK_ACTIONS[lastMove.location].undo)
       setLastMove(null)
     } finally {
       setMoving(false)
@@ -204,28 +223,21 @@ export function ThreadListPane({
           role="toolbar"
         >
           <span className="mr-auto pl-1 text-xs font-medium">{checkedIds.length} selected</span>
-          {canTrash ? (
-            <Button
-              disabled={busy || moving}
-              onClick={() => void moveChecked('trash')}
-              size="sm"
-              variant="ghost"
-            >
-              <TrashIcon aria-hidden="true" className="size-4" />
-              Trash
-            </Button>
-          ) : null}
-          {canSpam ? (
-            <Button
-              disabled={busy || moving}
-              onClick={() => void moveChecked('spam')}
-              size="sm"
-              variant="ghost"
-            >
-              <ShieldIcon aria-hidden="true" className="size-4" />
-              Spam
-            </Button>
-          ) : null}
+          {bulkLocations(query.folder).map((location) => {
+            const { label, icon: Icon } = BULK_ACTIONS[location]
+            return (
+              <Button
+                disabled={busy || moving}
+                key={location}
+                onClick={() => void moveChecked(location)}
+                size="sm"
+                variant="ghost"
+              >
+                <Icon aria-hidden="true" className="size-4" />
+                {label}
+              </Button>
+            )
+          })}
           <Button
             aria-label="Clear selection"
             disabled={moving}
@@ -246,7 +258,7 @@ export function ThreadListPane({
         >
           <span className="mr-auto">
             {lastMove.threadIds.length} conversation{lastMove.threadIds.length === 1 ? '' : 's'}{' '}
-            moved to {lastMove.location === 'trash' ? 'Trash' : 'Spam'}.
+            {BULK_ACTIONS[lastMove.location].done}.
           </span>
           <Button disabled={moving} onClick={() => void undoLastMove()} size="xs" variant="outline">
             Undo
