@@ -25,6 +25,7 @@ import {
   appendThreadPage,
   applyBulkMove,
   applyOptimisticThreadStates,
+  threadMatchesFolder,
 } from '#/features/inbox/inbox-model'
 import { LatestRequestCoordinator, isAbortError } from '#/features/inbox/inbox-request-coordinator'
 import {
@@ -309,7 +310,9 @@ function Inbox() {
         const succeeded = new Set(result.succeeded)
         reconcileLoadedThreads(
           restore ? new Set() : succeeded,
-          restore?.filter((thread) => succeeded.has(thread.id)) ?? [],
+          restore
+            ? await reloadRestoredThreads(restore.filter((thread) => succeeded.has(thread.id)))
+            : [],
         )
         await refreshFolderCounts()
       }
@@ -317,6 +320,27 @@ function Inbox() {
     } finally {
       finishOperation()
     }
+  }
+
+  async function reloadRestoredThreads(
+    restored: readonly ThreadSummary[],
+  ): Promise<ThreadSummary[]> {
+    const results = await Promise.allSettled(
+      restored.map((thread) => getThreadDetail(thread.id, new AbortController().signal)),
+    )
+    const rejected = results.flatMap((result) => (result.status === 'rejected' ? [result] : []))
+    if (rejected.some((result) => redirectIfAnonymous(result.reason))) return []
+    if (rejected.length > 0)
+      setError(
+        `${rejected.length} moved-back conversations could not be reloaded. Use Refresh to show them.`,
+      )
+    return results
+      .flatMap((result) => (result.status === 'fulfilled' ? [result.value.thread] : []))
+      .filter(
+        (thread) =>
+          threadMatchesFolder(thread, query.folder) &&
+          (!query.unreadOnly || thread.unreadCount > 0),
+      )
   }
 
   function reconcileLoadedThreads(
