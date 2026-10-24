@@ -160,6 +160,17 @@ mail; inbox previews also work for older messages while their raw email is retai
 may reveal opens. Email scripts and forms remain blocked in the inbox, and **Show plain text** is
 available on each preview.
 
+## Agent API access
+
+Create credentials in **General settings → API tokens**. Tokens can read, send, or manage settings
+for selected inboxes or explicitly all current and future inboxes. Copy the secret once and pass it
+as `Authorization: Bearer <token>` to `/api/v1/*`. Optional expiry and immediate revocation are
+available in the token list. No Cloudflare credentials are needed by agents.
+
+Selected-inbox tokens cannot create inboxes or manage the shared blacklist. The `settings` scope
+includes both message organization and forwarding changes. See the [API guide](apps/web/content/docs/api.mdx)
+for permissions, token-management endpoints, and attachment ownership. There is no dedicated CLI yet.
+
 ## Security and retention
 
 Magic links and sessions are opaque random values; D1 stores only keyed digests. Deployed sessions

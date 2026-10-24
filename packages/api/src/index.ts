@@ -1,3 +1,4 @@
+import { registerApiTokenRoutes } from './routes/api-tokens'
 import { registerUploadRoutes } from './routes/uploads'
 import { MAX_TOTAL_ATTACHMENT_BYTES, RequestIdSchema } from '@cloudflare-inbox/contracts'
 import { OpenAPIHono } from '@hono/zod-openapi'
@@ -69,6 +70,7 @@ export function createApiApp(overrides: Partial<ApiDependencies> = {}) {
     maxSize: SEND_BODY_LIMIT,
     onError: (context) => errorResponse(context as Context<ApiEnv>, 'request_too_large'),
   })
+  app.use('/v1/auth/api-tokens', smallLimit)
   app.use('/v1/auth/magic-links', smallLimit)
   app.use('/v1/auth/magic-links/verify', smallLimit)
   app.use('/v1/mailboxes/:mailboxId', smallLimit)
@@ -80,6 +82,7 @@ export function createApiApp(overrides: Partial<ApiDependencies> = {}) {
 
   registerSetupRoutes(app, dependencies)
   registerAuthRoutes(app, dependencies)
+  registerApiTokenRoutes(app, dependencies)
   registerInboxRoutes(app, dependencies)
   registerMessageRoutes(app, dependencies)
   registerUploadRoutes(app, dependencies)
@@ -133,7 +136,8 @@ function expectedContentType(
 ): 'application/json' | 'multipart/form-data' | undefined {
   if (
     method === 'POST' &&
-    (path === '/v1/setup' ||
+    (path === '/v1/auth/api-tokens' ||
+      path === '/v1/setup' ||
       path === '/v1/auth/magic-links' ||
       path === '/v1/auth/magic-links/verify')
   ) {

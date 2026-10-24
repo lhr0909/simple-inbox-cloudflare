@@ -296,3 +296,23 @@ or mail route to `simple-inbox-cf` is a separate, explicitly approved owner acti
 that routing remains manual.
 
 See [ADR 0001](./adr/0001-stack-and-topology.md) for the topology decision and tradeoffs.
+
+## Owner-issued agent tokens
+
+API-token authentication returns a token ID and either an explicit mailbox grant list or null for
+all memberships. `api_token_mailboxes` records fixed selections; `api_tokens.all_mailboxes` preserves
+explicit all-inbox access separately from an empty grant list. Existing tokens default to all access
+for compatibility. Every public inbox repository receives the selection and intersects it with the
+actor's memberships in SQL, including aggregate lists, FTS, individual resources, and mutations.
+Empty selections fail closed. Owner web sessions continue to use all of their memberships.
+
+Token management requires the installation owner's web session, with same-origin checks on mutations.
+It cannot be delegated to bearer tokens. Creation batches the digest and grants transactionally and
+checks memberships; only the creation response contains the plaintext secret. Token metadata includes
+expiry, revocation and throttled last-use time. Mailbox-grant restrictions never filter or modify the
+owner's underlying memberships.
+
+Shared blacklist and mailbox-creation operations require all-mailbox access. Pre-send uploads are
+owned by a token as well as a user: bearer callers cannot complete or attach another token's or a
+session's uploads. Sent linked-attachment downloads also authorize the message's mailbox before
+reading R2. Public download capabilities remain intentionally independent of API credentials.

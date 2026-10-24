@@ -2,6 +2,9 @@ import type { CreateUpload, UploadSession, CompleteUpload } from './uploads'
 import type { Hono } from 'hono'
 
 import type {
+  ApiTokenCreateRequest,
+  ApiTokenCreatedResponse,
+  ApiTokenListResponse,
   AuthenticatedSessionResponse,
   MagicLinkAcceptedResponse,
   MagicLinkRequest,
@@ -66,6 +69,19 @@ export type PublicApiSchema = {
     $post: WithStandardErrors<
       { json: CompleteSetupRequest },
       JsonEndpoint<{ json: CompleteSetupRequest }, SetupStatusResponse, 200 | 201>
+    >
+  }
+  '/v1/auth/api-tokens': {
+    $get: WithStandardErrors<{}, JsonEndpoint<{}, ApiTokenListResponse, 200>>
+    $post: WithStandardErrors<
+      { json: ApiTokenCreateRequest },
+      JsonEndpoint<{ json: ApiTokenCreateRequest }, ApiTokenCreatedResponse, 201>
+    >
+  }
+  '/v1/auth/api-tokens/:tokenId': {
+    $delete: WithStandardErrors<
+      { param: { tokenId: string } },
+      EmptyEndpoint<{ param: { tokenId: string } }, 204>
     >
   }
   '/v1/auth/magic-links': {

@@ -1,3 +1,5 @@
+import { Tabs } from '@base-ui/react/tabs'
+import { ApiTokenSettings } from './api-token-settings'
 import { useEffect, useId, useRef } from 'react'
 import { useTheme } from 'fumadocs-ui/provider/base'
 import LogOutIcon from 'lucide-react/dist/esm/icons/log-out.mjs'
@@ -45,7 +47,7 @@ export function GeneralSettingsDialog({
             General settings
           </h2>
           <p id={`${id}-description`} className="mt-1 text-sm text-muted-foreground">
-            Manage appearance and spam rules shared across all your inboxes.
+            Manage appearance, spam rules, and agent access.
           </p>
         </div>
         <Button
@@ -57,24 +59,43 @@ export function GeneralSettingsDialog({
           <XIcon aria-hidden="true" className="size-4" />
         </Button>
       </div>
-      <Field className="mt-4">
-        <FieldLabel htmlFor={`${id}-theme`}>Color theme</FieldLabel>
-        <select
-          className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-          id={`${id}-theme`}
-          onChange={(event) => setTheme(event.currentTarget.value)}
-          value={selectedTheme}
-        >
-          <option value="system">Use system setting</option>
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-        </select>
-        <p className="text-xs text-muted-foreground">
-          Your preference is kept in this browser for the inbox and documentation.
-        </p>
-      </Field>
+      <Tabs.Root defaultValue="general" className="mt-4">
+        <Tabs.List aria-label="Settings sections" className="flex gap-1 rounded-lg bg-muted p-1">
+          <Tabs.Tab
+            value="general"
+            className="flex-1 rounded-md px-3 py-2 text-sm data-active:bg-background data-active:shadow-xs focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            General
+          </Tabs.Tab>
+          <Tabs.Tab
+            value="tokens"
+            className="flex-1 rounded-md px-3 py-2 text-sm data-active:bg-background data-active:shadow-xs focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            API tokens
+          </Tabs.Tab>
+        </Tabs.List>
+        <Tabs.Panel value="general">
+          <Field className="mt-4">
+            <FieldLabel htmlFor={`${id}-theme`}>Color theme</FieldLabel>
+            <select
+              className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              id={`${id}-theme`}
+              onChange={(event) => setTheme(event.currentTarget.value)}
+              value={selectedTheme}
+            >
+              <option value="system">Use system setting</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+            <p className="text-xs text-muted-foreground">
+              Your preference is kept in this browser for the inbox and documentation.
+            </p>
+          </Field>
 
-      <SpamSettings open={open} onRulesChange={onSpamRulesChange} />
+          <SpamSettings open={open} onRulesChange={onSpamRulesChange} />
+        </Tabs.Panel>
+        <Tabs.Panel value="tokens">{open ? <ApiTokenSettings /> : null}</Tabs.Panel>
+      </Tabs.Root>
       <div className="mt-6 flex flex-wrap items-center gap-2 border-t pt-4">
         <Button onClick={() => onOpenChange(false)}>Done</Button>
         <Button className="ml-auto" variant="ghost" onClick={() => void onSignOut?.()}>

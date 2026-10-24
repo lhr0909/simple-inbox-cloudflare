@@ -24,6 +24,7 @@ export interface MessageStatePatch {
 
 export interface AuthenticatedActor {
   userId: string
+  mailboxIds?: readonly string[] | null | undefined
 }
 
 export type ThreadFolder = 'inbox' | 'starred' | 'all' | 'archive' | 'spam' | 'trash' | 'sent'
@@ -206,6 +207,7 @@ export interface AuthorizedAttachment {
  * ID-only lookup methods to accidentally authorize after reading private data.
  */
 export class MailboxScopedRepository {
+  readonly #scope: string
   readonly #actorUserId: string
   readonly #binding: D1Database
   readonly #db: InboxDatabase
@@ -214,6 +216,7 @@ export class MailboxScopedRepository {
     if (actor.userId.length === 0) {
       throw new TypeError('An authenticated user ID is required.')
     }
+    this.#scope = JSON.stringify(actor.mailboxIds ?? [null])
     this.#actorUserId = actor.userId
     this.#binding = binding
     this.#db = createInboxDatabase(binding)
@@ -260,6 +263,7 @@ export class MailboxScopedRepository {
         and(
           eq(mailboxMembers.mailboxId, mailboxes.id),
           eq(mailboxMembers.userId, this.#actorUserId),
+          sql`EXISTS (SELECT 1 FROM json_each(${this.#scope}) scope WHERE scope.type = 'null' OR scope.value = ${mailboxMembers.mailboxId})`,
         ),
       )
       .leftJoin(threads, eq(threads.mailboxId, mailboxes.id))
@@ -303,6 +307,7 @@ export class MailboxScopedRepository {
         and(
           eq(mailboxMembers.mailboxId, threads.mailboxId),
           eq(mailboxMembers.userId, this.#actorUserId),
+          sql`EXISTS (SELECT 1 FROM json_each(${this.#scope}) scope WHERE scope.type = 'null' OR scope.value = ${mailboxMembers.mailboxId})`,
         ),
       )
       .where(and(...predicates))
@@ -315,9 +320,9 @@ export class MailboxScopedRepository {
   async searchThreads(input: SearchThreadsInput): Promise<ThreadPage> {
     const limit = clampThreadPageSize(input.limit)
     const normalizedQuery = normalizeFtsQuery(input.query)
-    const values: (number | string | null)[] = [this.#actorUserId, normalizedQuery]
+    const values: (number | string | null)[] = [this.#actorUserId, this.#scope, normalizedQuery]
     const clauses = [
-      'mm.user_id = ?',
+      "mm.user_id = ? AND EXISTS (SELECT 1 FROM json_each(?) scope WHERE scope.type = 'null' OR scope.value = mm.mailbox_id)",
       'EXISTS (SELECT 1 FROM message_search WHERE message_search.thread_id = t.id AND message_search.mailbox_id = t.mailbox_id AND message_search MATCH ?)',
     ]
 
@@ -364,6 +369,7 @@ export class MailboxScopedRepository {
         and(
           eq(mailboxMembers.mailboxId, threads.mailboxId),
           eq(mailboxMembers.userId, this.#actorUserId),
+          sql`EXISTS (SELECT 1 FROM json_each(${this.#scope}) scope WHERE scope.type = 'null' OR scope.value = ${mailboxMembers.mailboxId})`,
         ),
       )
       .where(
@@ -400,6 +406,7 @@ export class MailboxScopedRepository {
         and(
           eq(mailboxMembers.mailboxId, mailboxes.id),
           eq(mailboxMembers.userId, this.#actorUserId),
+          sql`EXISTS (SELECT 1 FROM json_each(${this.#scope}) scope WHERE scope.type = 'null' OR scope.value = ${mailboxMembers.mailboxId})`,
         ),
       )
       .where(eq(mailboxes.id, mailboxId))
@@ -416,6 +423,7 @@ export class MailboxScopedRepository {
         and(
           eq(mailboxMembers.mailboxId, threads.mailboxId),
           eq(mailboxMembers.userId, this.#actorUserId),
+          sql`EXISTS (SELECT 1 FROM json_each(${this.#scope}) scope WHERE scope.type = 'null' OR scope.value = ${mailboxMembers.mailboxId})`,
         ),
       )
       .where(eq(threads.id, threadId))
@@ -462,6 +470,7 @@ export class MailboxScopedRepository {
         and(
           eq(mailboxMembers.mailboxId, messages.mailboxId),
           eq(mailboxMembers.userId, this.#actorUserId),
+          sql`EXISTS (SELECT 1 FROM json_each(${this.#scope}) scope WHERE scope.type = 'null' OR scope.value = ${mailboxMembers.mailboxId})`,
         ),
       )
       .where(eq(messages.threadId, threadId))
@@ -485,6 +494,7 @@ export class MailboxScopedRepository {
         and(
           eq(mailboxMembers.mailboxId, messages.mailboxId),
           eq(mailboxMembers.userId, this.#actorUserId),
+          sql`EXISTS (SELECT 1 FROM json_each(${this.#scope}) scope WHERE scope.type = 'null' OR scope.value = ${mailboxMembers.mailboxId})`,
         ),
       )
       .where(
@@ -512,6 +522,7 @@ export class MailboxScopedRepository {
         and(
           eq(mailboxMembers.mailboxId, messages.mailboxId),
           eq(mailboxMembers.userId, this.#actorUserId),
+          sql`EXISTS (SELECT 1 FROM json_each(${this.#scope}) scope WHERE scope.type = 'null' OR scope.value = ${mailboxMembers.mailboxId})`,
         ),
       )
       .where(
@@ -542,6 +553,7 @@ export class MailboxScopedRepository {
         and(
           eq(mailboxMembers.mailboxId, messages.mailboxId),
           eq(mailboxMembers.userId, this.#actorUserId),
+          sql`EXISTS (SELECT 1 FROM json_each(${this.#scope}) scope WHERE scope.type = 'null' OR scope.value = ${mailboxMembers.mailboxId})`,
         ),
       )
       .where(eq(messages.threadId, threadId))
@@ -567,6 +579,7 @@ export class MailboxScopedRepository {
         and(
           eq(mailboxMembers.mailboxId, messages.mailboxId),
           eq(mailboxMembers.userId, this.#actorUserId),
+          sql`EXISTS (SELECT 1 FROM json_each(${this.#scope}) scope WHERE scope.type = 'null' OR scope.value = ${mailboxMembers.mailboxId})`,
         ),
       )
       .where(eq(messages.threadId, threadId))
@@ -623,6 +636,7 @@ export class MailboxScopedRepository {
         and(
           eq(mailboxMembers.mailboxId, threadTags.mailboxId),
           eq(mailboxMembers.userId, this.#actorUserId),
+          sql`EXISTS (SELECT 1 FROM json_each(${this.#scope}) scope WHERE scope.type = 'null' OR scope.value = ${mailboxMembers.mailboxId})`,
         ),
       )
       .where(eq(threadTags.threadId, threadId))
@@ -645,6 +659,7 @@ export class MailboxScopedRepository {
         and(
           eq(mailboxMembers.mailboxId, messages.mailboxId),
           eq(mailboxMembers.userId, this.#actorUserId),
+          sql`EXISTS (SELECT 1 FROM json_each(${this.#scope}) scope WHERE scope.type = 'null' OR scope.value = ${mailboxMembers.mailboxId})`,
         ),
       )
       .where(and(eq(messages.id, messageId), isNull(messages.rawDeletedAt)))
@@ -678,6 +693,7 @@ export class MailboxScopedRepository {
         and(
           eq(mailboxMembers.mailboxId, messages.mailboxId),
           eq(mailboxMembers.userId, this.#actorUserId),
+          sql`EXISTS (SELECT 1 FROM json_each(${this.#scope}) scope WHERE scope.type = 'null' OR scope.value = ${mailboxMembers.mailboxId})`,
         ),
       )
       .where(
@@ -736,18 +752,18 @@ export class MailboxScopedRepository {
     const result = await this.#binding.batch([
       this.#binding
         .prepare(`UPDATE messages SET ${sets.join(', ')}
-        WHERE thread_id = ? AND EXISTS (SELECT 1 FROM mailbox_members mm WHERE mm.mailbox_id = messages.mailbox_id AND mm.user_id = ?)
+        WHERE thread_id = ? AND EXISTS (SELECT 1 FROM mailbox_members mm WHERE mm.mailbox_id = messages.mailbox_id AND mm.user_id = ? AND EXISTS (SELECT 1 FROM json_each(?) scope WHERE scope.type = 'null' OR scope.value = mm.mailbox_id))
         ${ids}`)
-        .bind(...values, threadId, this.#actorUserId, ...(patch.messageIds ?? [])),
+        .bind(...values, threadId, this.#actorUserId, this.#scope, ...(patch.messageIds ?? [])),
       this.#binding
         .prepare(`UPDATE threads SET
         message_count = (SELECT count(*) FROM messages m WHERE m.thread_id = threads.id),
         unread_count = (SELECT count(*) FROM messages m WHERE m.thread_id = threads.id AND m.direction = 'inbound' AND m.read_at IS NULL),
         archived_at = CASE WHEN EXISTS (SELECT 1 FROM messages m WHERE m.thread_id = threads.id AND m.inbox = 1 AND m.spam_at IS NULL AND m.trashed_at IS NULL) THEN NULL ELSE coalesce(archived_at, ?) END,
         updated_at = max(updated_at, ?)
-        WHERE id = ? AND EXISTS (SELECT 1 FROM mailbox_members mm WHERE mm.mailbox_id = threads.mailbox_id AND mm.user_id = ?)
+        WHERE id = ? AND EXISTS (SELECT 1 FROM mailbox_members mm WHERE mm.mailbox_id = threads.mailbox_id AND mm.user_id = ? AND EXISTS (SELECT 1 FROM json_each(?) scope WHERE scope.type = 'null' OR scope.value = mm.mailbox_id))
       `)
-        .bind(now, now, threadId, this.#actorUserId),
+        .bind(now, now, threadId, this.#actorUserId, this.#scope),
     ])
     return changed(result[0])
   }
@@ -763,10 +779,10 @@ export class MailboxScopedRepository {
           WHERE thread_id = ? AND direction = 'inbound' AND read_at IS NULL
             AND EXISTS (
               SELECT 1 FROM mailbox_members AS mm
-              WHERE mm.mailbox_id = messages.mailbox_id AND mm.user_id = ?
+              WHERE mm.mailbox_id = messages.mailbox_id AND mm.user_id = ? AND EXISTS (SELECT 1 FROM json_each(?) scope WHERE scope.type = 'null' OR scope.value = mm.mailbox_id)
             )
         `)
-        .bind(readAt, readAt, threadId, actor),
+        .bind(readAt, readAt, threadId, actor, this.#scope),
       this.#binding
         .prepare(`
           UPDATE threads
@@ -774,10 +790,10 @@ export class MailboxScopedRepository {
           WHERE id = ?
             AND EXISTS (
               SELECT 1 FROM mailbox_members AS mm
-              WHERE mm.mailbox_id = threads.mailbox_id AND mm.user_id = ?
+              WHERE mm.mailbox_id = threads.mailbox_id AND mm.user_id = ? AND EXISTS (SELECT 1 FROM json_each(?) scope WHERE scope.type = 'null' OR scope.value = mm.mailbox_id)
             )
         `)
-        .bind(readAt, threadId, actor),
+        .bind(readAt, threadId, actor, this.#scope),
     ]
     const results = await this.#binding.batch(statements)
     return changed(results[1])
@@ -808,10 +824,10 @@ export class MailboxScopedRepository {
         WHERE id = ?
           AND EXISTS (
             SELECT 1 FROM mailbox_members AS mm
-            WHERE mm.mailbox_id = threads.mailbox_id AND mm.user_id = ?
+            WHERE mm.mailbox_id = threads.mailbox_id AND mm.user_id = ? AND EXISTS (SELECT 1 FROM json_each(?) scope WHERE scope.type = 'null' OR scope.value = mm.mailbox_id)
           )
       `)
-      .bind(workflowState, now, threadId, this.#actorUserId)
+      .bind(workflowState, now, threadId, this.#actorUserId, this.#scope)
       .run()
     return changed(result)
   }
@@ -847,7 +863,7 @@ export class MailboxScopedRepository {
           AND EXISTS (
             SELECT 1 FROM mailbox_members AS mm
             WHERE mm.mailbox_id = mailboxes.id
-              AND mm.user_id = ?
+              AND mm.user_id = ? AND EXISTS (SELECT 1 FROM json_each(?) scope WHERE scope.type = 'null' OR scope.value = mm.mailbox_id)
               AND mm.role = 'owner'
           )
       `)
@@ -867,6 +883,7 @@ export class MailboxScopedRepository {
         now,
         mailboxId,
         this.#actorUserId,
+        this.#scope,
       )
       .run()
     return changed(result)
