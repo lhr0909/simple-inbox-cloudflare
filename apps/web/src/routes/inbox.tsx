@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { MailboxSettings, PatchMailboxRequest } from '@cloudflare-inbox/contracts/mailboxes'
 import type { SendResponse } from '@cloudflare-inbox/contracts/send'
+import type { ThreadSummary } from '@cloudflare-inbox/contracts/threads'
 
 import {
   ApiRequestError,
@@ -20,7 +21,11 @@ import {
   signOut,
   updateMailboxSettings,
 } from '#/features/inbox/inbox-api'
-import { appendThreadPage, applyOptimisticThreadStates } from '#/features/inbox/inbox-model'
+import {
+  appendThreadPage,
+  applyBulkMove,
+  applyOptimisticThreadStates,
+} from '#/features/inbox/inbox-model'
 import { LatestRequestCoordinator, isAbortError } from '#/features/inbox/inbox-request-coordinator'
 import {
   inboxQueryFromSearch,
@@ -284,6 +289,7 @@ function Inbox() {
   async function bulkMove(
     threadIds: readonly string[],
     location: BulkMoveLocation,
+    restore?: readonly ThreadSummary[],
   ): Promise<BulkMoveResult> {
     beginOperation()
     setError(null)
@@ -293,14 +299,59 @@ function Inbox() {
         window.location.replace('/sign-in')
         return result
       }
-      if (result.succeeded.length > 0) await fetchSnapshot(search, false)
       if (result.failed.length > 0)
         setError(
-          `${result.failed.length} of ${threadIds.length} conversations could not be updated. They are still selected.`,
+          restore
+            ? `${result.failed.length} of ${threadIds.length} conversations could not be moved back. Select Undo to try again.`
+            : `${result.failed.length} of ${threadIds.length} conversations could not be updated. They are still selected.`,
         )
+      if (result.succeeded.length > 0) {
+        const succeeded = new Set(result.succeeded)
+        reconcileLoadedThreads(
+          restore ? new Set() : succeeded,
+          restore?.filter((thread) => succeeded.has(thread.id)) ?? [],
+        )
+        await refreshFolderCounts()
+      }
       return result
     } finally {
       finishOperation()
+    }
+  }
+
+  function reconcileLoadedThreads(
+    removedIds: ReadonlySet<string>,
+    restored: readonly ThreadSummary[],
+  ): void {
+    setRefreshed((current) => {
+      if (activeListKey.current !== currentListKey) return current
+      const base = current?.listKey === currentListKey ? current : source
+      return {
+        data: applyBulkMove(base.data, removedIds, restored),
+        effectiveMailboxId: base.effectiveMailboxId,
+        listKey: currentListKey,
+      }
+    })
+  }
+
+  async function refreshFolderCounts(): Promise<void> {
+    const targetKey = inboxSearchKey(search)
+    const request = snapshotRequests.current.begin()
+    reloadThread()
+    try {
+      const result = await reloadInbox({ data: search })
+      if (!request.isLatest() || activeSearchKey.current !== targetKey) return
+      if (result.status === 'anonymous') {
+        window.location.replace('/sign-in')
+        return
+      }
+      setRefreshed((current) => {
+        if (current?.listKey !== currentListKey) return current
+        return { ...current, data: { ...current.data, mailboxes: result.data.mailboxes } }
+      })
+    } catch (cause) {
+      if (!request.isLatest() || isAbortError(cause)) return
+      setError('Folder counts could not be refreshed. Use Refresh to update them.')
     }
   }
 

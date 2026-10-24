@@ -1,6 +1,7 @@
 import type { MailboxSettings, PatchMailboxRequest } from '@cloudflare-inbox/contracts/mailboxes'
 import type { SendResponse } from '@cloudflare-inbox/contracts/send'
 import type { CreateSpamRule } from '@cloudflare-inbox/contracts/spam'
+import type { ThreadSummary } from '@cloudflare-inbox/contracts/threads'
 
 import type { InboxData, InboxQuery, NewMessageDraft, ReplyDraft } from './inbox-types'
 
@@ -32,7 +33,11 @@ export type InboxShellProps = Readonly<{
     threadId: string,
     patch: import('@cloudflare-inbox/contracts/threads').PatchMessageState,
   ) => Promise<void>
-  onBulkMove?: (threadIds: readonly string[], location: BulkMoveLocation) => Promise<BulkMoveResult>
+  onBulkMove?: (
+    threadIds: readonly string[],
+    location: BulkMoveLocation,
+    restore?: readonly ThreadSummary[],
+  ) => Promise<BulkMoveResult>
   onArchiveThread?: (threadId: string, archived: boolean) => Promise<void> | void
   onBlockMailbox?: (address: string) => Promise<void>
   onSpamRulesChange?: () => Promise<void>
