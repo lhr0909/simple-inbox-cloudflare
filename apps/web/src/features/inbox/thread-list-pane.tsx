@@ -25,7 +25,9 @@ import type { InboxQuery } from './inbox-types'
 import { EmptyList, HydratedTime } from './inbox-primitives'
 import type { BulkMoveLocation, InboxShellProps } from './inbox-shell-types'
 
-type BulkMove = Readonly<{ location: BulkMoveLocation; threadIds: readonly string[] }>
+type BulkMove = Readonly<{ location: BulkMoveLocation; threads: readonly ThreadSummary[] }>
+
+const UNDO_WINDOW_MS = 8_000
 
 const BULK_ACTIONS: Readonly<
   Record<
@@ -93,28 +95,64 @@ export function ThreadListPane({
   const listKey = `${query.mailboxId}:${query.folder}:${query.unreadOnly}:${query.search}`
   const checkedIds = threads.filter((thread) => checked.has(thread.id)).map((thread) => thread.id)
   const allChecked = threads.length > 0 && checkedIds.length === threads.length
+  const rangeAnchor = useRef<string | null>(null)
 
   useEffect(() => {
     setChecked(new Set())
     setLastMove(null)
+    rangeAnchor.current = null
   }, [listKey])
 
-  function toggleThread(threadId: string, value: boolean): void {
+  useEffect(() => {
+    if (lastMove === null || moving) return
+    const timeout = window.setTimeout(() => setLastMove(null), UNDO_WINDOW_MS)
+    return () => window.clearTimeout(timeout)
+  }, [lastMove, moving])
+
+  useEffect(() => {
+    if (checked.size === 0) return
+    function clearOnEscape(event: KeyboardEvent): void {
+      if (event.key !== 'Escape' || event.defaultPrevented) return
+      const target = event.target instanceof Element ? event.target : null
+      if (target?.closest('input, textarea, select, [contenteditable], [role="dialog"]')) return
+      setChecked(new Set())
+    }
+    document.addEventListener('keydown', clearOnEscape)
+    return () => document.removeEventListener('keydown', clearOnEscape)
+  }, [checked])
+
+  function toggleThread(threadId: string, value: boolean, extendRange: boolean): void {
+    const ids: readonly string[] = threads.map((thread) => thread.id)
+    const anchor = rangeAnchor.current === null ? -1 : ids.indexOf(rangeAnchor.current)
+    const target = ids.indexOf(threadId)
+    const range =
+      extendRange && anchor !== -1 && target !== -1
+        ? ids.slice(Math.min(anchor, target), Math.max(anchor, target) + 1)
+        : [threadId]
+    rangeAnchor.current = threadId
     setChecked((current) => {
       const next = new Set(current)
-      if (value) next.add(threadId)
-      else next.delete(threadId)
+      for (const id of range) {
+        if (value) next.add(id)
+        else next.delete(id)
+      }
       return next
     })
   }
 
   async function moveChecked(location: BulkMoveLocation): Promise<void> {
     if (!onBulkMove || checkedIds.length === 0) return
+    const rows = threads.filter((thread) => checked.has(thread.id))
     setMoving(true)
     try {
       const result = await onBulkMove(checkedIds, location)
+      const succeeded = new Set(result.succeeded)
       setChecked(new Set(result.failed))
-      setLastMove(result.succeeded.length > 0 ? { location, threadIds: result.succeeded } : null)
+      setLastMove(
+        succeeded.size > 0
+          ? { location, threads: rows.filter((thread) => succeeded.has(thread.id)) }
+          : null,
+      )
     } finally {
       setMoving(false)
     }
@@ -124,8 +162,17 @@ export function ThreadListPane({
     if (!onBulkMove || lastMove === null) return
     setMoving(true)
     try {
-      await onBulkMove(lastMove.threadIds, BULK_ACTIONS[lastMove.location].undo)
-      setLastMove(null)
+      const result = await onBulkMove(
+        lastMove.threads.map((thread) => thread.id),
+        BULK_ACTIONS[lastMove.location].undo,
+        lastMove.threads,
+      )
+      const failed = new Set(result.failed)
+      setLastMove(
+        failed.size > 0
+          ? { ...lastMove, threads: lastMove.threads.filter((thread) => failed.has(thread.id)) }
+          : null,
+      )
     } finally {
       setMoving(false)
     }
@@ -257,7 +304,7 @@ export function ThreadListPane({
           role="status"
         >
           <span className="mr-auto">
-            {lastMove.threadIds.length} conversation{lastMove.threadIds.length === 1 ? '' : 's'}{' '}
+            {lastMove.threads.length} conversation{lastMove.threads.length === 1 ? '' : 's'}{' '}
             {BULK_ACTIONS[lastMove.location].done}.
           </span>
           <Button disabled={moving} onClick={() => void undoLastMove()} size="xs" variant="outline">
@@ -298,7 +345,7 @@ export function ThreadListPane({
               checked={checked.has(thread.id)}
               checkDisabled={moving}
               key={thread.id}
-              onCheckedChange={(value) => toggleThread(thread.id, value)}
+              onCheckedChange={(value, extendRange) => toggleThread(thread.id, value, extendRange)}
               onSelect={onSelectThread}
               thread={thread}
             />
@@ -334,11 +381,12 @@ function ThreadRow({
   active: boolean
   checked: boolean
   checkDisabled: boolean
-  onCheckedChange: (checked: boolean) => void
+  onCheckedChange: (checked: boolean, extendRange: boolean) => void
   onSelect?: InboxShellProps['onSelectThread']
   thread: ThreadSummary
 }>) {
   const label = participantLabel(thread)
+  const shiftPressed = useRef(false)
   return (
     <div
       className={cn(
@@ -347,12 +395,20 @@ function ThreadRow({
         active && 'bg-muted',
       )}
     >
-      <div className="flex shrink-0 items-start pt-[1.375rem] pl-4">
+      <div
+        className="flex shrink-0 items-start pt-[1.375rem] pl-4"
+        onPointerDownCapture={(event) => {
+          shiftPressed.current = event.shiftKey
+        }}
+      >
         <Checkbox
           aria-label={`Select conversation: ${thread.subject || '(no subject)'}`}
           checked={checked}
           disabled={checkDisabled}
-          onCheckedChange={onCheckedChange}
+          onCheckedChange={(value) => {
+            onCheckedChange(value, shiftPressed.current)
+            shiftPressed.current = false
+          }}
         />
       </div>
       <button
