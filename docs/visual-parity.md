@@ -27,9 +27,10 @@ deterministic `example.test` fixture from `apps/web/tests/fixtures/messages`.
   attachment add/remove, deterministic pending/success/failure states, and a locked uncertainty
   state that prevents accidental duplicate submission.
 - Archive/read mutations update optimistically and roll back with a visible error when rejected.
-- Each list row and the list header carry a selection checkbox; a bulk toolbar moves the checked
-  conversations in view to Trash or Spam (move only, no blacklist rule), keeps failed ones checked
-  with a visible error, and offers Undo (restore / not spam) for the last move.
+- Each list row and the list header carry a selection checkbox; a bulk toolbar applies a folder
+  action to the checked conversations in view (Trash or Spam elsewhere, Trash or Not spam in Spam,
+  Restore in Trash; Spam moves only, no blacklist rule), keeps failed ones checked with a visible
+  error, and offers Undo for the last action.
 - Mailbox settings have a labelled modal, predictable initial focus, Escape/Cancel behavior,
   sender alias and forwarding fields, theme selection, and sign-out.
 - Empty, loading, search-empty, archived, attachment, refresh-error, and send-error states retain
