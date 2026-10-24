@@ -114,7 +114,8 @@ export function ThreadListPane({
     function clearOnEscape(event: KeyboardEvent): void {
       if (event.key !== 'Escape' || event.defaultPrevented) return
       const target = event.target instanceof Element ? event.target : null
-      if (target?.closest('input, textarea, select, [contenteditable], [role="dialog"]')) return
+      if (target?.closest('input, textarea, select, [contenteditable], dialog, [role="dialog"]'))
+        return
       setChecked(new Set())
     }
     document.addEventListener('keydown', clearOnEscape)
