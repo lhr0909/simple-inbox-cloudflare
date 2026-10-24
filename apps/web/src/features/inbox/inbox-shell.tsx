@@ -30,6 +30,7 @@ export function InboxShell({
   onRefresh,
   onLoadMore,
   onArchiveThread,
+  onBulkMove,
   onMessageState,
   onSpam,
   onBlockMailbox,
@@ -156,6 +157,7 @@ export function InboxShell({
             onLoadMore={onLoadMore}
             onRefresh={onRefresh}
             onSelectThread={onSelectThread}
+            onBulkMove={onBulkMove}
           />
           <PaneResizeHandle
             className="hidden xl:block xl:col-start-4 xl:row-start-1"

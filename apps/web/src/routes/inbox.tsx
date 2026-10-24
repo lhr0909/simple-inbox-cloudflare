@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { MailboxSettings, PatchMailboxRequest } from '@cloudflare-inbox/contracts/mailboxes'
 import type { SendResponse } from '@cloudflare-inbox/contracts/send'
+import type { ThreadSummary } from '@cloudflare-inbox/contracts/threads'
 
 import {
   ApiRequestError,
@@ -12,6 +13,7 @@ import {
   createMailbox,
   listThreadPage,
   patchThreadState,
+  patchThreadStates,
   getThreadDetail,
   sendNewMessage,
   sendReply,
@@ -19,7 +21,12 @@ import {
   signOut,
   updateMailboxSettings,
 } from '#/features/inbox/inbox-api'
-import { appendThreadPage, applyOptimisticThreadStates } from '#/features/inbox/inbox-model'
+import {
+  appendThreadPage,
+  applyBulkMove,
+  applyOptimisticThreadStates,
+  threadMatchesFolder,
+} from '#/features/inbox/inbox-model'
 import { LatestRequestCoordinator, isAbortError } from '#/features/inbox/inbox-request-coordinator'
 import {
   inboxQueryFromSearch,
@@ -34,6 +41,7 @@ import { loadInboxServer } from '#/features/inbox/inbox-server'
 import type { InboxServerResult } from '#/features/inbox/inbox-server'
 import { useThreadDetail } from '#/features/inbox/use-thread-detail'
 import { InboxShell } from '#/features/inbox/inbox-shell'
+import type { BulkMoveLocation, BulkMoveResult } from '#/features/inbox/inbox-shell-types'
 import { getSetupState } from '#/features/setup/setup-server'
 import type {
   InboxData,
@@ -279,6 +287,98 @@ function Inbox() {
     }
   }
 
+  async function bulkMove(
+    threadIds: readonly string[],
+    location: BulkMoveLocation,
+    restore?: readonly ThreadSummary[],
+  ): Promise<BulkMoveResult> {
+    beginOperation()
+    setError(null)
+    try {
+      const result = await patchThreadStates(threadIds, { location })
+      if (result.unauthorized) {
+        window.location.replace('/sign-in')
+        return result
+      }
+      if (result.failed.length > 0)
+        setError(
+          restore
+            ? `${result.failed.length} of ${threadIds.length} conversations could not be moved back. Select Undo to try again.`
+            : `${result.failed.length} of ${threadIds.length} conversations could not be updated. They are still selected.`,
+        )
+      if (result.succeeded.length > 0) {
+        const succeeded = new Set(result.succeeded)
+        reconcileLoadedThreads(
+          restore ? new Set() : succeeded,
+          restore
+            ? await reloadRestoredThreads(restore.filter((thread) => succeeded.has(thread.id)))
+            : [],
+        )
+        await refreshFolderCounts()
+      }
+      return result
+    } finally {
+      finishOperation()
+    }
+  }
+
+  async function reloadRestoredThreads(
+    restored: readonly ThreadSummary[],
+  ): Promise<ThreadSummary[]> {
+    const results = await Promise.allSettled(
+      restored.map((thread) => getThreadDetail(thread.id, new AbortController().signal)),
+    )
+    const rejected = results.flatMap((result) => (result.status === 'rejected' ? [result] : []))
+    if (rejected.some((result) => redirectIfAnonymous(result.reason))) return []
+    if (rejected.length > 0)
+      setError(
+        `${rejected.length} moved-back conversations could not be reloaded. Use Refresh to show them.`,
+      )
+    return results
+      .flatMap((result) => (result.status === 'fulfilled' ? [result.value.thread] : []))
+      .filter(
+        (thread) =>
+          threadMatchesFolder(thread, query.folder) &&
+          (!query.unreadOnly || thread.unreadCount > 0),
+      )
+  }
+
+  function reconcileLoadedThreads(
+    removedIds: ReadonlySet<string>,
+    restored: readonly ThreadSummary[],
+  ): void {
+    setRefreshed((current) => {
+      if (activeListKey.current !== currentListKey) return current
+      const base = current?.listKey === currentListKey ? current : source
+      return {
+        data: applyBulkMove(base.data, removedIds, restored),
+        effectiveMailboxId: base.effectiveMailboxId,
+        listKey: currentListKey,
+      }
+    })
+  }
+
+  async function refreshFolderCounts(): Promise<void> {
+    const targetKey = inboxSearchKey(search)
+    const request = snapshotRequests.current.begin()
+    reloadThread()
+    try {
+      const result = await reloadInbox({ data: search })
+      if (!request.isLatest() || activeSearchKey.current !== targetKey) return
+      if (result.status === 'anonymous') {
+        window.location.replace('/sign-in')
+        return
+      }
+      setRefreshed((current) => {
+        if (current?.listKey !== currentListKey) return current
+        return { ...current, data: { ...current.data, mailboxes: result.data.mailboxes } }
+      })
+    } catch (cause) {
+      if (!request.isLatest() || isAbortError(cause)) return
+      setError('Folder counts could not be refreshed. Use Refresh to update them.')
+    }
+  }
+
   async function reply(threadId: string, draft: ReplyDraft): Promise<SendResponse> {
     beginOperation()
     setError(null)
@@ -449,6 +549,7 @@ function Inbox() {
       }}
       onSpamRulesChange={() => router.invalidate()}
       onArchiveThread={archiveThread}
+      onBulkMove={bulkMove}
       onSpam={async (threadId, rule) => {
         beginOperation()
         try {
