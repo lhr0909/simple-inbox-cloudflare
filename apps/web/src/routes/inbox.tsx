@@ -12,6 +12,7 @@ import {
   createMailbox,
   listThreadPage,
   patchThreadState,
+  patchThreadStates,
   getThreadDetail,
   sendNewMessage,
   sendReply,
@@ -34,6 +35,7 @@ import { loadInboxServer } from '#/features/inbox/inbox-server'
 import type { InboxServerResult } from '#/features/inbox/inbox-server'
 import { useThreadDetail } from '#/features/inbox/use-thread-detail'
 import { InboxShell } from '#/features/inbox/inbox-shell'
+import type { BulkMoveLocation, BulkMoveResult } from '#/features/inbox/inbox-shell-types'
 import { getSetupState } from '#/features/setup/setup-server'
 import type {
   InboxData,
@@ -279,6 +281,29 @@ function Inbox() {
     }
   }
 
+  async function bulkMove(
+    threadIds: readonly string[],
+    location: BulkMoveLocation,
+  ): Promise<BulkMoveResult> {
+    beginOperation()
+    setError(null)
+    try {
+      const result = await patchThreadStates(threadIds, { location })
+      if (result.unauthorized) {
+        window.location.replace('/sign-in')
+        return result
+      }
+      if (result.succeeded.length > 0) await fetchSnapshot(search, false)
+      if (result.failed.length > 0)
+        setError(
+          `${result.failed.length} of ${threadIds.length} conversations could not be updated. They are still selected.`,
+        )
+      return result
+    } finally {
+      finishOperation()
+    }
+  }
+
   async function reply(threadId: string, draft: ReplyDraft): Promise<SendResponse> {
     beginOperation()
     setError(null)
@@ -449,6 +474,7 @@ function Inbox() {
       }}
       onSpamRulesChange={() => router.invalidate()}
       onArchiveThread={archiveThread}
+      onBulkMove={bulkMove}
       onSpam={async (threadId, rule) => {
         beginOperation()
         try {

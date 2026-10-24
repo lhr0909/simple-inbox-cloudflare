@@ -4,11 +4,15 @@ import PaperclipIcon from 'lucide-react/dist/esm/icons/paperclip.mjs'
 import RefreshIcon from 'lucide-react/dist/esm/icons/refresh-cw.mjs'
 import SearchIcon from 'lucide-react/dist/esm/icons/search.mjs'
 import SendIcon from 'lucide-react/dist/esm/icons/send.mjs'
+import ShieldIcon from 'lucide-react/dist/esm/icons/shield-alert.mjs'
+import TrashIcon from 'lucide-react/dist/esm/icons/trash-2.mjs'
+import XIcon from 'lucide-react/dist/esm/icons/x.mjs'
 
 import type { ThreadSummary } from '@cloudflare-inbox/contracts/threads'
 
 import { Avatar, AvatarFallback } from '#/components/ui/avatar'
 import { Button } from '#/components/ui/button'
+import { Checkbox } from '#/components/ui/checkbox'
 import { Input } from '#/components/ui/input'
 import { cn } from '#/lib/utils'
 
@@ -16,7 +20,14 @@ import { initials, participantLabel } from './inbox-model'
 import type { InboxQuery } from './inbox-types'
 
 import { EmptyList, HydratedTime } from './inbox-primitives'
-import type { InboxShellProps } from './inbox-shell-types'
+import type { BulkMoveLocation, InboxShellProps } from './inbox-shell-types'
+
+type BulkMove = Readonly<{ location: 'trash' | 'spam'; threadIds: readonly string[] }>
+
+const UNDO_LOCATION: Readonly<Record<BulkMove['location'], BulkMoveLocation>> = {
+  trash: 'restore',
+  spam: 'not_spam',
+}
 
 export function ThreadListPane({
   className,
@@ -34,6 +45,7 @@ export function ThreadListPane({
   onLoadMore,
   onRefresh,
   onSelectThread,
+  onBulkMove,
 }: Readonly<{
   className?: string
   busy: boolean
@@ -50,9 +62,55 @@ export function ThreadListPane({
   onLoadMore?: InboxShellProps['onLoadMore']
   onRefresh?: InboxShellProps['onRefresh']
   onSelectThread?: InboxShellProps['onSelectThread']
+  onBulkMove?: InboxShellProps['onBulkMove']
 }>) {
   const [searchDraft, setSearchDraft] = useState(query.search)
   const previousQuerySearch = useRef(query.search)
+  const [checked, setChecked] = useState<ReadonlySet<string>>(() => new Set())
+  const [moving, setMoving] = useState(false)
+  const [lastMove, setLastMove] = useState<BulkMove | null>(null)
+  const listKey = `${query.mailboxId}:${query.folder}:${query.unreadOnly}:${query.search}`
+  const checkedIds = threads.filter((thread) => checked.has(thread.id)).map((thread) => thread.id)
+  const allChecked = threads.length > 0 && checkedIds.length === threads.length
+  const canTrash = query.folder !== 'trash'
+  const canSpam = query.folder !== 'spam' && query.folder !== 'trash'
+
+  useEffect(() => {
+    setChecked(new Set())
+    setLastMove(null)
+  }, [listKey])
+
+  function toggleThread(threadId: string, value: boolean): void {
+    setChecked((current) => {
+      const next = new Set(current)
+      if (value) next.add(threadId)
+      else next.delete(threadId)
+      return next
+    })
+  }
+
+  async function moveChecked(location: BulkMove['location']): Promise<void> {
+    if (!onBulkMove || checkedIds.length === 0) return
+    setMoving(true)
+    try {
+      const result = await onBulkMove(checkedIds, location)
+      setChecked(new Set(result.failed))
+      setLastMove(result.succeeded.length > 0 ? { location, threadIds: result.succeeded } : null)
+    } finally {
+      setMoving(false)
+    }
+  }
+
+  async function undoLastMove(): Promise<void> {
+    if (!onBulkMove || lastMove === null) return
+    setMoving(true)
+    try {
+      await onBulkMove(lastMove.threadIds, UNDO_LOCATION[lastMove.location])
+      setLastMove(null)
+    } finally {
+      setMoving(false)
+    }
+  }
 
   useEffect(() => {
     const previousSearch = previousQuerySearch.current
@@ -112,8 +170,17 @@ export function ThreadListPane({
         </div>
       </header>
 
-      <div className="border-b p-3">
-        <div className="relative">
+      <div className="flex items-center gap-3 border-b p-3 pl-4">
+        <Checkbox
+          aria-label="Select all conversations in view"
+          checked={allChecked}
+          disabled={threads.length === 0 || moving}
+          indeterminate={checkedIds.length > 0 && !allChecked}
+          onCheckedChange={(value) =>
+            setChecked(value ? new Set(threads.map((thread) => thread.id)) : new Set())
+          }
+        />
+        <div className="relative min-w-0 flex-1">
           <SearchIcon
             aria-hidden="true"
             className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
@@ -130,8 +197,73 @@ export function ThreadListPane({
         </div>
       </div>
 
+      {checkedIds.length > 0 ? (
+        <div
+          aria-label="Bulk actions"
+          className="flex flex-wrap items-center gap-1 border-b bg-muted/40 px-3 py-1.5"
+          role="toolbar"
+        >
+          <span className="mr-auto pl-1 text-xs font-medium">{checkedIds.length} selected</span>
+          {canTrash ? (
+            <Button
+              disabled={busy || moving}
+              onClick={() => void moveChecked('trash')}
+              size="sm"
+              variant="ghost"
+            >
+              <TrashIcon aria-hidden="true" className="size-4" />
+              Trash
+            </Button>
+          ) : null}
+          {canSpam ? (
+            <Button
+              disabled={busy || moving}
+              onClick={() => void moveChecked('spam')}
+              size="sm"
+              variant="ghost"
+            >
+              <ShieldIcon aria-hidden="true" className="size-4" />
+              Spam
+            </Button>
+          ) : null}
+          <Button
+            aria-label="Clear selection"
+            disabled={moving}
+            onClick={() => setChecked(new Set())}
+            size="icon-sm"
+            title="Clear selection"
+            variant="ghost"
+          >
+            <XIcon aria-hidden="true" className="size-4" />
+          </Button>
+        </div>
+      ) : null}
+
+      {lastMove !== null ? (
+        <div
+          className="flex items-center gap-2 border-b px-4 py-1.5 text-xs text-muted-foreground"
+          role="status"
+        >
+          <span className="mr-auto">
+            {lastMove.threadIds.length} conversation{lastMove.threadIds.length === 1 ? '' : 's'}{' '}
+            moved to {lastMove.location === 'trash' ? 'Trash' : 'Spam'}.
+          </span>
+          <Button disabled={moving} onClick={() => void undoLastMove()} size="xs" variant="outline">
+            Undo
+          </Button>
+          <Button
+            aria-label="Dismiss"
+            onClick={() => setLastMove(null)}
+            size="icon-xs"
+            variant="ghost"
+          >
+            <XIcon aria-hidden="true" />
+          </Button>
+        </div>
+      ) : null}
+
       <div
-        aria-busy={busy || refreshing}
+        aria-busy={busy || refreshing || moving}
         className="min-h-0 flex-1 overflow-y-auto"
         data-testid="thread-list"
       >
@@ -151,7 +283,10 @@ export function ThreadListPane({
                 query.mailboxId === 'other' ? aliasAddresses?.[thread.mailboxId] : undefined
               }
               active={selectedThreadId === thread.id}
+              checked={checked.has(thread.id)}
+              checkDisabled={moving}
               key={thread.id}
+              onCheckedChange={(value) => toggleThread(thread.id, value)}
               onSelect={onSelectThread}
               thread={thread}
             />
@@ -177,75 +312,97 @@ export function ThreadListPane({
 function ThreadRow({
   aliasAddress,
   active,
+  checked,
+  checkDisabled,
+  onCheckedChange,
   onSelect,
   thread,
 }: Readonly<{
   aliasAddress?: string | undefined
   active: boolean
+  checked: boolean
+  checkDisabled: boolean
+  onCheckedChange: (checked: boolean) => void
   onSelect?: InboxShellProps['onSelectThread']
   thread: ThreadSummary
 }>) {
   const label = participantLabel(thread)
   return (
-    <button
-      aria-pressed={active}
+    <div
       className={cn(
-        'content-auto relative flex w-full gap-3 border-b px-4 py-3 text-left transition-colors hover:bg-muted/60 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring',
+        'content-auto flex border-b transition-colors hover:bg-muted/60',
+        checked && 'bg-primary/5',
         active && 'bg-muted',
       )}
-      onClick={() => void onSelect?.(thread.id)}
-      type="button"
     >
-      <Avatar className="mt-0.5" size="lg">
-        <AvatarFallback>{initials(label)}</AvatarFallback>
-      </Avatar>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2">
+      <div className="flex shrink-0 items-start pt-[1.375rem] pl-4">
+        <Checkbox
+          aria-label={`Select conversation: ${thread.subject || '(no subject)'}`}
+          checked={checked}
+          disabled={checkDisabled}
+          onCheckedChange={onCheckedChange}
+        />
+      </div>
+      <button
+        aria-pressed={active}
+        className="relative flex min-w-0 flex-1 gap-3 py-3 pr-4 pl-3 text-left focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring"
+        onClick={() => void onSelect?.(thread.id)}
+        type="button"
+      >
+        <Avatar className="mt-0.5" size="lg">
+          <AvatarFallback>{initials(label)}</AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-2">
+            <p
+              className={cn(
+                'min-w-0 flex-1 truncate text-sm',
+                thread.unreadCount > 0 && 'font-semibold',
+              )}
+            >
+              {label}
+            </p>
+            <HydratedTime
+              className="shrink-0 text-xs text-muted-foreground"
+              presentation="thread"
+              value={thread.lastMessageAt}
+            />
+          </div>
           <p
             className={cn(
-              'min-w-0 flex-1 truncate text-sm',
-              thread.unreadCount > 0 && 'font-semibold',
+              'mt-0.5 truncate text-sm',
+              thread.unreadCount > 0 ? 'font-medium' : 'text-muted-foreground',
             )}
           >
-            {label}
+            {thread.subject || '(no subject)'}
           </p>
-          <HydratedTime
-            className="shrink-0 text-xs text-muted-foreground"
-            presentation="thread"
-            value={thread.lastMessageAt}
-          />
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+            {thread.preview}
+          </p>
+          {aliasAddress ? (
+            <p className="mt-1 truncate text-xs text-muted-foreground">To: {aliasAddress}</p>
+          ) : null}
+          <div className="mt-2 flex min-h-5 items-center gap-1.5">
+            {thread.attachmentCount > 0 ? (
+              <PaperclipIcon
+                className="size-3 text-muted-foreground"
+                aria-label="Has attachments"
+              />
+            ) : null}
+            {thread.hasStarred ? (
+              <span aria-label="Starred" className="text-amber-500">
+                ★
+              </span>
+            ) : null}
+            {thread.unreadCount > 0 ? (
+              <span
+                className="ml-auto size-2 rounded-full bg-primary"
+                aria-label={`${thread.unreadCount} unread`}
+              />
+            ) : null}
+          </div>
         </div>
-        <p
-          className={cn(
-            'mt-0.5 truncate text-sm',
-            thread.unreadCount > 0 ? 'font-medium' : 'text-muted-foreground',
-          )}
-        >
-          {thread.subject || '(no subject)'}
-        </p>
-        <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
-          {thread.preview}
-        </p>
-        {aliasAddress ? (
-          <p className="mt-1 truncate text-xs text-muted-foreground">To: {aliasAddress}</p>
-        ) : null}
-        <div className="mt-2 flex min-h-5 items-center gap-1.5">
-          {thread.attachmentCount > 0 ? (
-            <PaperclipIcon className="size-3 text-muted-foreground" aria-label="Has attachments" />
-          ) : null}
-          {thread.hasStarred ? (
-            <span aria-label="Starred" className="text-amber-500">
-              ★
-            </span>
-          ) : null}
-          {thread.unreadCount > 0 ? (
-            <span
-              className="ml-auto size-2 rounded-full bg-primary"
-              aria-label={`${thread.unreadCount} unread`}
-            />
-          ) : null}
-        </div>
-      </div>
-    </button>
+      </button>
+    </div>
   )
 }

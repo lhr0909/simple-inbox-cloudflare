@@ -4,6 +4,10 @@ import type { CreateSpamRule } from '@cloudflare-inbox/contracts/spam'
 
 import type { InboxData, InboxQuery, NewMessageDraft, ReplyDraft } from './inbox-types'
 
+export type BulkMoveLocation = 'trash' | 'spam' | 'restore' | 'not_spam'
+
+export type BulkMoveResult = Readonly<{ succeeded: readonly string[]; failed: readonly string[] }>
+
 type QueryChangeOptions = Readonly<{ replace?: boolean }>
 
 export type InboxShellProps = Readonly<{
@@ -28,6 +32,7 @@ export type InboxShellProps = Readonly<{
     threadId: string,
     patch: import('@cloudflare-inbox/contracts/threads').PatchMessageState,
   ) => Promise<void>
+  onBulkMove?: (threadIds: readonly string[], location: BulkMoveLocation) => Promise<BulkMoveResult>
   onArchiveThread?: (threadId: string, archived: boolean) => Promise<void> | void
   onBlockMailbox?: (address: string) => Promise<void>
   onSpamRulesChange?: () => Promise<void>
