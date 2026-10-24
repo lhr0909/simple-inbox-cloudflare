@@ -53,7 +53,7 @@ catalog:
   vite-plus: 0.2.7
   vitest: 4.1.10
   wrangler: 4.118.0
-  zod: 4.4.3
+  zod: 4.6.6
 
 minimumReleaseAgeExclude:
   - '@cloudflare/vite-plugin@1.50.0'
