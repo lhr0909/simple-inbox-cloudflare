@@ -16,10 +16,10 @@ catalog:
   '@hono/zod-openapi': 1.5.1
   '@playwright/test': 1.62.0
   '@tailwindcss/vite': 4.3.3
-  '@tanstack/react-router': 1.170.18
+  '@tanstack/react-router': 1.170.41
   '@tanstack/react-router-devtools': 1.167.0
-  '@tanstack/react-start': 1.168.34
-  '@tanstack/router-cli': 1.167.21
+  '@tanstack/react-start': 1.168.60
+  '@tanstack/router-cli': 1.167.40
   '@tanstack/router-plugin': 1.168.23
   '@types/node': 26.1.2
   '@types/mdx': 2.0.14
