@@ -1,0 +1,14 @@
+# Secret scan rules (OF-548), read by the gitleaks pre-commit hook in lefthook.yml.
+# gitleaks' default rules plus the ones they lack. Allowlist entries go here only
+# for proven false positives, each with a comment saying why it is not a secret.
+[extend]
+useDefault = true
+
+# gitleaks 8.30.1 has no PostHog rule. Personal API keys (phx_) are private and
+# leaked in business/.mcp.json (TM-119). Project keys (phc_) are public client
+# keys and are not matched.
+[[rules]]
+id = "posthog-personal-api-key"
+description = "PostHog personal API key"
+regex = '''\bphx_[A-Za-z0-9]{40,64}\b'''
+keywords = ["phx_"]

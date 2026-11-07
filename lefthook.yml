@@ -1,0 +1,13 @@
+# Git hooks, managed by Lefthook (brew install lefthook). Install them once per
+# clone with `lefthook install`; every worktree of the clone then runs them.
+
+pre-commit:
+  commands:
+    # Secret scan (OF-548): blocks a commit whose staged changes hold a credential,
+    # with the value redacted. Never bypass it with --no-verify: remove the secret
+    # and read it from env or the secret store. Rules live in .gitleaks.toml.
+    gitleaks:
+      run: GL=$(command -v gitleaks || echo /opt/homebrew/bin/gitleaks); "$GL" git --pre-commit --staged --redact --verbose --no-banner --config .gitleaks.toml .
+      skip:
+        - merge
+        - rebase
