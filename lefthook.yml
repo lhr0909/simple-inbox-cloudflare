@@ -10,12 +10,20 @@ pre-commit:
     # --ignore-gitleaks-allow stops an inline gitleaks:allow comment from waiving it.
     # It fails closed unless gitleaks is at least 8.25.1, the oldest release with
     # every feature used here (multiple [[allowlists]] with condition, tested in full).
+    # The whole version output must be one MAJOR.MINOR.PATCH[-prerelease] (optional v);
+    # a prerelease counts as below its release.
     gitleaks:
       run: |
         GL=$(command -v gitleaks || echo /opt/homebrew/bin/gitleaks)
-        v=$("$GL" version 2>/dev/null) || { echo "gitleaks missing or not runnable: brew install gitleaks (OF-548)" >&2; exit 1; }
-        set -f; set -- $v; set +f; v=${1#v}; a=${v%%.*}; r=${v#*.}; b=${r%%.*}; c=${r#*.}; c=${c%%[!0-9]*}
-        case $v in [0-9]*.[0-9]*.[0-9]*) ;; *) a=x ;; esac
-        case "$a.$b.$c" in *[!0-9.]*|.*|*..*|*.) echo "gitleaks version unreadable: brew upgrade gitleaks (OF-548)" >&2; exit 1 ;; esac
-        if [ "$a" -lt 8 ] || { [ "$a" -eq 8 ] && { [ "$b" -lt 25 ] || { [ "$b" -eq 25 ] && [ "$c" -lt 1 ]; }; }; }; then echo "gitleaks $v is older than 8.25.1: brew upgrade gitleaks (OF-548)" >&2; exit 1; fi
+        u() { echo "gitleaks version unreadable: brew upgrade gitleaks (OF-548)" >&2; exit 1; }
+        out=$("$GL" version 2>/dev/null) || { echo "gitleaks missing or not runnable: brew install gitleaks (OF-548)" >&2; exit 1; }
+        v=${out#v}; core=${v%%-*}; pre=${v#"$core"}
+        case $v in ''|*[!0-9A-Za-z.-]*) u ;; esac
+        case $core in *[!0-9.]*|.*|*.|*..*) u ;; esac
+        case $pre in -|-*[!0-9A-Za-z.-]*|-*..*|-.*|*.) u ;; esac
+        a=${core%%.*}; r=${core#*.}; b=${r%%.*}; c=${r#*.}
+        case $r in *.*) ;; *) u ;; esac
+        case $c in *.*) u ;; esac
+        for n in "$a" "$b" "$c"; do case $n in ''|??????*) u ;; esac; done
+        if [ "$a" -lt 8 ] || { [ "$a" -eq 8 ] && { [ "$b" -lt 25 ] || { [ "$b" -eq 25 ] && { [ "$c" -lt 1 ] || { [ "$c" -eq 1 ] && [ -n "$pre" ]; }; }; }; }; }; then echo "gitleaks $v is older than 8.25.1: brew upgrade gitleaks (OF-548)" >&2; exit 1; fi
         "$GL" git --pre-commit --staged --redact --ignore-gitleaks-allow --verbose --no-banner --config .gitleaks.toml .
