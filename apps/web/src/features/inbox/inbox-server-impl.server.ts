@@ -42,7 +42,10 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
     new URL(path, 'https://api.internal'),
     incoming as unknown as RequestInit,
   )
-  return fetchInternalApi(new Request(retargeted, { ...init, headers, signal: incoming.signal }))
+  const method = incoming.method === 'HEAD' ? { method: 'GET' } : {}
+  return fetchInternalApi(
+    new Request(retargeted, { ...method, ...init, headers, signal: incoming.signal }),
+  )
 }
 
 async function apiJson<TResult>(
