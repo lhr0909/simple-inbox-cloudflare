@@ -203,3 +203,36 @@ export function patchThreadState(
     body: JSON.stringify(patch),
   })
 }
+
+export type BulkThreadStateResult = Readonly<{
+  succeeded: readonly string[]
+  failed: readonly string[]
+  unauthorized: boolean
+}>
+
+export async function patchThreadStates(
+  threadIds: readonly string[],
+  patch: import('@cloudflare-inbox/contracts/threads').PatchMessageState,
+  concurrency = 6,
+): Promise<BulkThreadStateResult> {
+  const succeeded = new Set<string>()
+  let unauthorized = false
+  let next = 0
+  async function worker(): Promise<void> {
+    while (next < threadIds.length && !unauthorized) {
+      const threadId = threadIds[next++]!
+      try {
+        await patchThreadState(threadId, patch)
+        succeeded.add(threadId)
+      } catch (cause) {
+        if (cause instanceof ApiRequestError && cause.status === 401) unauthorized = true
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, threadIds.length) }, worker))
+  return {
+    succeeded: threadIds.filter((id) => succeeded.has(id)),
+    failed: threadIds.filter((id) => !succeeded.has(id)),
+    unauthorized,
+  }
+}

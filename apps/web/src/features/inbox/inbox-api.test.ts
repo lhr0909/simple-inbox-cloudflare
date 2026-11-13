@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { blacklistAndMoveToSpam, sendNewMessage } from './inbox-api'
+import { blacklistAndMoveToSpam, patchThreadStates, sendNewMessage } from './inbox-api'
 
 const MAILBOX_ID = '019b08e0-1000-7000-8000-000000000001'
 const THREAD_ID = '019b08e0-2000-7000-8000-000000000001'
@@ -74,5 +74,46 @@ describe('spam blacklist action', () => {
     )
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(fetchMock.mock.calls[1]?.[0]).toBe(`/api/v1/threads/${THREAD_ID}/state`)
+  })
+})
+
+describe('bulk thread state', () => {
+  const threadIds = Array.from(
+    { length: 9 },
+    (_, index) => `019b08e0-2000-7000-8000-00000000000${index + 1}`,
+  )
+
+  it('patches every thread with bounded concurrency and reports failures in selection order', async () => {
+    let inFlight = 0
+    let peak = 0
+    const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
+      inFlight += 1
+      peak = Math.max(peak, inFlight)
+      await new Promise((resolve) => setTimeout(resolve, 1))
+      inFlight -= 1
+      expect(init?.method).toBe('PATCH')
+      expect(init?.body).toBe(JSON.stringify({ location: 'trash' }))
+      const failing = [threadIds[2], threadIds[7]].some((id) => (input as string).includes(id!))
+      return new Response(null, { status: failing ? 503 : 204 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await patchThreadStates(threadIds, { location: 'trash' }, 3)
+
+    expect(fetchMock).toHaveBeenCalledTimes(9)
+    expect(peak).toBe(3)
+    expect(result.failed).toEqual([threadIds[2], threadIds[7]])
+    expect(result.succeeded).toEqual(threadIds.filter((_, index) => index !== 2 && index !== 7))
+    expect(result.unauthorized).toBe(false)
+  })
+
+  it('stops starting new requests once the session has expired', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response(null, { status: 401 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await patchThreadStates(threadIds, { location: 'spam' }, 2)
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(result).toEqual({ succeeded: [], failed: threadIds, unauthorized: true })
   })
 })

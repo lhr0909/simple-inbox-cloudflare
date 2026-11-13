@@ -4,6 +4,7 @@ import { ThreadListResponseSchema } from '@cloudflare-inbox/contracts/threads'
 
 import { createPreviewInboxData } from './preview-data'
 import {
+  applyBulkMove,
   applyOptimisticThreadStates,
   appendThreadPage,
   clampPaneSize,
@@ -151,5 +152,29 @@ describe('inbox presentation model', () => {
   it('bounds reply subjects', () => {
     expect(replySubject('RE: Existing subject')).toBe('RE: Existing subject')
     expect(replySubject('x'.repeat(998))).toHaveLength(998)
+  })
+})
+
+describe('bulk move reconciliation', () => {
+  it('drops only moved rows and keeps every loaded page and the cursor', () => {
+    const [first, second, third] = data.threads
+    const loaded = { ...data, nextCursor: 'next-page-cursor' }
+    const result = applyBulkMove(loaded, new Set([second!.id]), [])
+    expect(result.threads.map((thread) => thread.id)).toEqual(
+      data.threads.filter((thread) => thread.id !== second!.id).map((thread) => thread.id),
+    )
+    expect(result.threads).toContain(first)
+    expect(result.threads).toContain(third)
+    expect(result.nextCursor).toBe('next-page-cursor')
+  })
+
+  it('reinserts undone rows in list order without duplicating visible ones', () => {
+    const ordered = applyBulkMove(data, new Set(), [])
+    const [first, second] = ordered.threads
+    const moved = applyBulkMove(ordered, new Set([first!.id, second!.id]), [])
+    const undone = applyBulkMove(moved, new Set(), [second!, first!, ordered.threads[2]!])
+    expect(undone.threads.map((thread) => thread.id)).toEqual(
+      ordered.threads.map((thread) => thread.id),
+    )
   })
 })

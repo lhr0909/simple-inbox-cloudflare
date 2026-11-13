@@ -272,3 +272,21 @@ export function appendThreadPage(data: InboxData, page: ThreadListResponse): Inb
     nextCursor: page.nextCursor,
   }
 }
+
+export function applyBulkMove(
+  data: InboxData,
+  removedIds: ReadonlySet<string>,
+  restored: readonly ThreadSummary[],
+): InboxData {
+  const knownIds = new Set(data.threads.map((thread) => thread.id))
+  return {
+    ...data,
+    threads: [
+      ...data.threads.filter((thread) => !removedIds.has(thread.id)),
+      ...restored.filter((thread) => !knownIds.has(thread.id)),
+    ].sort(
+      (a, b) =>
+        b.lastMessageAt.localeCompare(a.lastMessageAt) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0),
+    ),
+  }
+}
