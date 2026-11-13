@@ -94,10 +94,18 @@ const ApiTokenScopesSchema = z
     }
   })
 
+// null explicitly grants all current and future mailboxes; an array is a fixed selection.
+export const ApiTokenMailboxIdsSchema = z
+  .array(MailboxIdSchema)
+  .min(1)
+  .refine((ids) => new Set(ids).size === ids.length, 'Inbox selections must be unique')
+  .nullable()
+
 export const ApiTokenCreateRequestSchema = z
   .object({
     name: z.string().trim().min(1).max(100),
     scopes: ApiTokenScopesSchema,
+    mailboxIds: ApiTokenMailboxIdsSchema,
     expiresAt: IsoDateTimeSchema.nullable().optional(),
   })
   .strict()
@@ -109,6 +117,7 @@ export const ApiTokenSummarySchema = z
     id: ApiTokenIdSchema,
     name: z.string().min(1).max(100),
     scopes: ApiTokenScopesSchema,
+    mailboxIds: z.array(MailboxIdSchema).nullable(),
     createdAt: IsoDateTimeSchema,
     expiresAt: IsoDateTimeSchema.nullable(),
     revokedAt: IsoDateTimeSchema.nullable(),
@@ -129,3 +138,9 @@ export type ApiTokenCreatedResponse = z.infer<typeof ApiTokenCreatedResponseSche
 
 export const AuthKindSchema = z.enum(['session', 'api_token'])
 export type AuthKind = z.infer<typeof AuthKindSchema>
+
+export const ApiTokenListResponseSchema = z
+  .object({ tokens: z.array(ApiTokenSummarySchema) })
+  .strict()
+  .openapi('ApiTokenListResponse')
+export type ApiTokenListResponse = z.infer<typeof ApiTokenListResponseSchema>

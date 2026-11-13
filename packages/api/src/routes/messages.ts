@@ -54,7 +54,7 @@ export function registerMessageRoutes(
     })
     if (!parsedMessage.success) throw new ApiFault('validation_failed')
     const message = parsedMessage.data
-    const repository = dependencies.inboxRepository(context.env, actor.userId)
+    const repository = dependencies.inboxRepository(context.env, actor.userId, actor.mailboxIds)
     if ((await repository.getMailboxSettings(message.mailboxId)) === undefined) {
       throw new ApiFault('mailbox_not_found')
     }
@@ -72,7 +72,7 @@ export function registerMessageRoutes(
     const { threadId } = context.req.valid('param')
     const form = context.req.valid('form')
     const attachments = form.attachments ?? []
-    const repository = dependencies.inboxRepository(context.env, actor.userId)
+    const repository = dependencies.inboxRepository(context.env, actor.userId, actor.mailboxIds)
     const detail = await repository.getThreadDetail(threadId)
     if (detail === undefined) throw new ApiFault('thread_not_found')
     if (
@@ -110,7 +110,7 @@ export function registerMessageRoutes(
     try {
       const actor = await requireActor(context.req.raw, context.env, dependencies, 'read')
       const { messageId } = context.req.valid('param')
-      const repository = dependencies.inboxRepository(context.env, actor.userId)
+      const repository = dependencies.inboxRepository(context.env, actor.userId, actor.mailboxIds)
       const metadata = await repository.getRawMessage(messageId)
       if (metadata === undefined) throw new ApiFault('message_not_found')
       const mailbox = await repository.getMailboxSettings(metadata.mailboxId)
@@ -126,7 +126,7 @@ export function registerMessageRoutes(
   app.openapi(downloadRawMessageRoute, async (context) => {
     const actor = await requireActor(context.req.raw, context.env, dependencies, 'read')
     const metadata = await dependencies
-      .inboxRepository(context.env, actor.userId)
+      .inboxRepository(context.env, actor.userId, actor.mailboxIds)
       .getRawMessage(context.req.valid('param').messageId)
     if (metadata === undefined) throw new ApiFault('message_not_found')
     return rawMessageResponse(context.env.STORAGE, metadata, context.req.raw)
@@ -135,6 +135,10 @@ export function registerMessageRoutes(
   app.openapi(downloadAttachmentRoute, async (context) => {
     const actor = await requireActor(context.req.raw, context.env, dependencies, 'read')
     const { attachmentId, messageId } = context.req.valid('param')
+    const authorized = await dependencies
+      .inboxRepository(context.env, actor.userId, actor.mailboxIds)
+      .getRawMessage(messageId)
+    if (!authorized) throw new ApiFault('attachment_not_found')
     const linkedFile = await new UploadedFileRepository(context.env.DB).forMessage(
       attachmentId,
       messageId,
@@ -143,7 +147,7 @@ export function registerMessageRoutes(
     if (linkedFile)
       return uploadedFileResponse(attachmentBucket(context.env), linkedFile, context.req.raw)
     const metadata = await dependencies
-      .inboxRepository(context.env, actor.userId)
+      .inboxRepository(context.env, actor.userId, actor.mailboxIds)
       .getAttachment(messageId, attachmentId)
     if (metadata === undefined) throw new ApiFault('attachment_not_found')
     return attachmentResponse(context.env.STORAGE, metadata, context.req.raw)
@@ -156,6 +160,13 @@ async function forwardSend(
   attachments: readonly File[],
   input: { command: SendCommand; idempotencyKey: IdempotencyKey; mailboxId: string },
 ): Promise<{ body: SendResponse; status: 201 | 202 }> {
+  if (actor.apiTokenId) {
+    const uploads = new UploadedFileRepository(context.env.DB)
+    for (const id of input.command.message.linkedAttachmentIds ?? []) {
+      if (!(await uploads.owned(id, actor.userId, actor.apiTokenId)))
+        throw new ApiFault('attachment_not_found')
+    }
+  }
   const requestId = context.get('requestId')
   const internalActor = InternalActorSchema.parse({
     authKind: actor.authKind,

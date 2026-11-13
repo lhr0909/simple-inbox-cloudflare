@@ -136,7 +136,7 @@ export function registerAuthRoutes(app: OpenAPIHono<ApiEnv>, dependencies: ApiDe
       tokenDigest: sessionTokenDigest,
       userId: principal.userId,
     }
-    const inbox = dependencies.inboxRepository(context.env, actor.userId)
+    const inbox = dependencies.inboxRepository(context.env, actor.userId, actor.mailboxIds)
     const body = AuthenticatedSessionResponseSchema.parse({
       authenticated: true,
       principal: await principalForActor(actor, inbox),
@@ -173,7 +173,7 @@ export function registerAuthRoutes(app: OpenAPIHono<ApiEnv>, dependencies: ApiDe
     ) {
       return context.json({ authenticated: false as const }, 200)
     }
-    const inbox = dependencies.inboxRepository(context.env, actor.userId)
+    const inbox = dependencies.inboxRepository(context.env, actor.userId, actor.mailboxIds)
     const body = AuthenticatedSessionResponseSchema.parse({
       authenticated: true,
       principal: await principalForActor(actor, inbox),

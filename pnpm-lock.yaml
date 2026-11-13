@@ -480,6 +480,9 @@ importers:
 
   apps/web/tests/integration:
     devDependencies:
+      '@cloudflare-inbox/contracts':
+        specifier: workspace:*
+        version: link:../../../../packages/contracts
       '@cloudflare-inbox/test-harness':
         specifier: workspace:*
         version: link:../../../../packages/test-harness

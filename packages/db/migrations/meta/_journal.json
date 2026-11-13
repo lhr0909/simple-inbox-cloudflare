@@ -64,6 +64,13 @@
       "when": 1790076466395,
       "tag": "0008_copy_sent_mail",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1790999342617,
+      "tag": "0009_scoped_api_tokens",
+      "breakpoints": true
     }
   ]
 }

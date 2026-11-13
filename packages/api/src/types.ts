@@ -49,6 +49,8 @@ export interface AuthenticatedActor {
   authKind: AuthKind
   email: string
   scopes: ApiTokenScope[]
+  apiTokenId?: string
+  mailboxIds?: readonly string[] | null
   sessionExpiresAt?: number
   sessionId?: string
   tokenDigest?: string
@@ -66,6 +68,7 @@ export interface ApiTokenPrincipalRecord {
   email: string
   scopes: number
   tokenId: string
+  mailboxIds: string[] | null
   userId: string
 }
 
@@ -125,7 +128,11 @@ export interface ApiDependencies {
   digestToken(token: string, pepper: string): Promise<string>
   generateId(now: number): string
   generateToken(): string
-  inboxRepository(env: ApiBindings, userId: string): InboxRepositoryPort
+  inboxRepository(
+    env: ApiBindings,
+    userId: string,
+    mailboxIds?: readonly string[] | null,
+  ): InboxRepositoryPort
   installationRepository(env: ApiBindings): InstallationRepositoryPort
   now(): number
 }
@@ -135,7 +142,8 @@ const defaultDependencies: ApiDependencies = {
   digestToken: digestOpaqueToken,
   generateId: createUuidV7,
   generateToken: () => generateOpaqueToken(32).plaintext,
-  inboxRepository: (env, userId) => new MailboxScopedRepository(env.DB, { userId }),
+  inboxRepository: (env, userId, mailboxIds) =>
+    new MailboxScopedRepository(env.DB, { userId, mailboxIds }),
   installationRepository: (env) => new InstallationRepository(env.DB),
   now: Date.now,
 }

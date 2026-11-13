@@ -44,6 +44,7 @@ export function registerUploadRoutes(
       multipartId: upload?.uploadId ?? '',
       downloadToken: token,
       ownerUserId: actor.userId,
+      apiTokenId: actor.apiTokenId ?? null,
       etag: null,
       outboundSendId: null,
       createdAt: dependencies.now(),
@@ -68,7 +69,11 @@ export function registerUploadRoutes(
     const actor = await requireActor(context.req.raw, context.env, dependencies, 'send')
     requireCookieMutationOrigin(context.req.raw, context.env, actor)
     const { uploadId, partNumber } = context.req.valid('param')
-    const file = await new UploadedFileRepository(context.env.DB).owned(uploadId, actor.userId)
+    const file = await new UploadedFileRepository(context.env.DB).owned(
+      uploadId,
+      actor.userId,
+      actor.apiTokenId,
+    )
     if (!file) throw new ApiFault('attachment_not_found')
     if (file.etag || partNumber > Math.ceil(file.size / uploadPartSize(file.size)))
       throw new ApiFault('validation_failed')
@@ -96,7 +101,11 @@ export function registerUploadRoutes(
     const actor = await requireActor(context.req.raw, context.env, dependencies, 'send')
     requireCookieMutationOrigin(context.req.raw, context.env, actor)
     const repository = new UploadedFileRepository(context.env.DB)
-    const file = await repository.owned(context.req.valid('param').uploadId, actor.userId)
+    const file = await repository.owned(
+      context.req.valid('param').uploadId,
+      actor.userId,
+      actor.apiTokenId,
+    )
     if (!file) throw new ApiFault('attachment_not_found')
     if (file.etag) return context.body(null, 204)
     const { parts } = context.req.valid('json')

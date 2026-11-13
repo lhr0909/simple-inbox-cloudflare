@@ -91,6 +91,8 @@ export async function authenticate(
     return {
       actor: {
         authKind: 'api_token',
+        apiTokenId: principal.tokenId,
+        mailboxIds: principal.mailboxIds,
         email: principal.email,
         scopes: decodeApiTokenScopes(principal.scopes),
         tokenDigest: digest,
@@ -214,4 +216,9 @@ function safeOrigin(value: string): string | undefined {
   } catch {
     return undefined
   }
+}
+
+/** Shared blacklist rules and mailbox creation cannot be limited to selected inboxes. */
+export function requireAllMailboxAccess(actor: AuthenticatedActor): void {
+  if (actor.mailboxIds != null) throw new ApiFault('forbidden')
 }

@@ -2,6 +2,9 @@ import { CreateUploadSchema, UploadSessionSchema, CompleteUploadSchema } from '.
 import { createRoute, z } from '@hono/zod-openapi'
 
 import {
+  ApiTokenCreateRequestSchema,
+  ApiTokenCreatedResponseSchema,
+  ApiTokenListResponseSchema,
   AuthenticatedSessionResponseSchema,
   MagicLinkAcceptedResponseSchema,
   MagicLinkRequestSchema,
@@ -11,6 +14,7 @@ import {
 import { CapabilitiesResponseSchema } from './capabilities'
 import { ErrorEnvelopeSchema } from './errors'
 import {
+  ApiTokenIdSchema,
   AttachmentIdSchema,
   IdempotencyKeySchema,
   MailboxIdSchema,
@@ -644,7 +648,39 @@ export const downloadSharedFileRoute = createRoute({
   },
 })
 
+export const listApiTokensRoute = createRoute({
+  method: 'get',
+  path: '/v1/auth/api-tokens',
+  operationId: 'listApiTokens',
+  tags: ['Authentication'],
+  responses: { 200: json(ApiTokenListResponseSchema), ...standardErrors },
+})
+export const createApiTokenRoute = createRoute({
+  method: 'post',
+  path: '/v1/auth/api-tokens',
+  operationId: 'createApiToken',
+  tags: ['Authentication'],
+  request: {
+    body: {
+      required: true,
+      content: { 'application/json': { schema: ApiTokenCreateRequestSchema } },
+    },
+  },
+  responses: { 201: json(ApiTokenCreatedResponseSchema), ...standardErrors },
+})
+export const revokeApiTokenRoute = createRoute({
+  method: 'delete',
+  path: '/v1/auth/api-tokens/{tokenId}',
+  operationId: 'revokeApiToken',
+  tags: ['Authentication'],
+  request: { params: z.object({ tokenId: ApiTokenIdSchema }) },
+  responses: { 204: { description: 'Token revoked' }, ...standardErrors },
+})
+
 export const PUBLIC_API_ROUTES = [
+  listApiTokensRoute,
+  createApiTokenRoute,
+  revokeApiTokenRoute,
   createUploadRoute,
   uploadPartRoute,
   completeUploadRoute,
