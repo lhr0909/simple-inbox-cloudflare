@@ -955,6 +955,7 @@ const tagsJsonProjection = sql<string>`coalesce((
     WHERE summary_thread_tag.thread_id = ${threads.id}
       AND summary_thread_tag.mailbox_id = ${threads.mailboxId}
     ORDER BY summary_tag.normalized_name, summary_tag.id
+    LIMIT 100
   ) AS tag_summary
 ), '[]')`
 

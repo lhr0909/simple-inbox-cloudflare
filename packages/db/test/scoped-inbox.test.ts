@@ -387,6 +387,56 @@ describe('MailboxScopedRepository', () => {
       displayName: null,
     })
   })
+
+  it('bounds thread summary tags to 100 in normalized name order while keeping ordinary threads unchanged', async () => {
+    const testDb = setupTwoUsers()
+    const insertTag = testDb.sqlite.prepare(`
+      INSERT INTO tags (id, mailbox_id, name, normalized_name, created_at)
+      VALUES (?, 'mailbox_owner', ?, ?, ?)
+    `)
+    const insertThreadTag = testDb.sqlite.prepare(`
+      INSERT INTO thread_tags (thread_id, tag_id, mailbox_id, created_at)
+      VALUES (?, ?, 'mailbox_owner', ?)
+    `)
+
+    insertThread(testDb.sqlite, 'thread_few_tags', 'mailbox_owner', NOW + 100)
+    insertInboundMessage(
+      testDb.sqlite,
+      'message_few_tags',
+      'mailbox_owner',
+      'thread_few_tags',
+      NOW + 100,
+    )
+    insertTag.run('tag_b', 'Beta', 'beta', NOW)
+    insertTag.run('tag_a', 'Alpha', 'alpha', NOW)
+    insertThreadTag.run('thread_few_tags', 'tag_b', NOW)
+    insertThreadTag.run('thread_few_tags', 'tag_a', NOW)
+
+    insertThread(testDb.sqlite, 'thread_many_tags', 'mailbox_owner', NOW + 200)
+    insertInboundMessage(
+      testDb.sqlite,
+      'message_many_tags',
+      'mailbox_owner',
+      'thread_many_tags',
+      NOW + 200,
+    )
+    for (let index = 1; index <= 101; index += 1) {
+      const label = `tag-${String(index).padStart(3, '0')}`
+      insertTag.run(`tag_many_${index}`, label, label, NOW)
+      insertThreadTag.run('thread_many_tags', `tag_many_${index}`, NOW)
+    }
+
+    const repository = new MailboxScopedRepository(testDb.asD1(), { userId: 'user_owner' })
+    expect((await repository.getThread('thread_few_tags'))?.tags).toEqual([
+      { name: 'Alpha' },
+      { name: 'Beta' },
+    ])
+
+    const manyTags = await repository.getThread('thread_many_tags')
+    expect(manyTags?.tags).toHaveLength(100)
+    expect(manyTags?.tags[0]).toEqual({ name: 'tag-001' })
+    expect(manyTags?.tags.at(-1)).toEqual({ name: 'tag-100' })
+  })
 })
 
 describe('normalizeFtsQuery', () => {
