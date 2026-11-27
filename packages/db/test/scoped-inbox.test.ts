@@ -290,6 +290,153 @@ describe('MailboxScopedRepository', () => {
     expect(page.items.map(({ id }) => id)).toEqual(['thread_latest_inbound'])
     expect(mailbox?.sentCount).toBe(1)
   })
+
+  it('bounds thread summary participants to 100 in address order while keeping ordinary threads unchanged', async () => {
+    const testDb = setupTwoUsers()
+    const insertRecipient = testDb.sqlite.prepare(`
+      INSERT INTO message_recipients (message_id, kind, position, address, display_name)
+      VALUES (?, ?, ?, ?, ?)
+    `)
+
+    insertThread(testDb.sqlite, 'thread_ordinary', 'mailbox_owner', NOW + 100)
+    insertInboundMessage(
+      testDb.sqlite,
+      'message_ordinary',
+      'mailbox_owner',
+      'thread_ordinary',
+      NOW + 100,
+    )
+    insertRecipient.run('message_ordinary', 'to', 0, 'gamma@example.test', 'Gamma')
+    insertRecipient.run('message_ordinary', 'to', 1, 'alpha@example.test', 'Alpha')
+
+    insertThread(testDb.sqlite, 'thread_many_single', 'mailbox_owner', NOW + 200)
+    insertInboundMessage(
+      testDb.sqlite,
+      'message_many_single',
+      'mailbox_owner',
+      'thread_many_single',
+      NOW + 200,
+    )
+    insertRecipient.run('message_many_single', 'to', 0, 'group@example.test', null)
+    for (let index = 1; index <= 99; index += 1) {
+      insertRecipient.run(
+        'message_many_single',
+        'to',
+        index,
+        `recipient-${String(index).padStart(2, '0')}@example.test`,
+        null,
+      )
+    }
+    insertRecipient.run('message_many_single', 'reply_to', 0, 'sender@example.test', null)
+
+    insertThread(testDb.sqlite, 'thread_many_multi', 'mailbox_owner', NOW + 300)
+    insertInboundMessage(
+      testDb.sqlite,
+      'message_many_multi_1',
+      'mailbox_owner',
+      'thread_many_multi',
+      NOW + 250,
+    )
+    insertInboundMessage(
+      testDb.sqlite,
+      'message_many_multi_2',
+      'mailbox_owner',
+      'thread_many_multi',
+      NOW + 300,
+    )
+    for (let index = 1; index <= 55; index += 1) {
+      insertRecipient.run(
+        'message_many_multi_1',
+        'to',
+        index - 1,
+        `m1-${String(index).padStart(2, '0')}@example.test`,
+        null,
+      )
+      insertRecipient.run(
+        'message_many_multi_2',
+        'to',
+        index - 1,
+        `m2-${String(index).padStart(2, '0')}@example.test`,
+        null,
+      )
+    }
+
+    const repository = new MailboxScopedRepository(testDb.asD1(), { userId: 'user_owner' })
+    const ordinary = await repository.getThread('thread_ordinary')
+    expect(ordinary?.participants).toEqual([
+      { address: 'alpha@example.test', displayName: 'Alpha' },
+      { address: 'gamma@example.test', displayName: 'Gamma' },
+      { address: 'sender@example.test', displayName: 'Synthetic Sender' },
+    ])
+
+    const singleMessageMany = await repository.getThread('thread_many_single')
+    expect(singleMessageMany?.participants).toHaveLength(100)
+    expect(singleMessageMany?.participants[0]).toEqual({
+      address: 'group@example.test',
+      displayName: null,
+    })
+    expect(singleMessageMany?.participants.at(-1)).toEqual({
+      address: 'recipient-99@example.test',
+      displayName: null,
+    })
+
+    const multiMessageMany = await repository.getThread('thread_many_multi')
+    expect(multiMessageMany?.participants).toHaveLength(100)
+    expect(multiMessageMany?.participants[0]).toEqual({
+      address: 'm1-01@example.test',
+      displayName: null,
+    })
+  })
+
+  it('bounds thread summary tags to 100 in normalized name order while keeping ordinary threads unchanged', async () => {
+    const testDb = setupTwoUsers()
+    const insertTag = testDb.sqlite.prepare(`
+      INSERT INTO tags (id, mailbox_id, name, normalized_name, created_at)
+      VALUES (?, 'mailbox_owner', ?, ?, ?)
+    `)
+    const insertThreadTag = testDb.sqlite.prepare(`
+      INSERT INTO thread_tags (thread_id, tag_id, mailbox_id, created_at)
+      VALUES (?, ?, 'mailbox_owner', ?)
+    `)
+
+    insertThread(testDb.sqlite, 'thread_few_tags', 'mailbox_owner', NOW + 100)
+    insertInboundMessage(
+      testDb.sqlite,
+      'message_few_tags',
+      'mailbox_owner',
+      'thread_few_tags',
+      NOW + 100,
+    )
+    insertTag.run('tag_b', 'Beta', 'beta', NOW)
+    insertTag.run('tag_a', 'Alpha', 'alpha', NOW)
+    insertThreadTag.run('thread_few_tags', 'tag_b', NOW)
+    insertThreadTag.run('thread_few_tags', 'tag_a', NOW)
+
+    insertThread(testDb.sqlite, 'thread_many_tags', 'mailbox_owner', NOW + 200)
+    insertInboundMessage(
+      testDb.sqlite,
+      'message_many_tags',
+      'mailbox_owner',
+      'thread_many_tags',
+      NOW + 200,
+    )
+    for (let index = 1; index <= 101; index += 1) {
+      const label = `tag-${String(index).padStart(3, '0')}`
+      insertTag.run(`tag_many_${index}`, label, label, NOW)
+      insertThreadTag.run('thread_many_tags', `tag_many_${index}`, NOW)
+    }
+
+    const repository = new MailboxScopedRepository(testDb.asD1(), { userId: 'user_owner' })
+    expect((await repository.getThread('thread_few_tags'))?.tags).toEqual([
+      { name: 'Alpha' },
+      { name: 'Beta' },
+    ])
+
+    const manyTags = await repository.getThread('thread_many_tags')
+    expect(manyTags?.tags).toHaveLength(100)
+    expect(manyTags?.tags[0]).toEqual({ name: 'tag-001' })
+    expect(manyTags?.tags.at(-1)).toEqual({ name: 'tag-100' })
+  })
 })
 
 describe('normalizeFtsQuery', () => {
