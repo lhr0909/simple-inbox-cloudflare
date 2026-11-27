@@ -940,6 +940,7 @@ const participantsJsonProjection = sql<string>`coalesce((
     )
     GROUP BY address
     ORDER BY address
+    LIMIT 100
   ) AS participant
 ), '[]')`
 
